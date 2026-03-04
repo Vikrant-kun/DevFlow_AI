@@ -1,189 +1,358 @@
-import { useState, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
-import { Button } from '../components/ui/Button';
-import { Play, Save, Settings2, Github, Terminal, Zap, Bell, CheckCircle2 } from 'lucide-react';
+import { useState, useCallback, useEffect } from 'react';
 import {
     ReactFlow,
-    MiniMap,
-    Controls,
     Background,
+    Controls,
+    MiniMap,
     useNodesState,
     useEdgesState,
     addEdge,
-    Handle,
-    Position
+    Panel
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
-// Custom Node Components
-const TriggerNode = ({ data, selected }) => (
-    <div className={`px-4 py-3 shadow-glow-primary rounded-xl bg-surface-2 border-2 ${selected ? 'border-primary' : 'border-primary/50'} text-text-primary min-w-[150px]`}>
-        <div className="flex items-center gap-2 mb-2">
-            <div className="p-1.5 bg-primary/20 rounded-md text-primary"><Github className="w-4 h-4" /></div>
-            <div className="font-semibold text-sm">{data.label}</div>
-        </div>
-        <div className="text-xs text-text-secondary">When PR is merged</div>
-        <Handle type="source" position={Position.Right} className="w-3 h-3 bg-primary border-2 border-surface-2" />
-    </div>
-);
+import { motion, AnimatePresence } from 'framer-motion';
+import { Play, Sparkles, X, Plus, Terminal } from 'lucide-react';
+import { Button } from '../components/ui/Button';
+import CustomNode from '../components/CustomNode';
+import TopBar from '../components/TopBar';
 
-const ActionNode = ({ data, selected }) => (
-    <div className={`px-4 py-3 rounded-xl bg-surface-2 border-2 ${selected ? 'border-text-primary' : 'border-border'} text-text-primary min-w-[150px]`}>
-        <Handle type="target" position={Position.Left} className="w-3 h-3 bg-text-secondary border-2 border-surface-2" />
-        <div className="flex items-center gap-2 mb-2">
-            <div className="p-1.5 bg-surface-1 rounded-md text-text-primary"><Terminal className="w-4 h-4" /></div>
-            <div className="font-semibold text-sm">{data.label}</div>
-        </div>
-        <div className="text-xs text-text-secondary">npm run test</div>
-        <Handle type="source" position={Position.Right} className="w-3 h-3 bg-text-secondary border-2 border-surface-2" />
-    </div>
-);
+import Anthropic from '@anthropic-ai/sdk';
+import { useLocation } from 'react-router-dom';
+import { useToast } from '../contexts/ToastContext';
+import { templateNodesData } from '../lib/templateNodes';
 
-const AINode = ({ data, selected }) => (
-    <div className={`px-4 py-3 shadow-[0_0_15px_rgba(167,139,250,0.3)] rounded-xl bg-surface-2 border-2 ${selected ? 'border-ai' : 'border-ai/50'} text-text-primary min-w-[150px]`}>
-        <Handle type="target" position={Position.Left} className="w-3 h-3 bg-ai border-2 border-surface-2" />
-        <div className="flex items-center gap-2 mb-2">
-            <div className="p-1.5 bg-ai/20 rounded-md text-ai animate-pulse"><Zap className="w-4 h-4" /></div>
-            <div className="font-semibold text-sm">{data.label}</div>
-        </div>
-        <div className="text-xs text-text-secondary">Claude 3.5 Sonnet</div>
-        <Handle type="source" position={Position.Right} className="w-3 h-3 bg-ai border-2 border-surface-2" />
-    </div>
-);
+const nodeTypes = { custom: CustomNode };
 
-const NotifyNode = ({ data, selected }) => (
-    <div className={`px-4 py-3 shadow-[0_0_15px_rgba(245,158,11,0.3)] rounded-xl bg-surface-2 border-2 ${selected ? 'border-amber-500' : 'border-amber-500/50'} text-text-primary min-w-[150px]`}>
-        <Handle type="target" position={Position.Left} className="w-3 h-3 bg-amber-500 border-2 border-surface-2" />
-        <div className="flex items-center gap-2 mb-2">
-            <div className="p-1.5 bg-amber-500/20 rounded-md text-amber-500"><Bell className="w-4 h-4" /></div>
-            <div className="font-semibold text-sm">{data.label}</div>
-        </div>
-        <div className="text-xs text-text-secondary">#engineering channel</div>
-    </div>
-);
-
-const nodeTypes = {
-    trigger: TriggerNode,
-    action: ActionNode,
-    ai: AINode,
-    notify: NotifyNode,
-};
-
-const initialNodes = [
-    { id: '1', type: 'trigger', position: { x: 50, y: 150 }, data: { label: 'PR Merged' } },
-    { id: '2', type: 'action', position: { x: 300, y: 150 }, data: { label: 'Run Tests' } },
-    { id: '3', type: 'ai', position: { x: 550, y: 150 }, data: { label: 'Generate Release Notes' } },
-    { id: '4', type: 'notify', position: { x: 800, y: 150 }, data: { label: 'Notify Slack' } },
-];
-const initialEdges = [
-    { id: 'e1-2', source: '1', target: '2', animated: true, style: { stroke: '#6EE7B7', strokeWidth: 2 } },
-    { id: 'e2-3', source: '2', target: '3', animated: true, style: { stroke: '#444444', strokeWidth: 2 } },
-    { id: 'e3-4', source: '3', target: '4', animated: true, style: { stroke: '#A78BFA', strokeWidth: 2 } },
-];
+const initialNodes = [];
+const initialEdges = [];
 
 const WorkflowBuilder = () => {
-    const { id } = useParams();
+    const [title, setTitle] = useState('Untitled Workflow');
+    const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
     const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-    const [title, setTitle] = useState('Production Deploy & Release');
     const [selectedNode, setSelectedNode] = useState(null);
+    const [prompt, setPrompt] = useState('');
+    const [model, setModel] = useState('claude');
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [placeholderIndex, setPlaceholderIndex] = useState(0);
+    const { toast } = useToast();
+    const location = useLocation();
 
-    const onConnect = useCallback((params) => setEdges((eds) => addEdge({ ...params, animated: true, style: { stroke: '#444444', strokeWidth: 2 } }, eds)), [setEdges]);
+    const placeholders = [
+        ">_ When a PR is merged to main, run tests and notify Slack...",
+        ">_ Every night at 2am, sync staging with production...",
+        ">_ When a Jira bug is filed, assign it and alert the team...",
+        ">_ When a deploy fails, rollback and page on-call engineer..."
+    ];
+
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const templateSlug = params.get('template');
+
+        if (templateSlug && templateNodesData[templateSlug]) {
+            const tpl = templateNodesData[templateSlug];
+
+            // Format title text from slug
+            const titleText = templateSlug.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+            setTitle(titleText);
+
+            // Stagger entrance animation
+            setNodes([]);
+            setEdges([]);
+
+            tpl.nodes.forEach((node, idx) => {
+                setTimeout(() => {
+                    setNodes((nds) => [...nds, node]);
+                    if (idx > 0 && tpl.edges[idx - 1]) {
+                        setEdges((eds) => [...eds, { ...tpl.edges[idx - 1], animated: true, style: { stroke: '#444', strokeWidth: 2, strokeDasharray: '5,5' } }]);
+                    }
+                }, idx * 150);
+            });
+        }
+    }, [location, setNodes, setEdges]);
+
+    useEffect(() => {
+        const intervalId = setInterval(() => {
+            setPlaceholderIndex((current) => (current + 1) % placeholders.length);
+        }, 3000);
+        return () => clearInterval(intervalId);
+    }, []);
+
+    const onConnect = useCallback((params) => setEdges((eds) => addEdge({ ...params, animated: true, style: { stroke: '#444', strokeWidth: 2, strokeDasharray: '5,5' } }, eds)), [setEdges]);
+
+    const handleNodeClick = (_, node) => {
+        setSelectedNode(node);
+    };
+
+    const handlePaneClick = () => {
+        setSelectedNode(null);
+    };
+
+    const handleGenerate = async () => {
+        if (!prompt.trim()) return;
+
+        if (model !== 'claude') {
+            toast('Coming soon — only Claude available in beta', 'error');
+            return;
+        }
+
+        const apiKey = localStorage.getItem('devflow_anthropic_key');
+        if (!apiKey) {
+            toast('Add your Anthropic API key in Settings first →', 'error');
+            return;
+        }
+
+        setIsGenerating(true);
+        setSelectedNode(null);
+
+        try {
+            const anthropic = new Anthropic({
+                apiKey: apiKey,
+                dangerouslyAllowBrowser: true
+            });
+
+            const msg = await anthropic.messages.create({
+                model: "claude-3-5-sonnet-20241022",
+                max_tokens: 1024,
+                system: `You are a workflow automation expert for developer teams.
+Convert the user's description into a structured pipeline.
+Return ONLY valid JSON, no explanation, no markdown, no backticks:
+{
+  "nodes": [
+    {
+      "id": "1",
+      "type": "trigger|action|ai|notification",
+      "label": "Short Name",
+      "description": "What this step does",
+      "icon": "git-branch|zap|sparkles|bell|code|database|mail"
+    }
+  ],
+  "edges": [{ "source": "1", "target": "2" }]
+}
+Rules: first node always trigger, max 8 nodes, labels 2-4 words, descriptions one sentence.`,
+                messages: [{ role: "user", content: prompt }]
+            });
+
+            const responseText = msg.content[0].text;
+            const parsedData = JSON.parse(responseText);
+
+            const newNodesData = parsedData.nodes;
+            const newEdgesData = parsedData.edges;
+
+            if (!newNodesData) throw new Error("Invalid format received");
+
+            // Clear existing
+            setNodes([]);
+            setEdges([]);
+
+            // Layout nodes horizontally
+            const spacedNodes = newNodesData.map((node, i) => ({
+                id: node.id,
+                type: 'custom',
+                position: { x: 100 + (i * 350), y: 250 }, // 350px gap
+                data: node,
+            }));
+
+            // Format edges
+            const formattedEdges = (newEdgesData || []).map((edge, i) => ({
+                id: `e${edge.source}-${edge.target}`,
+                source: edge.source,
+                target: edge.target,
+                animated: true,
+                style: { stroke: '#444', strokeWidth: 2, strokeDasharray: '5,5' }
+            }));
+
+            // Stagger entrance animation by pushing to state sequentially
+            spacedNodes.forEach((node, idx) => {
+                setTimeout(() => {
+                    setNodes((nds) => [...nds, node]);
+                    // Add connecting edge when the node appears (if it's not the first node)
+                    if (idx > 0 && formattedEdges[idx - 1]) {
+                        setEdges((eds) => [...eds, formattedEdges[idx - 1]]);
+                    }
+                }, idx * 150); // 150ms delay per node requested
+            });
+
+            setTimeout(() => {
+                toast(`Pipeline generated — ${spacedNodes.length} steps`, 'success');
+                setIsGenerating(false);
+                setPrompt('');
+            }, spacedNodes.length * 150 + 100);
+
+        } catch (error) {
+            console.error(error);
+            toast("Generation failed — check your API key in Settings", 'error');
+            setIsGenerating(false);
+        }
+    };
 
     return (
-        <div className="h-full flex flex-col -m-6">
-            {/* Builder Top Bar */}
-            <div className="h-14 border-b border-border bg-surface-1 flex items-center justify-between px-4 shrink-0">
-                <div className="flex items-center gap-4">
-                    <input
-                        type="text"
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                        className="bg-transparent text-lg font-semibold text-text-primary outline-none focus:border-b border-primary max-w-[300px]"
-                    />
-                    <span className="flex items-center gap-1 text-xs text-primary bg-primary/10 px-2 py-1 rounded-full border border-primary/20"><CheckCircle2 className="w-3 h-3" /> Saved</span>
+        <div className="h-screen flex flex-col w-full">
+            <TopBar title={
+                <div
+                    className="flex items-center cursor-pointer group"
+                    onClick={() => setIsEditingTitle(true)}
+                >
+                    {isEditingTitle ? (
+                        <input
+                            autoFocus
+                            type="text"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            onBlur={() => setIsEditingTitle(false)}
+                            onKeyDown={(e) => e.key === 'Enter' && setIsEditingTitle(false)}
+                            className="bg-transparent font-mono text-lg font-bold text-text-primary outline-none border-b border-primary"
+                        />
+                    ) : (
+                        <h1 className="font-mono text-lg font-bold text-text-primary group-hover:text-primary transition-colors">{title}</h1>
+                    )}
                 </div>
-                <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="sm" className="gap-2"><Save className="w-4 h-4" /> Save</Button>
-                    <Button size="sm" className="gap-2 text-sm h-9"><Play className="w-4 h-4" /> Run Workflow</Button>
-                </div>
-            </div>
+            }>
+                <Button variant="ghost" className="gap-2 mr-2">
+                    Save Draft
+                </Button>
+                <Button variant="primary" className="gap-2 shadow-glow-primary">
+                    <Play className="w-4 h-4 fill-primary" /> Run Pipeline
+                </Button>
+            </TopBar>
 
-            <div className="flex-1 flex overflow-hidden">
+            <div className="flex-1 relative flex overflow-hidden">
                 {/* Canvas Area */}
-                <div className="flex-1 relative bg-[#080808]">
+                <div className="flex-1 h-full relative" style={{ width: selectedNode ? '80%' : '100%', transition: 'width 0.3s ease' }}>
                     <ReactFlow
                         nodes={nodes}
                         edges={edges}
                         onNodesChange={onNodesChange}
                         onEdgesChange={onEdgesChange}
                         onConnect={onConnect}
+                        onNodeClick={handleNodeClick}
+                        onPaneClick={handlePaneClick}
                         nodeTypes={nodeTypes}
-                        onNodeClick={(e, node) => setSelectedNode(node)}
-                        onPaneClick={() => setSelectedNode(null)}
+                        proOptions={{ hideAttribution: true }}
                         fitView
-                        className="react-flow-dark"
+                        className="bg-[#080808]"
+                        minZoom={0.2}
                     >
-                        <Background color="#222222" gap={20} size={2} />
-                        <Controls className="bg-surface-2 border border-border fill-text-primary" />
+                        <Background color="#222" gap={20} size={2} />
+                        <Controls className="fill-white text-black" />
+
+                        {nodes.length === 0 && (
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0">
+                                <div className="font-mono text-xl text-[#1A1A1A] max-w-lg text-center leading-relaxed font-bold tracking-tight">
+                                    {`>_`} describe your workflow below to get started
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="absolute top-4 right-4 z-10 flex gap-4 font-mono text-[10px] uppercase tracking-widest bg-[#111] border border-[#1A1A1A] p-2 opacity-50 hover:opacity-100 transition-opacity">
+                            <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-[#6EE7B7]"></span><span className="text-[#6EE7B7]">trigger</span></div>
+                            <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-[#64748B]"></span><span className="text-[#64748B]">action</span></div>
+                            <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-[#A78BFA]"></span><span className="text-[#A78BFA]">ai</span></div>
+                            <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]"></span><span className="text-[#F59E0B]">notification</span></div>
+                        </div>
                     </ReactFlow>
+
+                    {/* AI Input Bar */}
+                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-full max-w-3xl px-6 z-10">
+                        <motion.div
+                            initial={{ y: 20, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            className={`bg-[#111111] border border-[#222] shadow-2xl p-1.5 flex items-center gap-2 backdrop-blur-md rounded-none ${isGenerating ? 'animate-pulse' : ''}`}
+                        >
+                            <input
+                                type="text"
+                                placeholder={placeholders[placeholderIndex]}
+                                className="flex-1 bg-transparent border-none outline-none font-mono text-sm text-text-primary placeholder:text-text-secondary py-3 px-4 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
+                                value={prompt}
+                                onChange={(e) => setPrompt(e.target.value)}
+                                disabled={isGenerating}
+                            />
+                            <div className="h-6 w-px bg-[#222]"></div>
+                            <select
+                                className="bg-transparent border-none outline-none font-mono text-xs text-[#64748B] py-3 px-2 appearance-none cursor-pointer hover:text-text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                value={model}
+                                onChange={(e) => setModel(e.target.value)}
+                                disabled={isGenerating}
+                            >
+                                <option value="claude">Claude 3.5</option>
+                                <option value="gpt4">GPT-4o</option>
+                                <option value="gemini">Gemini 1.5</option>
+                                <option value="grok">Grok 2</option>
+                            </select>
+                            <Button
+                                className="gap-2 h-10 px-5 bg-[#6EE7B7] hover:bg-[#34D399] text-[#080808] border-none rounded-none font-mono text-xs shadow-none disabled:opacity-80 disabled:cursor-wait"
+                                disabled={!prompt.trim() || isGenerating}
+                                onClick={handleGenerate}
+                            >
+                                {isGenerating ? (
+                                    <>
+                                        <div className="w-3.5 h-3.5 border-2 border-[#080808] border-t-transparent rounded-full animate-spin"></div>
+                                        Building...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Sparkles className="w-3.5 h-3.5" />
+                                        Generate
+                                    </>
+                                )}
+                            </Button>
+                        </motion.div>
+                    </div>
                 </div>
 
-                {/* Right Panel - Node Details */}
-                {selectedNode && (
-                    <div className="w-80 border-l border-border bg-surface-1 border-t-0 p-4 shrink-0 overflow-y-auto hidden-scrollbar flex flex-col animate-in slide-in-from-right-8 duration-200">
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="font-semibold flex items-center gap-2"><Settings2 className="w-4 h-4 text-text-secondary" /> Node Settings</h3>
-                            <span className="text-xs uppercase tracking-wider text-text-secondary bg-surface-2 px-2 py-1 rounded">{selectedNode.type}</span>
-                        </div>
+                {/* Right Panel */}
+                <AnimatePresence>
+                    {selectedNode && (
+                        <motion.div
+                            initial={{ x: '100%', opacity: 0 }}
+                            animate={{ x: 0, opacity: 1 }}
+                            exit={{ x: '100%', opacity: 0 }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                            className="w-[280px] md:w-[320px] bg-[#111111] border-l border-[#222222] h-full shadow-[-10px_0_30px_rgba(0,0,0,0.5)] z-20 absolute right-0 flex flex-col"
+                        >
+                            <div className="h-16 border-b border-[#222222] flex items-center justify-between px-6 shrink-0">
+                                <h3 className="font-mono text-sm font-semibold text-[#6EE7B7] lowercase tracking-wider">node_config</h3>
+                                <button onClick={() => setSelectedNode(null)} className="text-[#64748B] hover:text-[#F1F5F9] transition-colors">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <div className="p-6 flex-1 overflow-y-auto space-y-6 hidden-scrollbar">
+                                <div>
+                                    <label className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-2 block">Node Name</label>
+                                    <input
+                                        type="text"
+                                        className="w-full bg-[#0D0D0D] border border-[#222222] rounded-lg px-4 py-2.5 text-sm text-text-primary outline-none focus:border-primary transition-colors"
+                                        defaultValue={selectedNode.data.label}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-2 block">Description</label>
+                                    <textarea
+                                        className="w-full bg-[#0D0D0D] border border-[#222222] rounded-lg px-4 py-2.5 text-sm text-text-primary outline-none focus:border-primary transition-colors min-h-[80px] resize-none"
+                                        defaultValue={selectedNode.data.description}
+                                    />
+                                </div>
 
-                        <div className="space-y-4 flex-1">
-                            <div>
-                                <label className="block text-xs text-text-secondary mb-1">Node Label</label>
-                                <input
-                                    type="text"
-                                    value={selectedNode.data.label}
-                                    readOnly
-                                    className="w-full bg-surface-2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none"
-                                />
+                                <div className="pt-4 border-t border-[#222222]">
+                                    <label className="text-xs font-mono text-text-secondary uppercase tracking-wider mb-3 block">Step Settings</label>
+                                    <div className="bg-[#0A0A0A] border border-[#1A1A1A] border-dashed rounded-none p-6 text-center text-xs font-mono text-[#64748B] flex flex-col items-center gap-3">
+                                        <Terminal className="w-5 h-5 text-[#333]" />
+                                        <span>&gt;_ click any node to configure</span>
+                                    </div>
+                                </div>
                             </div>
 
-                            {selectedNode.type === 'ai' && (
-                                <div>
-                                    <label className="block text-xs text-text-secondary mb-1">AI Model</label>
-                                    <select className="w-full bg-surface-2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none">
-                                        <option>Claude 3.5 Sonnet</option>
-                                        <option>GPT-4o</option>
-                                        <option>Gemini 1.5 Pro</option>
-                                    </select>
-                                </div>
-                            )}
-
-                            {selectedNode.type === 'ai' && (
-                                <div>
-                                    <label className="block text-xs text-text-secondary mb-1">System Prompt</label>
-                                    <textarea
-                                        className="w-full bg-surface-2 border border-border rounded-md px-3 py-2 text-sm focus:outline-none h-32 font-mono text-xs text-text-secondary leading-relaxed resize-none"
-                                        defaultValue="You are an expert technical writer. Review the diff from the previous node and generate a concise, human-readable release note summary. Focus on user-facing changes."
-                                    ></textarea>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="pt-4 mt-auto border-t border-border">
-                            <Button variant="ghost" className="w-full text-error hover:bg-error/10 hover:text-error hover:border-error border-border">Delete Node</Button>
-                        </div>
-                    </div>
-                )}
+                            <div className="p-4 border-t border-[#222222] shrink-0">
+                                <button className="w-full text-xs font-mono font-bold text-[#F87171] bg-[#111] hover:bg-[#F87171]/10 border border-[#F87171] px-6 py-2.5 transition-colors rounded-none whitespace-nowrap">
+                                    delete_step
+                                </button>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
-
-            <style dangerouslySetInnerHTML={{
-                __html: `
-        .react-flow__node { width: auto; }
-        .react-flow__controls button { background: #1A1A1A; border-bottom: 1px solid #222; }
-        .react-flow__controls button:hover { background: #222; }
-        .react-flow__controls button svg { fill: #F1F5F9; }
-      `}} />
         </div>
     );
 };

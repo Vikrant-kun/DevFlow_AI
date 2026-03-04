@@ -23,10 +23,10 @@ const Landing = () => {
                         <span className="text-primary text-glow-primary">AI</span>
                     </div>
                     <div className="hidden md:flex items-center gap-8 text-sm font-medium text-text-secondary">
-                        <a href="#features" className="hover:text-text-primary transition-colors">Features</a>
+                        <a href="/#features" className="hover:text-text-primary transition-colors">Features</a>
                         <Link to="/about" className="hover:text-text-primary transition-colors">About</Link>
-                        <a href="#pricing" className="hover:text-text-primary transition-colors">Pricing</a>
-                        <a href="#docs" className="hover:text-text-primary transition-colors">Docs</a>
+                        <Link to="/pricing" className="hover:text-text-primary transition-colors">Pricing</Link>
+                        <Link to="/docs" className="hover:text-text-primary transition-colors">Docs</Link>
                     </div>
                     <div className="flex items-center gap-4">
                         <Button variant="ghost" onClick={() => navigate('/auth')}>Log in</Button>
@@ -58,15 +58,16 @@ const Landing = () => {
 
                     <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                         <Button size="lg" className="w-full sm:w-auto" onClick={() => navigate('/auth')}>Start for free</Button>
-                        <Button size="lg" variant="ghost" className="w-full sm:w-auto">See how it works</Button>
+                        <Button size="lg" variant="ghost" className="w-full sm:w-auto" onClick={() => document.getElementById('demo-section').scrollIntoView({ behavior: 'smooth' })}>See how it works</Button>
                     </div>
 
 
                 </motion.div>
             </section>
 
-            {/* Product Demo Section */}
-            <ProductDemo />
+            <div id="demo-section">
+                <ProductDemo />
+            </div>
 
             {/* Social Proof Bar */}
             <motion.section
@@ -95,12 +96,27 @@ const Landing = () => {
                 >
                     <div className="order-2 md:order-1">
                         <h2 className="text-3xl md:text-5xl font-bold mb-6 tracking-tight">Describe it. <span className="text-primary block mt-2">We build it.</span></h2>
-                        <p className="text-lg text-text-secondary leading-relaxed mb-8">Type your workflow in plain English. DevFlow's AI understands your intent and generates a complete pipeline instantly.</p>
+                        <p className="text-lg text-text-secondary leading-relaxed mb-6">Type your workflow in plain English. DevFlow's AI understands your intent and generates a complete pipeline instantly.</p>
+
+                        <div className="space-y-3 mt-8">
+                            <div className="flex items-center gap-3">
+                                <span className="text-primary font-mono text-sm leading-none">→</span>
+                                <span className="font-mono text-xs text-[#64748B]">Works with any dev workflow</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <span className="text-primary font-mono text-sm leading-none">→</span>
+                                <span className="font-mono text-xs text-[#64748B]">Understands GitHub, Slack, Jira context</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <span className="text-primary font-mono text-sm leading-none">→</span>
+                                <span className="font-mono text-xs text-[#64748B]">Generates in under 5 seconds</span>
+                            </div>
+                        </div>
                     </div>
                     <div className="order-1 md:order-2 bg-[#0D0D0D] border border-border rounded-2xl p-8 relative overflow-hidden h-[340px] flex items-center shadow-2xl">
                         <div className="w-full">
                             <label className="block text-xs font-mono text-text-secondary mb-3">Workflow Prompt</label>
-                            <div className="bg-[#111] border border-border rounded-lg p-5 font-mono text-sm text-[#F1F5F9] leading-relaxed relative shadow-inner">
+                            <div className="bg-[#111] border border-border rounded-lg p-6 font-mono text-lg text-[#F1F5F9] leading-relaxed relative shadow-inner">
                                 <span className="text-text-primary">When a new PR is opened, </span>
                                 <motion.span
                                     initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5, duration: 1 }}
@@ -112,7 +128,7 @@ const Landing = () => {
                                 >and post a summary.</motion.span>
                                 <motion.span
                                     animate={{ opacity: [1, 0] }} transition={{ repeat: Infinity, duration: 0.8 }}
-                                    className="inline-block w-2.5 h-4 bg-primary align-middle ml-1 shadow-glow-primary"
+                                    className="inline-block w-3 h-5 bg-primary align-middle ml-1 shadow-glow-primary"
                                 />
                             </div>
                         </div>
@@ -126,31 +142,61 @@ const Landing = () => {
                 >
                     <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-12 items-center">
                         <div className="bg-background border border-border rounded-2xl p-12 relative overflow-hidden h-[340px] flex items-center justify-center shadow-2xl">
-                            <div className="flex items-center gap-8 relative z-10 w-full justify-center">
+                            <div className="relative w-[320px] flex items-center justify-between z-10">
                                 {/* Connecting Lines */}
-                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60%] h-0.5 bg-[#222] -z-10"></div>
+                                <div className="absolute top-1/2 -translate-y-1/2 h-0.5 bg-[#222] -z-10" style={{ left: '40px', right: '40px' }}></div>
                                 <motion.div
-                                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60%] h-0.5 bg-primary -z-10 shadow-glow-primary"
+                                    className="absolute top-1/2 -translate-y-1/2 h-0.5 bg-primary -z-10 shadow-glow-primary origin-left"
                                     initial={{ scaleX: 0, opacity: 0 }}
                                     animate={{ scaleX: 1, opacity: [0, 1, 0] }}
                                     transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
-                                    style={{ originX: 0 }}
+                                    style={{ left: '40px', right: '40px' }}
                                 ></motion.div>
 
-                                <div className="w-16 h-16 rounded-2xl bg-[#24292e] flex items-center justify-center shadow-xl border border-[#444] z-10">
-                                    <svg viewBox="0 0 24 24" className="w-8 h-8 fill-white"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" /></svg>
+                                <div className="w-20 h-20 rounded-2xl bg-[#24292e] flex items-center justify-center shadow-xl border border-[#444] z-10 shrink-0 relative">
+                                    <motion.div
+                                        className="absolute -inset-2 rounded-3xl border-2 border-[#6EE7B7] opacity-0"
+                                        animate={{ scale: [0.9, 1.1, 0.9], opacity: [0, 0.5, 0] }}
+                                        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                                    />
+                                    <svg viewBox="0 0 24 24" className="w-10 h-10 fill-white"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" /></svg>
                                 </div>
-                                <div className="w-16 h-16 rounded-2xl bg-[#E01E5A] flex items-center justify-center shadow-xl border border-[#FF3A79] z-10">
-                                    <svg viewBox="0 0 24 24" className="w-8 h-8 fill-white"><path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522v-2.521zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zM15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.687a2.527 2.527 0 0 1-2.523-2.52 2.528 2.528 0 0 1 2.523-2.522h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.522h-6.313z" /></svg>
+                                <div className="w-20 h-20 rounded-2xl bg-[#E01E5A] flex items-center justify-center shadow-xl border border-[#FF3A79] z-10 shrink-0 relative">
+                                    <motion.div
+                                        className="absolute -inset-2 rounded-3xl border-2 border-[#6EE7B7] opacity-0"
+                                        animate={{ scale: [0.9, 1.1, 0.9], opacity: [0, 0.5, 0] }}
+                                        transition={{ duration: 2, repeat: Infinity, delay: 0.6, ease: "easeInOut" }}
+                                    />
+                                    <svg viewBox="0 0 24 24" className="w-10 h-10 fill-white"><path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522v-2.521zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zM15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.687a2.527 2.527 0 0 1-2.523-2.52 2.528 2.528 0 0 1 2.523-2.522h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.522h-6.313z" /></svg>
                                 </div>
-                                <div className="w-16 h-16 rounded-2xl bg-[#0052CC] flex items-center justify-center shadow-xl border border-[#2684FF] z-10">
-                                    <svg viewBox="0 0 24 24" className="w-8 h-8 fill-white"><path d="M11.533 1.01L5.16 6.136c-.463.385-.463 1.012 0 1.4L11.533 12.66c.264.218.665.218.93 0l6.374-5.124a1 1 0 0 0 0-1.4l-6.374-5.126a.591.591 0 0 0-.93 0M2.93 11.23l-1.92 1.54a1.002 1.002 0 0 0 0 1.401l6.374 5.125a.591.591 0 0 0 .93 0l2.365-1.9-6.848-5.503c-.266-.217-.665-.217-.93 0L2.93 11.23M21.07 11.23l-.902-.663-6.819 5.485c-.264.218-.665.218-.93 0l-2.073-1.666 6.374 5.125a.592.592 0 0 0 .93 0l6.375-5.125a1 1 0 0 0 0-1.4l-2.954-2.378-.001.621z" /></svg>
+                                <div className="w-20 h-20 rounded-2xl bg-[#0052CC] flex items-center justify-center shadow-xl border border-[#2684FF] z-10 shrink-0 relative">
+                                    <motion.div
+                                        className="absolute -inset-2 rounded-3xl border-2 border-[#6EE7B7] opacity-0"
+                                        animate={{ scale: [0.9, 1.1, 0.9], opacity: [0, 0.5, 0] }}
+                                        transition={{ duration: 2, repeat: Infinity, delay: 1.2, ease: "easeInOut" }}
+                                    />
+                                    <svg viewBox="0 0 24 24" className="w-10 h-10 fill-white"><path d="M11.533 1.01L5.16 6.136c-.463.385-.463 1.012 0 1.4L11.533 12.66c.264.218.665.218.93 0l6.374-5.124a1 1 0 0 0 0-1.4l-6.374-5.126a.591.591 0 0 0-.93 0M2.93 11.23l-1.92 1.54a1.002 1.002 0 0 0 0 1.401l6.374 5.125a.591.591 0 0 0 .93 0l2.365-1.9-6.848-5.503c-.266-.217-.665-.217-.93 0L2.93 11.23M21.07 11.23l-.902-.663-6.819 5.485c-.264.218-.665.218-.93 0l-2.073-1.666 6.374 5.125a.592.592 0 0 0 .93 0l6.375-5.125a1 1 0 0 0 0-1.4l-2.954-2.378-.001.621z" /></svg>
                                 </div>
                             </div>
                         </div>
                         <div>
                             <h2 className="text-3xl md:text-5xl font-bold mb-6 tracking-tight">Your tools. <span className="text-text-secondary block mt-2">Connected.</span></h2>
-                            <p className="text-lg text-text-secondary leading-relaxed mb-8">GitHub, Slack, Jira — first class integrations. No Zapier. No glue code. Just works.</p>
+                            <p className="text-lg text-text-secondary leading-relaxed mb-6">GitHub, Slack, Jira — first class integrations. No Zapier. No glue code. Just works.</p>
+
+                            <div className="space-y-3 mt-8">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-primary font-mono text-sm leading-none">→</span>
+                                    <span className="font-mono text-xs text-[#64748B]">No API keys to manage</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <span className="text-primary font-mono text-sm leading-none">→</span>
+                                    <span className="font-mono text-xs text-[#64748B]">One-click OAuth connection</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <span className="text-primary font-mono text-sm leading-none">→</span>
+                                    <span className="font-mono text-xs text-[#64748B]">Real-time event triggers</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </motion.section>
@@ -163,6 +209,21 @@ const Landing = () => {
                     <div className="order-2 md:order-1">
                         <h2 className="text-3xl md:text-5xl font-bold mb-6 tracking-tight">Switch models <span className="text-ai block mt-2">instantly.</span></h2>
                         <p className="text-lg text-text-secondary leading-relaxed mb-8">Claude, GPT-4, Gemini. Pick the brain that fits the job. Switch mid-workflow anytime.</p>
+
+                        <div className="flex flex-wrap gap-3 mt-8">
+                            <span className="px-3 py-1.5 rounded-full border border-primary bg-primary/10 text-primary font-mono text-xs min-w-[120px] text-center cursor-default">
+                                → Claude 3.5 Sonnet
+                            </span>
+                            <span className="px-3 py-1.5 rounded-full border border-border bg-[#111] text-[#64748B] font-mono text-xs min-w-[120px] text-center hover:border-[#333] hover:text-text-primary transition-colors cursor-pointer">
+                                → GPT-4o
+                            </span>
+                            <span className="px-3 py-1.5 rounded-full border border-border bg-[#111] text-[#64748B] font-mono text-xs min-w-[120px] text-center hover:border-[#333] hover:text-text-primary transition-colors cursor-pointer">
+                                → Gemini 1.5 Pro
+                            </span>
+                            <span className="px-3 py-1.5 rounded-full border border-border bg-[#111] text-[#64748B] font-mono text-xs min-w-[120px] text-center hover:border-[#333] hover:text-text-primary transition-colors cursor-pointer">
+                                → Grok-2
+                            </span>
+                        </div>
                     </div>
                     <div className="order-1 md:order-2 bg-[#0D0D0D] border border-border rounded-2xl p-8 relative overflow-hidden h-[340px] flex items-center shadow-2xl">
                         <div className="w-full max-w-xs mx-auto bg-surface-1 border border-border rounded-xl shadow-lg p-5">
@@ -171,7 +232,7 @@ const Landing = () => {
                                     <Zap className="w-4 h-4 text-ai" /> Model Selector
                                 </span>
                             </div>
-                            <div className="space-y-3">
+                            <div className="space-y-3 relative overflow-hidden">
                                 <motion.div animate={{ backgroundColor: ['#1A1A1A', '#1A1A1A', '#111', '#111', '#1A1A1A'] }} transition={{ duration: 4, repeat: Infinity }} className="flex items-center justify-between p-3 rounded-lg border border-primary text-text-primary text-sm font-medium">
                                     <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-primary shadow-glow-primary"></div>Claude 3.5 Sonnet</span>
                                 </motion.div>
@@ -181,6 +242,51 @@ const Landing = () => {
                                 <div className="flex items-center justify-between p-3 rounded-lg border border-border text-text-secondary text-sm">
                                     <span>Gemini 1.5 Pro</span>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </motion.section>
+
+                {/* Block 4: How it works */}
+                <motion.section
+                    className="max-w-7xl mx-auto px-6"
+                    initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}
+                >
+                    <div className="text-center mb-16">
+                        <h2 className="text-3xl md:text-5xl font-bold tracking-tight">How it works</h2>
+                    </div>
+
+                    <div className="relative">
+                        {/* Connecting Line */}
+                        <div className="absolute top-8 left-[10%] right-[10%] h-px border-b-2 border-dashed border-[#222] -z-10 hidden md:block"></div>
+
+                        <div className="grid md:grid-cols-3 gap-12 relative z-10">
+                            {/* Step 1 */}
+                            <div className="flex flex-col items-center text-center">
+                                <div className="w-16 h-16 rounded-2xl bg-[#111] border border-[#222] flex items-center justify-center font-mono text-xl font-bold text-primary mb-6 shadow-xl">
+                                    01
+                                </div>
+                                <h3 className="text-xl font-bold text-white mb-2">Describe</h3>
+                                <p className="text-[#64748B] text-sm">Type your workflow in plain English</p>
+                            </div>
+
+                            {/* Step 2 */}
+                            <div className="flex flex-col items-center text-center">
+                                <div className="w-16 h-16 rounded-2xl bg-[#111] border border-[#222] flex items-center justify-center font-mono text-xl font-bold text-primary mb-6 shadow-xl relative">
+                                    02
+                                    <div className="absolute inset-0 rounded-2xl border border-primary/20 bg-primary/5 animate-pulse"></div>
+                                </div>
+                                <h3 className="text-xl font-bold text-white mb-2">Generate</h3>
+                                <p className="text-[#64748B] text-sm">AI builds your pipeline instantly</p>
+                            </div>
+
+                            {/* Step 3 */}
+                            <div className="flex flex-col items-center text-center">
+                                <div className="w-16 h-16 rounded-2xl bg-[#111] border border-[#222] flex items-center justify-center font-mono text-xl font-bold text-primary mb-6 shadow-xl">
+                                    03
+                                </div>
+                                <h3 className="text-xl font-bold text-white mb-2">Automate</h3>
+                                <p className="text-[#64748B] text-sm">It runs automatically, forever</p>
                             </div>
                         </div>
                     </div>
@@ -212,7 +318,6 @@ const Landing = () => {
                     <div className="flex gap-8">
                         <Link to="/about" className="hover:text-text-primary transition-colors text-text-secondary">About</Link>
                         <a href="https://github.com" target="_blank" rel="noreferrer" className="hover:text-text-primary transition-colors text-text-secondary">GitHub</a>
-                        <a href="https://twitter.com" target="_blank" rel="noreferrer" className="hover:text-text-primary transition-colors text-text-secondary">Twitter</a>
                     </div>
                     <p className="mt-4 text-xs opacity-50">&copy; {new Date().getFullYear()} DevFlow AI. All rights reserved.</p>
                 </div>

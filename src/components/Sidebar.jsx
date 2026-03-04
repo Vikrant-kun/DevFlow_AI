@@ -1,13 +1,32 @@
-import { useState, useCallback } from 'react';
-import { NavLink } from 'react-router-dom';
-import { LayoutGrid, GitBranch, Layers, Terminal, Plug, Settings, ChevronRight } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { LayoutGrid, GitBranch, Layers, Terminal, Plug, Settings, User as UserIcon, LogOut, Zap } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
 const Sidebar = () => {
     const [isExpanded, setIsExpanded] = useState(false);
+    const [dropdownOpen, setDropdownOpen] = useState(false);
     const { user } = useAuth();
+    const navigate = useNavigate();
+    const dropdownRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const handleLogout = async () => {
+        await supabase.auth.signOut();
+    };
+
     const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || '';
     const initial = userName.charAt(0).toUpperCase() || 'U';
 
@@ -30,13 +49,13 @@ const Sidebar = () => {
         >
             <div className="flex h-16 items-center px-4 shrink-0">
                 {isExpanded ? (
-                    <div className="flex items-center gap-2 font-bold text-xl overflow-hidden whitespace-nowrap">
-                        <span className="text-white">DevFlow</span>
-                        <span className="text-primary">AI</span>
+                    <div className="flex items-center gap-2 font-mono font-bold text-xl overflow-hidden whitespace-nowrap">
+                        <span className="text-white">devflow</span>
+                        <span className="text-primary animate-pulse">_</span>
                     </div>
                 ) : (
                     <div className="w-full flex justify-center">
-                        <span className="text-primary font-bold text-lg">{`>_`}</span>
+                        <span className="text-primary font-mono font-bold text-lg animate-pulse">{`>_`}</span>
                     </div>
                 )}
             </div>
@@ -48,7 +67,7 @@ const Sidebar = () => {
                         to={item.path}
                         className={({ isActive }) => cn(
                             "flex items-center h-10 px-3 relative transition-all duration-150 group overflow-hidden whitespace-nowrap",
-                            isActive ? "bg-[rgba(110,231,183,0.05)] text-text-primary" : "text-text-secondary hover:text-text-primary hover:bg-surface-2"
+                            isActive ? "text-text-primary" : "text-text-secondary hover:text-text-primary hover:bg-surface-2"
                         )}
                         title={!isExpanded ? item.label : undefined}
                     >
@@ -71,10 +90,31 @@ const Sidebar = () => {
 
             <div className="mt-auto flex flex-col px-2 pb-4 pt-2 border-t border-[#222]">
                 <NavLink
+                    to="/upgrade"
+                    className={({ isActive }) => cn(
+                        "flex items-center h-10 px-3 relative transition-all duration-150 group overflow-hidden whitespace-nowrap mb-1",
+                        isActive ? "text-text-primary" : "text-text-secondary hover:text-text-primary hover:bg-surface-2"
+                    )}
+                    title={!isExpanded ? "Upgrade" : undefined}
+                >
+                    {({ isActive }) => (
+                        <>
+                            {isActive && <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-primary" />}
+                            <Zap className={cn("h-5 w-5 shrink-0 transition-colors duration-150 text-[#F59E0B]", isActive ? "opacity-100" : "opacity-80 group-hover:opacity-100")} />
+                            {isExpanded && (
+                                <span className={cn("ml-3 font-medium text-[#F59E0B]", isActive ? "opacity-100" : "opacity-80 group-hover:opacity-100")}>
+                                    Upgrade
+                                </span>
+                            )}
+                        </>
+                    )}
+                </NavLink>
+
+                <NavLink
                     to="/settings"
                     className={({ isActive }) => cn(
                         "flex items-center h-10 px-3 mb-2 relative transition-all duration-150 group overflow-hidden whitespace-nowrap",
-                        isActive ? "bg-[rgba(110,231,183,0.05)] text-text-primary" : "text-text-secondary hover:text-text-primary hover:bg-surface-2"
+                        isActive ? "text-text-primary" : "text-text-secondary hover:text-text-primary hover:bg-surface-2"
                     )}
                     title={!isExpanded ? "Settings" : undefined}
                 >
@@ -91,17 +131,45 @@ const Sidebar = () => {
                     )}
                 </NavLink>
 
-                <div className="flex items-center px-3 h-10 mt-1 cursor-pointer group overflow-hidden whitespace-nowrap">
-                    <div className="h-8 w-8 rounded-full bg-surface-2 shrink-0 flex items-center justify-center border border-border overflow-hidden">
-                        {user?.user_metadata?.avatar_url ? (
-                            <img src={user.user_metadata.avatar_url} alt="Avatar" className="h-full w-full object-cover" />
-                        ) : (
-                            <span className="text-xs font-semibold text-text-primary">{initial}</span>
+                <div className="relative" ref={dropdownRef}>
+                    <div
+                        className="flex items-center px-3 h-10 mt-1 cursor-pointer group overflow-hidden whitespace-nowrap"
+                        onClick={() => setDropdownOpen(!dropdownOpen)}
+                    >
+                        <div className="h-8 w-8 rounded-full bg-surface-2 shrink-0 flex items-center justify-center border border-border overflow-hidden">
+                            {user?.user_metadata?.avatar_url ? (
+                                <img src={user.user_metadata.avatar_url} alt="Avatar" className="h-full w-full object-cover" />
+                            ) : (
+                                <span className="text-xs font-semibold text-text-primary">{initial}</span>
+                            )}
+                        </div>
+                        {isExpanded && (
+                            <span className="ml-3 font-mono text-text-primary text-sm truncate" style={{ maxWidth: "120px" }}>{userName}</span>
                         )}
                     </div>
-                    {isExpanded && (
-                        <span className="ml-3 font-medium text-text-primary text-sm truncate" style={{ maxWidth: "120px" }}>{userName}</span>
-                    )}
+
+                    <AnimatePresence>
+                        {dropdownOpen && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                transition={{ duration: 0.15, ease: "easeOut" }}
+                                className={cn(
+                                    "absolute bottom-full mb-2 bg-[#111] border border-[#222] shadow-xl overflow-hidden z-50 py-1 rounded-none",
+                                    isExpanded ? "left-0 w-[204px]" : "left-0 w-48"
+                                )}
+                            >
+                                <button onClick={() => { setDropdownOpen(false); navigate('/settings'); }} className="w-full text-left px-4 py-2 font-mono text-xs text-text-secondary hover:text-text-primary hover:bg-[#1A1A1A] flex items-center gap-2 transition-colors">
+                                    <UserIcon className="w-3.5 h-3.5" /> profile
+                                </button>
+                                <div className="h-px bg-[#1A1A1A] my-1"></div>
+                                <button onClick={handleLogout} className="w-full text-left px-4 py-2 font-mono text-xs text-[#F87171] hover:bg-[#F87171]/10 flex items-center gap-2 transition-colors">
+                                    <LogOut className="w-3.5 h-3.5" /> log_out
+                                </button>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
             </div>
         </div>

@@ -6,10 +6,8 @@ const Layout = () => {
     return (
         <div className="flex bg-background text-text-primary min-h-screen">
             <Sidebar />
-            <div className="flex-1 flex flex-col pl-[64px]">
-                {/* We moved TopBar's title logic into TopBar or handle it dynamically, 
-            but keeping the existing prop for now. We will use a generic TopBar or let pages define their title */}
-                <main className="flex-1 p-6 overflow-y-auto hidden-scrollbar relative z-10 w-full">
+            <div className="flex-1 flex flex-col pl-[64px] min-w-0">
+                <main className="flex-1 overflow-y-auto hidden-scrollbar relative z-10 w-full bg-background flex flex-col">
                     <Outlet />
                 </main>
             </div>

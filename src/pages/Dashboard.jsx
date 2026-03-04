@@ -1,8 +1,31 @@
-import { useAuth } from '../contexts/AuthContext';
-import { Card } from '../components/ui/Card';
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Play, FileEdit, Plus, Layers, CheckCircle2, PauseCircle, XCircle, X } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
-import { Bell, ChevronDown, Plus, LayoutGrid, CheckCircle2, Clock, Activity, Network, Play } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { useToast } from '../contexts/ToastContext';
+
+const stats = [
+    { label: 'Total Workflows', value: '0' },
+    { label: 'Runs Today', value: '0' },
+    { label: 'Success Rate', value: '—' },
+    { label: 'Time Saved', value: '0h' }
+];
+
+const recentWorkflows = [];
+
+const getStatusBadge = (status) => {
+    switch (status) {
+        case 'Active':
+            return <span className="flex items-center gap-2 text-sm font-mono text-text-secondary"><span className="w-2 h-2 rounded-full bg-[#6EE7B7]"></span> Active</span>;
+        case 'Paused':
+            return <span className="flex items-center gap-2 text-sm font-mono text-text-secondary"><span className="w-2 h-2 rounded-full bg-[#F59E0B]"></span> Paused</span>;
+        case 'Failed':
+            return <span className="flex items-center gap-2 text-sm font-mono text-text-secondary"><span className="w-2 h-2 rounded-full bg-[#F87171]"></span> Failed</span>;
+        default:
+            return null;
+    }
+};
 
 const containerVariants = {
     hidden: { opacity: 0 },
@@ -17,130 +40,173 @@ const itemVariants = {
     show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } }
 };
 
-const Dashboard = () => {
-    const { user } = useAuth();
+import TopBar from '../components/TopBar';
 
-    const getGreeting = () => {
-        const hour = new Date().getHours();
-        if (hour < 12) return 'Good morning';
-        if (hour < 18) return 'Good afternoon';
-        return 'Good evening';
+const Dashboard = () => {
+    const navigate = useNavigate();
+    const { toast } = useToast();
+    const [checklistDismissed, setChecklistDismissed] = useState(true); // Default true until checked
+    const [checklistItems, setChecklistItems] = useState([
+        { id: 'create_account', label: 'create_account', done: true, route: null },
+        { id: 'connect_github', label: 'connect_github', done: false, route: '/integrations' },
+        { id: 'create_workflow', label: 'create_first_workflow', done: false, route: '/workflows/new' },
+        { id: 'run_pipeline', label: 'run_first_pipeline', done: false, route: null, locked: true }
+    ]);
+
+    useEffect(() => {
+        const isDismissed = localStorage.getItem('devflow_checklist_dismissed') === 'true';
+        setChecklistDismissed(isDismissed);
+    }, []);
+
+    const handleDismissChecklist = () => {
+        localStorage.setItem('devflow_checklist_dismissed', 'true');
+        setChecklistDismissed(true);
     };
 
-    const name = user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || '';
-    const initial = name.charAt(0) || 'U';
+    const handleChecklistClick = (item) => {
+        if (item.locked) return;
+        if (item.route) {
+            navigate(item.route);
+        } else {
+            // Optimistic completion for demo purposes if clicked and no route
+            const updated = checklistItems.map(i => i.id === item.id ? { ...i, done: true } : i);
+            setChecklistItems(updated);
 
-    const stats = [
-        { label: 'Total Workflows', value: '12', icon: Network },
-        { label: 'Runs Today', value: '1,284', icon: Activity },
-        { label: 'Success Rate', value: '99.8%', icon: CheckCircle2 },
-        { label: 'Time Saved', value: '45h', icon: Clock },
-    ];
-
-    const recentWorkflows = [
-        { id: 1, name: 'Production Deploy', status: 'Success', lastRun: '2m ago' },
-        { id: 2, name: 'PR AI Reviewer', status: 'Running', lastRun: 'Just now' },
-        { id: 3, name: 'Nightly Database Backup', status: 'Success', lastRun: '5h ago' },
-        { id: 4, name: 'Lead Assignment Sync', status: 'Failed', lastRun: '1d ago' },
-    ];
-
+            if (updated.every(i => i.done || i.locked === false)) {
+                handleDismissChecklist();
+                toast("You're all set. Welcome to DevFlow. 🚀", "success");
+            }
+        }
+    };
     return (
-        <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="show"
-            className="space-y-8 max-w-6xl mx-auto pb-10"
-        >
+        <>
+            <TopBar title={<span className="font-mono text-sm text-[#6EE7B7]">~ / dashboard</span>} />
+            <div className="p-6">
+                <div className="w-full max-w-6xl mx-auto space-y-8 pb-12">
+                    <motion.div variants={containerVariants} initial="hidden" animate="show" className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <motion.div variants={itemVariants}>
+                            <h2 className="text-xl font-mono text-text-primary lowercase tracking-tight">dashboard</h2>
+                            <p className="text-text-secondary text-sm font-mono mt-1">overview_of_active_pipelines</p>
+                        </motion.div>
+                        <motion.div variants={itemVariants} className="flex gap-3">
+                            <Button variant="ghost" className="gap-2" onClick={() => navigate('/templates')}>
+                                <Layers className="w-4 h-4" /> Browse Templates
+                            </Button>
+                            <Button variant="primary" className="gap-2 shadow-glow-primary" onClick={() => navigate('/workflows/new')}>
+                                <Plus className="w-4 h-4" /> New Workflow
+                            </Button>
+                        </motion.div>
+                    </motion.div>
 
-            {/* Top Bar Area */}
-            <motion.div variants={itemVariants} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
-                <div>
-                    <h1 className="text-2xl font-bold">{getGreeting()}, {name}</h1>
-                    <p className="text-text-secondary mt-1 text-sm">Here&apos;s what&apos;s happening with your pipelines today.</p>
-                </div>
-                <div className="flex items-center gap-4">
-                    <button className="relative p-2 text-text-secondary hover:text-text-primary transition-colors">
-                        <Bell className="h-5 w-5" />
-                        <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-primary shadow-glow-primary"></span>
-                    </button>
-                    <div className="flex items-center gap-3 pl-4 border-l border-border group cursor-pointer">
-                        <div className="h-9 w-9 rounded-full bg-surface-2 overflow-hidden flex items-center justify-center border border-border">
-                            {user?.user_metadata?.avatar_url ? (
-                                <img src={user.user_metadata.avatar_url} alt="Avatar" className="h-full w-full object-cover" />
-                            ) : (
-                                <span className="text-sm font-semibold text-text-primary">{initial}</span>
-                            )}
-                        </div>
-                        <ChevronDown className="h-4 w-4 text-text-secondary group-hover:text-text-primary transition-colors" />
-                    </div>
-                </div>
-            </motion.div>
+                    <AnimatePresence>
+                        {!checklistDismissed && (
+                            <motion.div
+                                initial={{ opacity: 0, height: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, height: 'auto', scale: 1 }}
+                                exit={{ opacity: 0, height: 0, scale: 0.95 }}
+                                className="w-full"
+                            >
+                                <div className="bg-[#111] border border-[#222] p-6 relative">
+                                    <button
+                                        onClick={handleDismissChecklist}
+                                        className="absolute top-4 right-4 text-[#64748B] hover:text-[#F1F5F9] transition-colors"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
 
-            {/* Quick Actions */}
-            <motion.div variants={itemVariants} className="flex items-center gap-3">
-                <Button className="gap-2"><Plus className="h-4 w-4" /> New Workflow</Button>
-                <Button variant="ghost" className="gap-2"><LayoutGrid className="h-4 w-4" /> Browse Templates</Button>
-            </motion.div>
+                                    <h3 className="font-mono text-sm text-[#6EE7B7] mb-6">getting_started</h3>
 
-            {/* Stats Row */}
-            <motion.div variants={itemVariants} className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {stats.map((stat, i) => (
-                    <Card key={i} className="p-6 bg-[#111111]" hoverEffect>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                                        {checklistItems.map((item) => (
+                                            <div
+                                                key={item.id}
+                                                onClick={() => handleChecklistClick(item)}
+                                                className={`flex items-center gap-3 font-mono text-sm transition-colors ${item.locked ? 'opacity-50 cursor-not-allowed text-[#64748B]' : item.done ? 'text-[#6EE7B7] cursor-default' : 'text-[#64748B] hover:text-[#F1F5F9] cursor-pointer'}`}
+                                            >
+                                                {item.done ? (
+                                                    <span className="text-[#6EE7B7]">✓</span>
+                                                ) : (
+                                                    <span className="text-[#64748B]">○</span>
+                                                )}
+                                                <span>{item.label}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                    <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {stats.map((stat, i) => (
+                            <motion.div key={i} variants={itemVariants} className="bg-[#111111] rounded-md p-5 border-l-2 border-[#6EE7B7] hover:bg-[#151515] transition-colors">
+                                <p className="text-[#64748B] text-xs font-mono lowercase tracking-wider mb-2">{stat.label}</p>
+                                <h3 className="text-3xl font-mono font-bold tracking-tight text-[#6EE7B7]">{stat.value}</h3>
+                            </motion.div>
+                        ))}
+                    </motion.div>
+
+                    <motion.div variants={containerVariants} initial="hidden" animate="show" className="pt-4">
                         <div className="flex items-center justify-between mb-4">
-                            <p className="text-[#64748B] font-medium text-sm tracking-wide">{stat.label}</p>
-                            <stat.icon className="h-4 w-4 text-[#64748B] opacity-70" />
+                            <h3 className="text-sm font-mono text-[#64748B] lowercase tracking-wider">recent workflows</h3>
                         </div>
-                        <p className="text-4xl font-bold text-[#6EE7B7] text-glow-primary font-mono">{stat.value}</p>
-                    </Card>
-                ))}
-            </motion.div>
-
-            {/* Recent Workflows */}
-            <motion.div variants={itemVariants}>
-                <div className="space-y-4">
-                    <h2 className="text-lg font-semibold flex items-center gap-2">
-                        Recent Activity
-                    </h2>
-                    <Card className="overflow-hidden border-border bg-[#111111]">
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
-                                <thead>
-                                    <tr className="border-b border-border bg-surface-2/30">
-                                        <th className="px-6 py-4 text-sm font-medium text-[#64748B]">Name</th>
-                                        <th className="px-6 py-4 text-sm font-medium text-[#64748B]">Status</th>
-                                        <th className="px-6 py-4 text-sm font-medium text-[#64748B]">Last Run</th>
-                                        <th className="px-6 py-4 text-sm font-medium text-[#64748B] text-right">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-border">
-                                    {recentWorkflows.map((flow) => (
-                                        <tr key={flow.id} className="hover:bg-surface-2/50 transition-colors group">
-                                            <td className="px-6 py-4">
-                                                <div className="font-medium text-[#F1F5F9]">{flow.name}</div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${flow.status === 'Success' ? 'text-[#6EE7B7] bg-[#6EE7B7]/10' :
-                                                        flow.status === 'Running' ? 'text-ai bg-ai/10 animate-pulse' :
-                                                            'text-error bg-error/10'
-                                                    }`}>
-                                                    {flow.status}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-sm text-[#64748B] font-mono">{flow.lastRun}</td>
-                                            <td className="px-6 py-4 text-right">
-                                                <Button variant="dark" size="sm" className="gap-2 h-8 px-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <Play className="h-3 w-3" /> Run
-                                                </Button>
-                                            </td>
+                        {recentWorkflows.length > 0 ? (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="border-b border-[#1A1A1A]">
+                                            <th className="py-3 pr-6 text-xs font-mono font-semibold text-[#64748B] lowercase tracking-wider">name</th>
+                                            <th className="px-6 py-3 text-xs font-mono font-semibold text-[#64748B] lowercase tracking-wider">status</th>
+                                            <th className="px-6 py-3 text-xs font-mono font-semibold text-[#64748B] lowercase tracking-wider">last_run</th>
+                                            <th className="pl-6 py-3 text-xs font-mono font-semibold text-[#64748B] lowercase tracking-wider text-right">actions</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </Card>
+                                    </thead>
+                                    <tbody className="divide-y divide-[#1A1A1A]">
+                                        {recentWorkflows.map((workflow, i) => (
+                                            <motion.tr key={workflow.id} variants={itemVariants} className="hover:bg-[#111111]/50 transition-colors group">
+                                                <td className="py-4 pr-6 whitespace-nowrap">
+                                                    <div className="flex items-center">
+                                                        <span className="text-sm font-mono text-text-primary group-hover:text-primary transition-colors cursor-pointer">{workflow.name}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    {getStatusBadge(workflow.status)}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-[#64748B]">
+                                                    {workflow.lastRun}
+                                                </td>
+                                                <td className="pl-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                    <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <Link to="/workflows/new" className="text-[#64748B] hover:text-[#6EE7B7] transition-colors" title="Edit">
+                                                            <FileEdit className="w-4 h-4" />
+                                                        </Link>
+                                                        <button className="text-[#64748B] hover:text-[#6EE7B7] transition-colors" title="Run">
+                                                            <Play className="w-4 h-4 fill-current" />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </motion.tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : (
+                            <div className="w-full py-24 flex flex-col items-center justify-center border border-[#1A1A1A] border-dashed rounded-lg bg-[#0A0A0A]/50 gap-6">
+                                <div className="font-mono text-[#64748B]">&gt;_ no workflows yet</div>
+                                <div className="flex gap-4">
+                                    <Button variant="primary" className="bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] font-mono rounded-none px-6 shadow-none border-none font-bold" onClick={() => navigate('/workflows/new')}>
+                                        Create from scratch
+                                    </Button>
+                                    <Button variant="ghost" className="font-mono rounded-none px-6" onClick={() => navigate('/templates')}>
+                                        Browse templates
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+                    </motion.div>
                 </div>
-            </motion.div>
-        </motion.div>
+            </div>
+        </>
     );
 };
 

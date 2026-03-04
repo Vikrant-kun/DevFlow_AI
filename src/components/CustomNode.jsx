@@ -1,0 +1,73 @@
+import { memo } from 'react';
+import { Handle, Position } from '@xyflow/react';
+import { GitBranch, Zap, Sparkles, Bell, Code, Database, Mail } from 'lucide-react';
+import { cn } from '../lib/utils';
+
+const iconMap = {
+    'git-branch': GitBranch,
+    'zap': Zap,
+    'sparkles': Sparkles,
+    'bell': Bell,
+    'code': Code,
+    'database': Database,
+    'mail': Mail,
+    'trigger': GitBranch,
+    'action': Zap,
+    'ai': Sparkles,
+    'notification': Bell
+};
+
+const typeColors = {
+    trigger: { border: 'bg-[#6EE7B7]', text: 'text-[#6EE7B7]', shadow: 'hover:shadow-glow-primary' },
+    action: { border: 'bg-[#64748B]', text: 'text-[#64748B]', shadow: 'hover:shadow-[0_0_20px_rgba(100,116,139,0.3)]' },
+    ai: { border: 'bg-[#A78BFA]', text: 'text-[#A78BFA]', shadow: 'hover:shadow-[0_0_20px_rgba(167,139,250,0.4)]' },
+    notification: { border: 'bg-[#F59E0B]', text: 'text-[#F59E0B]', shadow: 'hover:shadow-[0_0_20px_rgba(245,158,11,0.3)]' }
+};
+
+const CustomNode = ({ data, selected }) => {
+    const { type = 'action', label, description, icon } = data;
+    const colors = typeColors[type] || typeColors.action;
+
+    // Choose icon based on explicit 'icon' field or fallback to 'type'
+    const IconComponent = iconMap[icon] || iconMap[type] || Zap;
+
+    return (
+        <div className={cn(
+            "relative w-[280px] bg-[#111111] border rounded-xl overflow-hidden transition-all duration-300",
+            selected ? "border-text-primary" : "border-[#222222]",
+            colors.shadow
+        )}>
+            {/* Colored left strip */}
+            <div className={cn("absolute left-0 top-0 bottom-0 w-1", colors.border)} />
+
+            <div className="pl-4 pr-3 py-3">
+                <div className="flex items-start gap-3">
+                    <div className={cn("mt-0.5 p-1.5 rounded-md bg-[#222222]", colors.text)}>
+                        <IconComponent className="w-4 h-4" />
+                    </div>
+                    <div>
+                        <div className="font-semibold text-text-primary text-sm tracking-tight">{label}</div>
+                        <div className="text-[11px] font-medium text-text-secondary uppercase tracking-wider mt-0.5 mb-1">{type}</div>
+                        <div className="text-xs text-[#888888] leading-tight line-clamp-2">{description}</div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Always add both handles so flow layout works naturally, hiding left on triggers */}
+            {type !== 'trigger' && (
+                <Handle
+                    type="target"
+                    position={Position.Left}
+                    className="w-3 h-3 bg-[#222222] border-2 border-[#444444]"
+                />
+            )}
+            <Handle
+                type="source"
+                position={Position.Right}
+                className="w-3 h-3 bg-[#222222] border-2 border-[#444444]"
+            />
+        </div>
+    );
+};
+
+export default memo(CustomNode);

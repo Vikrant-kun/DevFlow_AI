@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -28,7 +29,18 @@ const Auth = () => {
 
     const navigate = useNavigate();
     const location = useLocation();
-    const from = location.state?.from?.pathname || '/dashboard';
+    const { user } = useAuth();
+
+    useEffect(() => {
+        if (user) {
+            const hasOnboarded = localStorage.getItem('devflow_onboarded') === 'true';
+            if (hasOnboarded) {
+                navigate('/dashboard', { replace: true });
+            } else {
+                navigate('/onboarding', { replace: true });
+            }
+        }
+    }, [user, navigate]);
 
     const handleEmailAuth = async (e) => {
         e.preventDefault();
@@ -39,13 +51,11 @@ const Auth = () => {
             if (isLogin) {
                 const { error } = await supabase.auth.signInWithPassword({ email, password });
                 if (error) throw error;
-                navigate(from, { replace: true });
             } else {
                 const { error } = await supabase.auth.signUp({
                     email, password, options: { data: { full_name: fullName } }
                 });
                 if (error) throw error;
-                navigate('/onboarding', { replace: true });
             }
         } catch (err) {
             setError(err.message);
@@ -68,10 +78,10 @@ const Auth = () => {
         <div className="min-h-screen bg-background text-text-primary flex">
             {/* Left Half - Animated Visualization */}
             <div className="hidden lg:flex w-1/2 bg-[#080808] border-r border-border p-12 flex-col relative overflow-hidden justify-center items-center">
-                <div className="absolute top-12 left-12 flex items-center gap-2 font-bold text-2xl z-10">
+                <Link to="/" className="absolute top-12 left-12 flex items-center gap-2 font-bold text-2xl z-10 hover:opacity-80 transition-opacity">
                     <span>DevFlow</span>
                     <span className="text-primary text-glow-primary">AI</span>
-                </div>
+                </Link>
 
                 <div className="flex flex-col items-center justify-center w-full relative flex-1">
                     <span className="text-xs font-mono text-text-secondary w-full text-center mb-12">Your pipeline, automated.</span>

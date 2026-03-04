@@ -21,9 +21,10 @@ const About = () => {
                         <span className="text-primary text-glow-primary">AI</span>
                     </Link>
                     <div className="hidden md:flex items-center gap-8 text-sm font-medium text-text-secondary">
-                        <Link to="/#features" className="hover:text-text-primary transition-colors">Features</Link>
+                        <a href="/#features" className="hover:text-text-primary transition-colors">Features</a>
                         <Link to="/about" className="text-primary transition-colors">About</Link>
-                        <a href="#pricing" className="hover:text-text-primary transition-colors">Pricing</a>
+                        <Link to="/pricing" className="hover:text-text-primary transition-colors">Pricing</Link>
+                        <Link to="/docs" className="hover:text-text-primary transition-colors">Docs</Link>
                     </div>
                     <div className="flex items-center gap-4">
                         <Button variant="ghost" onClick={() => navigate('/auth')}>Log in</Button>
@@ -59,15 +60,21 @@ const About = () => {
                     </div>
 
                     <div className="flex items-center justify-center gap-4 mt-12">
-                        <Button variant="dark" className="gap-2 px-6">
-                            <Github className="w-4 h-4" /> GitHub
-                        </Button>
-                        <Button variant="dark" className="gap-2 px-6">
-                            <Linkedin className="w-4 h-4" /> LinkedIn
-                        </Button>
-                        <Button variant="ghost" className="gap-2 px-6 hover:bg-surface-2 text-text-secondary">
-                            <Mail className="w-4 h-4" /> Email Me
-                        </Button>
+                        <a href="https://github.com/Vikrant-kun" target="_blank" rel="noreferrer">
+                            <Button variant="dark" className="gap-2 px-6">
+                                <Github className="w-4 h-4" /> GitHub
+                            </Button>
+                        </a>
+                        <a href="https://www.linkedin.com/in/vikrant-vinchurkar-9496862bb/" target="_blank" rel="noreferrer">
+                            <Button variant="dark" className="gap-2 px-6">
+                                <Linkedin className="w-4 h-4" /> LinkedIn
+                            </Button>
+                        </a>
+                        <a href="mailto:vikrantvinchurkar12@gmail.com">
+                            <Button variant="ghost" className="gap-2 px-6 hover:bg-surface-2 text-text-secondary">
+                                <Mail className="w-4 h-4" /> Email Me
+                            </Button>
+                        </a>
                     </div>
                 </motion.section>
 

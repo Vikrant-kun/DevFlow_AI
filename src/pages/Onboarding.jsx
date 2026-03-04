@@ -1,165 +1,189 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
-import { Card } from '../components/ui/Card';
-import { Github, Rocket, Zap, FileText } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../contexts/AuthContext';
+import { Github, Slack, Trello, Sparkles, GitBranch, Layers } from 'lucide-react';
 
 const Onboarding = () => {
     const [step, setStep] = useState(1);
-    const [teamSize, setTeamSize] = useState('');
-    const [selectedWorkflow, setSelectedWorkflow] = useState(null);
+    const { user } = useAuth();
     const navigate = useNavigate();
 
-    const handleNext = () => setStep(s => Math.min(s + 1, 3));
-    const handleComplete = () => navigate('/dashboard');
+    const userName = user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || '';
+
+    const handleComplete = (path) => {
+        localStorage.setItem('devflow_onboarded', 'true');
+        navigate(path);
+    };
 
     return (
-        <div className="min-h-screen bg-background text-text-primary flex flex-col items-center justify-center p-6">
-            <div className="w-full max-w-2xl">
-
-                {/* Progress Bar */}
-                <div className="mb-12">
-                    <div className="flex justify-between mb-2">
-                        {[1, 2, 3].map((i) => (
-                            <span key={i} className={`text-sm font-medium ${step >= i ? 'text-primary' : 'text-text-secondary'}`}>
-                                Step {i}
-                            </span>
-                        ))}
+        <div className="h-screen w-full bg-[#080808] flex flex-col items-center justify-center relative overflow-hidden text-[#F1F5F9]">
+            {/* Progress Indicator */}
+            <div className="absolute top-12 left-1/2 -translate-x-1/2 flex items-center gap-3">
+                {[1, 2, 3].map((num) => (
+                    <div key={num} className="flex items-center gap-3">
+                        <div className={`w-2.5 h-2.5 rounded-full transition-colors duration-300 ${step === num ? 'bg-[#6EE7B7]' : step > num ? 'bg-[#6EE7B7]' : 'bg-[#222]'}`}>
+                            {step > num && (
+                                <svg className="w-2.5 h-2.5 text-[#080808]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={4}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                            )}
+                        </div>
+                        {num !== 3 && <div className="w-12 h-px bg-[#222]"></div>}
                     </div>
-                    <div className="h-2 bg-surface-2 rounded-full overflow-hidden flex">
-                        <motion.div
-                            className="h-full bg-primary shadow-glow-primary"
-                            initial={{ width: '33%' }}
-                            animate={{ width: `${(step / 3) * 100}%` }}
-                            transition={{ duration: 0.3, ease: 'easeOut' }}
-                        />
-                    </div>
-                </div>
-
-                <div className="bg-surface-1 border border-border rounded-2xl p-8 shadow-sm overflow-hidden relative min-h-[400px]">
-                    <AnimatePresence mode="wait">
-                        {step === 1 && (
-                            <motion.div
-                                key="step1"
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -20 }}
-                                className="space-y-6 max-w-md"
-                            >
-                                <div>
-                                    <h2 className="text-3xl font-bold mb-2">Welcome to DevFlow.</h2>
-                                    <p className="text-text-secondary">Let&apos;s set up your workspace.</p>
-                                </div>
-
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-text-secondary mb-1">Full name</label>
-                                        <Input placeholder="Engineering Team" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-text-secondary mb-1">Team name</label>
-                                        <Input placeholder="Acme Corp" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-text-secondary mb-2">Team size</label>
-                                        <div className="grid grid-cols-2 gap-3">
-                                            {['Just me', '2-5', '6-20', '20+'].map((size) => (
-                                                <button
-                                                    key={size}
-                                                    onClick={() => setTeamSize(size)}
-                                                    className={`py-2 px-4 rounded-lg border text-sm transition-all text-left ${teamSize === size
-                                                            ? 'border-primary bg-primary/10 text-primary shadow-glow-primary'
-                                                            : 'border-border bg-surface-2 text-text-secondary hover:border-text-secondary'
-                                                        }`}
-                                                >
-                                                    {size}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="pt-4 flex justify-end">
-                                    <Button onClick={handleNext} disabled={!teamSize}>Next step</Button>
-                                </div>
-                            </motion.div>
-                        )}
-
-                        {step === 2 && (
-                            <motion.div
-                                key="step2"
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -20 }}
-                                className="space-y-8 flex flex-col items-center text-center py-8"
-                            >
-                                <div className="w-16 h-16 bg-surface-2 border border-border rounded-2xl flex items-center justify-center mb-2 shadow-sm">
-                                    <Github className="h-8 w-8 text-text-primary" />
-                                </div>
-                                <div>
-                                    <h2 className="text-2xl font-bold mb-2">Connect GitHub</h2>
-                                    <p className="text-text-secondary max-w-sm mx-auto">Connect GitHub to start automating your pipelines and reviewing pull requests.</p>
-                                </div>
-
-                                <div className="w-full max-w-md pt-4">
-                                    <Button variant="primary" className="w-full py-6 text-lg gap-3" onClick={handleNext}>
-                                        <Github className="h-5 w-5" /> Connect GitHub
-                                    </Button>
-                                    <button onClick={handleNext} className="mt-6 text-sm text-text-secondary hover:text-text-primary transition-colors">
-                                        Skip for now
-                                    </button>
-                                </div>
-                            </motion.div>
-                        )}
-
-                        {step === 3 && (
-                            <motion.div
-                                key="step3"
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -20 }}
-                                className="space-y-6"
-                            >
-                                <div className="text-center mb-8">
-                                    <h2 className="text-2xl font-bold mb-2">What would you like to automate first?</h2>
-                                    <p className="text-text-secondary">Select a template to kickstart your first workflow.</p>
-                                </div>
-
-                                <div className="grid md:grid-cols-3 gap-4">
-                                    {[
-                                        { id: 'deploy', icon: Rocket, title: 'Deploy Pipeline', desc: 'Auto-deploy on merge to main' },
-                                        { id: 'review', icon: Zap, title: 'Code Review Automation', desc: 'AI reviews for every PR' },
-                                        { id: 'notes', icon: FileText, title: 'Release Notes Generator', desc: 'Auto-draft release notes' },
-                                    ].map((tpl) => (
-                                        <Card
-                                            key={tpl.id}
-                                            hoverEffect
-                                            onClick={() => setSelectedWorkflow(tpl.id)}
-                                            className={`p-5 cursor-pointer flex flex-col items-center text-center transition-all ${selectedWorkflow === tpl.id ? 'border-primary ring-1 ring-primary shadow-glow-primary' : ''
-                                                }`}
-                                        >
-                                            <div className={`w-12 h-12 rounded-xl mb-4 flex items-center justify-center ${selectedWorkflow === tpl.id ? 'bg-primary/20 text-primary' : 'bg-surface-2 text-text-secondary'
-                                                }`}>
-                                                <tpl.icon className="h-6 w-6" />
-                                            </div>
-                                            <h3 className="font-semibold text-sm mb-1">{tpl.title}</h3>
-                                            <p className="text-xs text-text-secondary">{tpl.desc}</p>
-                                        </Card>
-                                    ))}
-                                </div>
-
-                                <div className="pt-8 flex justify-center">
-                                    <Button size="lg" onClick={handleComplete} disabled={!selectedWorkflow}>
-                                        Create my first workflow
-                                    </Button>
-                                </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                </div>
+                ))}
             </div>
+
+            <AnimatePresence mode="wait">
+                {step === 1 && (
+                    <motion.div
+                        key="step1"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        className="max-w-xl text-center flex flex-col items-center gap-6"
+                    >
+                        <div className="font-mono text-sm text-[#64748B]">&gt;_ step 1 of 3</div>
+                        <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white">Welcome, {userName}.</h1>
+                        <p className="text-[#64748B] text-lg leading-relaxed max-w-md">
+                            You're about to automate the most repetitive parts of your dev workflow. Let's get you set up in 2 minutes.
+                        </p>
+                        <button
+                            onClick={() => setStep(2)}
+                            className="mt-4 px-8 py-3 bg-[#6EE7B7] hover:bg-[#34D399] text-[#080808] font-mono text-sm uppercase tracking-widest transition-colors rounded-none outline-none"
+                        >
+                            Let's go &rarr;
+                        </button>
+                    </motion.div>
+                )}
+
+                {step === 2 && (
+                    <motion.div
+                        key="step2"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        className="max-w-4xl w-full px-6 flex flex-col items-center gap-8"
+                    >
+                        <div className="text-center space-y-3">
+                            <div className="font-mono text-sm text-[#64748B]">&gt;_ step 2 of 3</div>
+                            <h2 className="text-3xl font-bold text-white">Connect your tools.</h2>
+                            <p className="text-[#64748B]">DevFlow works best when connected to your existing stack.</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-3xl">
+                            {/* GitHub */}
+                            <div className="bg-[#111] border border-[#222] p-6 flex flex-col items-center text-center gap-4 group hover:border-[#6EE7B7] transition-colors relative overflow-hidden">
+                                <div className="absolute top-3 right-3 px-2 py-0.5 bg-[#6EE7B7]/10 text-[#6EE7B7] font-mono text-[10px] uppercase tracking-wider">Required</div>
+                                <div className="p-3 rounded-xl bg-[#222] text-white group-hover:bg-[#6EE7B7] group-hover:text-[#080808] transition-colors">
+                                    <Github className="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <h3 className="font-semibold text-white">GitHub</h3>
+                                    <p className="text-sm text-[#64748B] mt-1">Source code & triggers</p>
+                                </div>
+                                <button className="mt-2 w-full py-2 bg-[#222] hover:bg-[#333] text-white font-mono text-xs uppercase transition-colors">Connect GitHub</button>
+                            </div>
+
+                            {/* Slack */}
+                            <div className="bg-[#111] border border-[#222] p-6 flex flex-col items-center text-center gap-4 hover:border-[#444] transition-colors relative">
+                                <div className="absolute top-3 right-3 px-2 py-0.5 bg-[#222] text-[#64748B] font-mono text-[10px] uppercase tracking-wider">Optional</div>
+                                <div className="p-3 rounded-xl bg-[#222] text-[#64748B]">
+                                    <Slack className="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <h3 className="font-semibold text-white">Slack</h3>
+                                    <p className="text-sm text-[#64748B] mt-1">Alerts & notifications</p>
+                                </div>
+                                <button className="mt-2 w-full py-2 bg-transparent border border-[#333] hover:border-[#444] text-[#64748B] hover:text-[#F1F5F9] font-mono text-xs uppercase transition-colors">Connect Slack</button>
+                            </div>
+
+                            {/* Jira/Linear fallback */}
+                            <div className="bg-[#111] border border-[#222] p-6 flex flex-col items-center text-center gap-4 hover:border-[#444] transition-colors relative">
+                                <div className="absolute top-3 right-3 px-2 py-0.5 bg-[#222] text-[#64748B] font-mono text-[10px] uppercase tracking-wider">Optional</div>
+                                <div className="p-3 rounded-xl bg-[#222] text-[#64748B]">
+                                    <Trello className="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <h3 className="font-semibold text-white">Jira</h3>
+                                    <p className="text-sm text-[#64748B] mt-1">Issue tracking</p>
+                                </div>
+                                <button className="mt-2 w-full py-2 bg-transparent border border-[#333] hover:border-[#444] text-[#64748B] hover:text-[#F1F5F9] font-mono text-xs uppercase transition-colors">Connect Jira</button>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col items-center gap-4 mt-4">
+                            <button
+                                onClick={() => setStep(3)}
+                                className="px-8 py-3 bg-white hover:bg-[#E2E8F0] text-[#080808] font-mono text-sm uppercase tracking-widest transition-colors rounded-none outline-none"
+                            >
+                                Continue &rarr;
+                            </button>
+                            <span className="text-xs text-[#64748B]">You can connect more tools later in Integrations</span>
+                        </div>
+                    </motion.div>
+                )}
+
+                {step === 3 && (
+                    <motion.div
+                        key="step3"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        className="max-w-5xl w-full px-6 flex flex-col items-center gap-12"
+                    >
+                        <div className="text-center space-y-3">
+                            <div className="font-mono text-sm text-[#64748B]">&gt;_ step 3 of 3</div>
+                            <h2 className="text-3xl font-bold text-white">How do you want to start?</h2>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
+                            {/* Scratch */}
+                            <button
+                                onClick={() => handleComplete('/workflows/new')}
+                                className="group bg-[#111] border border-[#222] p-8 flex flex-col items-start gap-4 hover:border-[#6EE7B7] hover:scale-[1.02] transition-all text-left outline-none"
+                            >
+                                <div className="p-3 rounded-xl bg-[#6EE7B7]/10 text-[#6EE7B7]">
+                                    <GitBranch className="w-8 h-8" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-white mb-2">Start from scratch</h3>
+                                    <p className="text-sm text-[#64748B] leading-relaxed">Build your pipeline node by node</p>
+                                </div>
+                            </button>
+
+                            {/* Template */}
+                            <button
+                                onClick={() => handleComplete('/templates')}
+                                className="group bg-[#111] border border-[#222] p-8 flex flex-col items-start gap-4 hover:border-[#6EE7B7] hover:scale-[1.02] transition-all text-left outline-none"
+                            >
+                                <div className="p-3 rounded-xl bg-[#6EE7B7]/10 text-[#6EE7B7]">
+                                    <Layers className="w-8 h-8" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-white mb-2">Use a template</h3>
+                                    <p className="text-sm text-[#64748B] leading-relaxed">Pick from pre-built pipelines</p>
+                                </div>
+                            </button>
+
+                            {/* AI */}
+                            <button
+                                onClick={() => handleComplete('/workflows/new?focus=ai')}
+                                className="group bg-[#111] border border-[#222] p-8 flex flex-col items-start gap-4 hover:border-[#6EE7B7] hover:scale-[1.02] transition-all text-left outline-none relative overflow-hidden"
+                            >
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-[#6EE7B7] opacity-[0.03] blur-2xl group-hover:opacity-10 transition-opacity rounded-full"></div>
+                                <div className="p-3 rounded-xl bg-[#6EE7B7]/10 text-[#6EE7B7]">
+                                    <Sparkles className="w-8 h-8" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-white mb-2">Let AI build it</h3>
+                                    <p className="text-sm text-[#64748B] leading-relaxed">Describe it, Claude generates it</p>
+                                </div>
+                            </button>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };
