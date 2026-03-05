@@ -91,7 +91,7 @@ const WorkflowBuilder = () => {
 
     const handleGenerate = async () => {
         try {
-            console.log('API KEY:', import.meta.env.VITE_GEMINI_API_KEY)
+            console.log('API KEY:', import.meta.env.VITE_GROQ_API_KEY)
             console.log('Prompt:', prompt)
             if (!prompt.trim()) return;
 
@@ -100,9 +100,9 @@ const WorkflowBuilder = () => {
                 return;
             }
 
-            const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+            const apiKey = import.meta.env.VITE_GROQ_API_KEY;
             if (!apiKey) {
-                alert('Missing VITE_GEMINI_API_KEY in environment');
+                alert('Missing VITE_GROQ_API_KEY in environment');
                 return;
             }
 
@@ -127,24 +127,29 @@ Return ONLY valid JSON, no explanation, no markdown, no backticks:
 }
 Rules: first node always trigger, max 8 nodes, labels 2-4 words, descriptions one sentence.`;
 
-                const response = await fetch(
-                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-                    {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            contents: [{ parts: [{ text: systemPrompt + '\n\n' + prompt }] }],
-                            generationConfig: { temperature: 0.7, maxOutputTokens: 1024 }
-                        })
-                    }
-                );
+                const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: 'llama-3.3-70b-versatile',
+                        messages: [
+                            { role: 'system', content: systemPrompt },
+                            { role: 'user', content: prompt }
+                        ],
+                        max_tokens: 1024,
+                        temperature: 0.7
+                    })
+                });
 
                 if (!response.ok) {
                     throw new Error(`API Error: ${response.status}`);
                 }
 
                 const data = await response.json();
-                const responseText = data.candidates[0].content.parts[0].text;
+                const responseText = data.choices[0].message.content;
                 const parsedData = JSON.parse(responseText);
 
                 const newNodesData = parsedData.nodes;
