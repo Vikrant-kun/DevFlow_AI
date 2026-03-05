@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Eye, EyeOff } from 'lucide-react';
 import TopBar from '../components/TopBar';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -17,17 +16,9 @@ const itemVariants = {
 
 const Settings = () => {
     const { user } = useAuth();
-    const { toast } = useToast();
-    const [showKey, setShowKey] = useState(false);
-    const [apiKey, setApiKey] = useState(() => localStorage.getItem('devflow_anthropic_key') || '');
-
+    const { showToast } = useToast();
     const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || '';
     const userEmail = user?.email || '';
-
-    const handleSaveAiConfig = () => {
-        localStorage.setItem('devflow_anthropic_key', apiKey);
-        toast('Settings saved successfully');
-    };
 
     return (
         <>
@@ -52,48 +43,6 @@ const Settings = () => {
                             </div>
                             <button className="text-xs font-mono text-[#080808] bg-[#6EE7B7] hover:bg-[#34D399] px-6 py-2 transition-colors rounded-none mt-2">
                                 save_profile
-                            </button>
-                        </motion.div>
-                    </motion.div>
-
-                    <div className="w-full h-px bg-[#1A1A1A]"></div>
-
-                    {/* AI Config Section */}
-                    <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
-                        <motion.div variants={itemVariants}>
-                            <h2 className="text-lg font-mono text-text-primary lowercase tracking-tight">ai_configuration</h2>
-                            <p className="text-[#64748B] text-xs font-mono mt-1">configure_model_providers</p>
-                        </motion.div>
-                        <motion.div variants={itemVariants} className="space-y-4">
-                            <div className="space-y-1">
-                                <label className="text-xs font-mono text-[#64748B] lowercase">default_model</label>
-                                <select className="w-full bg-[#111] border border-[#222] rounded-none px-4 py-2.5 font-mono text-sm text-text-primary focus:border-[#6EE7B7] outline-none transition-colors appearance-none cursor-pointer">
-                                    <option value="claude">Claude 3.5 Sonnet</option>
-                                    <option value="gpt4">GPT-4o</option>
-                                    <option value="gemini">Gemini 1.5 Pro</option>
-                                    <option value="grok">Grok</option>
-                                </select>
-                            </div>
-                            <div className="space-y-1">
-                                <label className="text-xs font-mono text-[#64748B] lowercase">anthropic_api_key</label>
-                                <div className="relative">
-                                    <input
-                                        type={showKey ? "text" : "password"}
-                                        value={apiKey}
-                                        onChange={(e) => setApiKey(e.target.value)}
-                                        placeholder="sk-ant-api03-..."
-                                        className="w-full bg-[#111] border border-[#222] rounded-none pl-4 pr-10 py-2 font-mono text-sm text-text-primary focus:border-[#6EE7B7] outline-none transition-colors"
-                                    />
-                                    <button
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#64748B] hover:text-[#6EE7B7] transition-colors"
-                                        onClick={() => setShowKey(!showKey)}
-                                    >
-                                        {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                    </button>
-                                </div>
-                            </div>
-                            <button onClick={handleSaveAiConfig} className="text-xs font-mono text-[#080808] bg-[#6EE7B7] hover:bg-[#34D399] px-6 py-2 transition-colors rounded-none mt-2">
-                                save_settings
                             </button>
                         </motion.div>
                     </motion.div>

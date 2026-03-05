@@ -17,7 +17,6 @@ import { Button } from '../components/ui/Button';
 import CustomNode from '../components/CustomNode';
 import TopBar from '../components/TopBar';
 
-import Anthropic from '@anthropic-ai/sdk';
 import { useLocation } from 'react-router-dom';
 import { useToast } from '../contexts/ToastContext';
 import { templateNodesData } from '../lib/templateNodes';
@@ -37,7 +36,7 @@ const WorkflowBuilder = () => {
     const [model, setModel] = useState('claude');
     const [isGenerating, setIsGenerating] = useState(false);
     const [placeholderIndex, setPlaceholderIndex] = useState(0);
-    const { toast } = useToast();
+    const { showToast } = useToast();
     const location = useLocation();
 
     const placeholders = [
@@ -91,32 +90,27 @@ const WorkflowBuilder = () => {
     };
 
     const handleGenerate = async () => {
-        if (!prompt.trim()) return;
-
-        if (model !== 'claude') {
-            toast('Coming soon — only Claude available in beta', 'error');
-            return;
-        }
-
-        const apiKey = localStorage.getItem('devflow_anthropic_key');
-        if (!apiKey) {
-            toast('Add your Anthropic API key in Settings first →', 'error');
-            return;
-        }
-
-        setIsGenerating(true);
-        setSelectedNode(null);
-
         try {
-            const anthropic = new Anthropic({
-                apiKey: apiKey,
-                dangerouslyAllowBrowser: true
-            });
+            console.log('API KEY:', import.meta.env.VITE_GEMINI_API_KEY)
+            console.log('Prompt:', prompt)
+            if (!prompt.trim()) return;
 
-            const msg = await anthropic.messages.create({
-                model: "claude-3-5-sonnet-20241022",
-                max_tokens: 1024,
-                system: `You are a workflow automation expert for developer teams.
+            if (model !== 'claude' && model !== 'gemini') {
+                alert('Coming soon — only Gemini/Claude available in beta');
+                return;
+            }
+
+            const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+            if (!apiKey) {
+                alert('Missing VITE_GEMINI_API_KEY in environment');
+                return;
+            }
+
+            setIsGenerating(true);
+            setSelectedNode(null);
+
+            try {
+                const systemPrompt = `You are a workflow automation expert for developer teams.
 Convert the user's description into a structured pipeline.
 Return ONLY valid JSON, no explanation, no markdown, no backticks:
 {
@@ -131,60 +125,79 @@ Return ONLY valid JSON, no explanation, no markdown, no backticks:
   ],
   "edges": [{ "source": "1", "target": "2" }]
 }
-Rules: first node always trigger, max 8 nodes, labels 2-4 words, descriptions one sentence.`,
-                messages: [{ role: "user", content: prompt }]
-            });
+Rules: first node always trigger, max 8 nodes, labels 2-4 words, descriptions one sentence.`;
 
-            const responseText = msg.content[0].text;
-            const parsedData = JSON.parse(responseText);
-
-            const newNodesData = parsedData.nodes;
-            const newEdgesData = parsedData.edges;
-
-            if (!newNodesData) throw new Error("Invalid format received");
-
-            // Clear existing
-            setNodes([]);
-            setEdges([]);
-
-            // Layout nodes horizontally
-            const spacedNodes = newNodesData.map((node, i) => ({
-                id: node.id,
-                type: 'custom',
-                position: { x: 100 + (i * 350), y: 250 }, // 350px gap
-                data: node,
-            }));
-
-            // Format edges
-            const formattedEdges = (newEdgesData || []).map((edge, i) => ({
-                id: `e${edge.source}-${edge.target}`,
-                source: edge.source,
-                target: edge.target,
-                animated: true,
-                style: { stroke: '#444', strokeWidth: 2, strokeDasharray: '5,5' }
-            }));
-
-            // Stagger entrance animation by pushing to state sequentially
-            spacedNodes.forEach((node, idx) => {
-                setTimeout(() => {
-                    setNodes((nds) => [...nds, node]);
-                    // Add connecting edge when the node appears (if it's not the first node)
-                    if (idx > 0 && formattedEdges[idx - 1]) {
-                        setEdges((eds) => [...eds, formattedEdges[idx - 1]]);
+                const response = await fetch(
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{ parts: [{ text: systemPrompt + '\n\n' + prompt }] }],
+                            generationConfig: { temperature: 0.7, maxOutputTokens: 1024 }
+                        })
                     }
-                }, idx * 150); // 150ms delay per node requested
-            });
+                );
 
-            setTimeout(() => {
-                toast(`Pipeline generated — ${spacedNodes.length} steps`, 'success');
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.status}`);
+                }
+
+                const data = await response.json();
+                const responseText = data.candidates[0].content.parts[0].text;
+                const parsedData = JSON.parse(responseText);
+
+                const newNodesData = parsedData.nodes;
+                const newEdgesData = parsedData.edges;
+
+                if (!newNodesData) throw new Error("Invalid format received");
+
+                // Clear existing
+                setNodes([]);
+                setEdges([]);
+
+                // Layout nodes horizontally
+                const spacedNodes = newNodesData.map((node, i) => ({
+                    id: node.id,
+                    type: 'custom',
+                    position: { x: 100 + (i * 350), y: 250 }, // 350px gap
+                    data: node,
+                }));
+
+                // Format edges
+                const formattedEdges = (newEdgesData || []).map((edge, i) => ({
+                    id: `e${edge.source}-${edge.target}`,
+                    source: edge.source,
+                    target: edge.target,
+                    animated: true,
+                    style: { stroke: '#444', strokeWidth: 2, strokeDasharray: '5,5' }
+                }));
+
+                // Stagger entrance animation by pushing to state sequentially
+                spacedNodes.forEach((node, idx) => {
+                    setTimeout(() => {
+                        setNodes((nds) => [...nds, node]);
+                        // Add connecting edge when the node appears (if it's not the first node)
+                        if (idx > 0 && formattedEdges[idx - 1]) {
+                            setEdges((eds) => [...eds, formattedEdges[idx - 1]]);
+                        }
+                    }, idx * 150); // 150ms delay per node requested
+                });
+
+                setTimeout(() => {
+                    alert('Pipeline generated — ' + spacedNodes.length + ' steps');
+                    setIsGenerating(false);
+                    setPrompt('');
+                }, spacedNodes.length * 150 + 100);
+
+            } catch (error) {
+                console.error(error);
+                alert("Generation failed — please try again");
                 setIsGenerating(false);
-                setPrompt('');
-            }, spacedNodes.length * 150 + 100);
-
-        } catch (error) {
-            console.error(error);
-            toast("Generation failed — check your API key in Settings", 'error');
-            setIsGenerating(false);
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Crash in handleGenerate: " + err.message);
         }
     };
 

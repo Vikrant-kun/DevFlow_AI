@@ -44,7 +44,7 @@ import TopBar from '../components/TopBar';
 
 const Dashboard = () => {
     const navigate = useNavigate();
-    const { toast } = useToast();
+    const { showToast } = useToast();
     const [checklistDismissed, setChecklistDismissed] = useState(true); // Default true until checked
     const [checklistItems, setChecklistItems] = useState([
         { id: 'create_account', label: 'create_account', done: true, route: null },
@@ -74,7 +74,7 @@ const Dashboard = () => {
 
             if (updated.every(i => i.done || i.locked === false)) {
                 handleDismissChecklist();
-                toast("You're all set. Welcome to DevFlow. 🚀", "success");
+                showToast("You're all set. Welcome to DevFlow. 🚀", "success");
             }
         }
     };
