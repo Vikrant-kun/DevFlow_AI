@@ -211,33 +211,28 @@ Rules: first node always trigger, max 8 nodes, labels 2-4 words, descriptions on
         }
 
         try {
-            const workflowData = {
-                user_id: user.id,
-                name: title,
-                nodes: nodes,
-                edges: edges,
-                status: 'draft',
-                updated_at: new Date().toISOString()
-            };
-
-            if (!currentWorkflowId) {
-                workflowData.created_at = new Date().toISOString();
+            let data, error;
+            if (currentWorkflowId) {
+                ({ data, error } = await supabase
+                    .from('workflows')
+                    .update({ name: title, nodes, edges, updated_at: new Date().toISOString() })
+                    .eq('id', currentWorkflowId)
+                    .select().single());
+            } else {
+                ({ data, error } = await supabase
+                    .from('workflows')
+                    .insert({ user_id: user.id, name: title, nodes, edges, status: 'draft' })
+                    .select().single());
             }
-
-            const { data, error } = await supabase
-                .from('workflows')
-                .upsert({ id: currentWorkflowId, ...workflowData })
-                .select()
-                .single();
-
-            if (error) throw error;
 
             setCurrentWorkflowId(data.id);
             localStorage.setItem('devflow_has_workflow', 'true');
             showToast("Workflow saved", "success");
         } catch (err) {
-            console.error("Save error:", err);
-            showToast("Failed to save", "error");
+            console.error("Save error full:", JSON.stringify(err))
+            console.error("Save error message:", err.message)
+            console.error("Save error details:", err.details)
+            showToast("Failed to save: " + err.message, "error")
         }
     };
 
