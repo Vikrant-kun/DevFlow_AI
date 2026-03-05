@@ -4,6 +4,8 @@ import { ToastProvider } from './contexts/ToastContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useEffect } from 'react';
+import { supabase } from './lib/supabase';
 
 import Landing from './pages/Landing';
 import About from './pages/About';
@@ -122,6 +124,10 @@ const AnimatedRoutes = () => {
 };
 
 function App() {
+  useEffect(() => {
+    supabase.auth.getSession();
+  }, []);
+
   return (
     <ToastProvider>
       <Router>
