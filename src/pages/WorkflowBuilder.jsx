@@ -33,7 +33,7 @@ const WorkflowBuilder = () => {
     const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
     const [selectedNode, setSelectedNode] = useState(null);
     const [prompt, setPrompt] = useState('');
-    const [model, setModel] = useState('claude');
+    const [model, setModel] = useState('groq');
     const [isGenerating, setIsGenerating] = useState(false);
     const [placeholderIndex, setPlaceholderIndex] = useState(0);
     const { showToast } = useToast();
@@ -95,10 +95,6 @@ const WorkflowBuilder = () => {
             console.log('Prompt:', prompt)
             if (!prompt.trim()) return;
 
-            if (model !== 'claude' && model !== 'gemini') {
-                alert('Coming soon — only Gemini/Claude available in beta');
-                return;
-            }
 
             const apiKey = import.meta.env.VITE_GROQ_API_KEY;
             if (!apiKey) {
@@ -297,7 +293,7 @@ Rules: first node always trigger, max 8 nodes, labels 2-4 words, descriptions on
                                 <option value="claude">Claude 3.5</option>
                                 <option value="gpt4">GPT-4o</option>
                                 <option value="gemini">Gemini 1.5</option>
-                                <option value="grok">Grok 2</option>
+                                <option value="groq">Groq</option>
                             </select>
                             <Button
                                 className="gap-2 h-10 px-5 bg-[#6EE7B7] hover:bg-[#34D399] text-[#080808] border-none rounded-none font-mono text-xs shadow-none disabled:opacity-80 disabled:cursor-wait"
