@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { Github, Slack, Trello, Sparkles, GitBranch, Layers } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { useToast } from '../contexts/ToastContext';
 
 const Onboarding = () => {
     const [step, setStep] = useState(1);
@@ -10,6 +12,35 @@ const Onboarding = () => {
     const navigate = useNavigate();
 
     const userName = user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || '';
+    const [isGithubConnected, setIsGithubConnected] = useState(false);
+    const { showToast } = useToast();
+
+    useEffect(() => {
+        const hasOnboarded = localStorage.getItem('devflow_onboarded') === 'true';
+        if (hasOnboarded) {
+            navigate('/dashboard', { replace: true });
+        }
+    }, [navigate]);
+
+    useEffect(() => {
+        const checkGithubConnection = async () => {
+            if (!user) return;
+            const connected = user?.app_metadata?.provider === 'github' ||
+                user?.app_metadata?.providers?.includes('github');
+            setIsGithubConnected(!!connected);
+        };
+        checkGithubConnection();
+    }, [user]);
+
+    const handleGithubConnect = async () => {
+        if (isGithubConnected) return;
+        try {
+            const { error } = await supabase.auth.signInWithOAuth({ provider: 'github', options: { redirectTo: window.location.origin + '/onboarding' } });
+            if (error) throw error;
+        } catch (err) {
+            showToast(err.message, "error");
+        }
+    };
 
     const handleComplete = (path) => {
         localStorage.setItem('devflow_onboarded', 'true');
@@ -82,7 +113,14 @@ const Onboarding = () => {
                                     <h3 className="font-semibold text-white">GitHub</h3>
                                     <p className="text-sm text-[#64748B] mt-1">Source code & triggers</p>
                                 </div>
-                                <button className="mt-2 w-full py-2 bg-[#222] hover:bg-[#333] text-white font-mono text-xs uppercase transition-colors">Connect GitHub</button>
+                                <button onClick={handleGithubConnect} className={`mt-2 w-full py-2 font-mono text-xs uppercase transition-colors ${isGithubConnected ? 'bg-[#6EE7B7]/10 text-[#6EE7B7] hover:bg-[#6EE7B7]/20 border border-[#6EE7B7]/20 flex items-center justify-center gap-2' : 'bg-[#222] hover:bg-[#333] text-white'}`}>
+                                    {isGithubConnected ? (
+                                        <>
+                                            <span>Connected</span>
+                                            <span className="w-1.5 h-1.5 bg-[#6EE7B7] rounded-full shadow-[0_0_8px_#6EE7B7]" />
+                                        </>
+                                    ) : 'Connect GitHub'}
+                                </button>
                             </div>
 
                             {/* Slack */}
@@ -95,7 +133,7 @@ const Onboarding = () => {
                                     <h3 className="font-semibold text-white">Slack</h3>
                                     <p className="text-sm text-[#64748B] mt-1">Alerts & notifications</p>
                                 </div>
-                                <button className="mt-2 w-full py-2 bg-transparent border border-[#333] hover:border-[#444] text-[#64748B] hover:text-[#F1F5F9] font-mono text-xs uppercase transition-colors">Connect Slack</button>
+                                <button onClick={() => showToast('Slack integration coming soon', 'info')} className="mt-2 w-full py-2 bg-transparent border border-[#333] hover:border-[#444] text-[#64748B] hover:text-[#F1F5F9] font-mono text-xs uppercase transition-colors">Connect Slack</button>
                             </div>
 
                             {/* Jira/Linear fallback */}
@@ -108,7 +146,7 @@ const Onboarding = () => {
                                     <h3 className="font-semibold text-white">Jira</h3>
                                     <p className="text-sm text-[#64748B] mt-1">Issue tracking</p>
                                 </div>
-                                <button className="mt-2 w-full py-2 bg-transparent border border-[#333] hover:border-[#444] text-[#64748B] hover:text-[#F1F5F9] font-mono text-xs uppercase transition-colors">Connect Jira</button>
+                                <button onClick={() => showToast('Jira integration coming soon', 'info')} className="mt-2 w-full py-2 bg-transparent border border-[#333] hover:border-[#444] text-[#64748B] hover:text-[#F1F5F9] font-mono text-xs uppercase transition-colors">Connect Jira</button>
                             </div>
                         </div>
 

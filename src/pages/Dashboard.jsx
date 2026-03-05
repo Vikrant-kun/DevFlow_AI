@@ -4,6 +4,8 @@ import { Play, FileEdit, Plus, Layers, CheckCircle2, PauseCircle, XCircle, X } f
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { useToast } from '../contexts/ToastContext';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 
 const stats = [
     { label: 'Total Workflows', value: '0' },
@@ -56,6 +58,22 @@ const Dashboard = () => {
     useEffect(() => {
         const isDismissed = localStorage.getItem('devflow_checklist_dismissed') === 'true';
         setChecklistDismissed(isDismissed);
+
+        const checkStates = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            const isGithubConnected = user?.app_metadata?.provider === 'github' ||
+                user?.app_metadata?.providers?.includes('github');
+            const hasWorkflow = localStorage.getItem('devflow_has_workflow') === 'true';
+            const hasRun = localStorage.getItem('devflow_has_run') === 'true';
+
+            setChecklistItems([
+                { id: 'create_account', label: 'create_account', done: true, route: null },
+                { id: 'connect_github', label: 'connect_github', done: !!isGithubConnected, route: '/integrations' },
+                { id: 'create_workflow', label: 'create_first_workflow', done: hasWorkflow, route: '/workflows/new' },
+                { id: 'run_pipeline', label: 'run_first_pipeline', done: hasRun, route: null, locked: true }
+            ]);
+        };
+        checkStates();
     }, []);
 
     const handleDismissChecklist = () => {
@@ -78,6 +96,7 @@ const Dashboard = () => {
             }
         }
     };
+    const { user } = useAuth();
     return (
         <>
             <TopBar title={<span className="font-mono text-sm text-[#6EE7B7]">~ / dashboard</span>} />
