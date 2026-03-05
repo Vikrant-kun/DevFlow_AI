@@ -21,12 +21,6 @@ export const AuthProvider = ({ children }) => {
             setSession(session);
             setUser(session?.user ?? null);
             setLoading(false);
-
-            if (event === 'SIGNED_IN') {
-                navigate('/dashboard', { replace: true });
-            } else if (event === 'SIGNED_OUT') {
-                navigate('/', { replace: true });
-            }
         });
 
         return () => subscription.unsubscribe();

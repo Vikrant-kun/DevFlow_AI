@@ -97,8 +97,12 @@ const WorkflowBuilder = () => {
 
 
             const apiKey = import.meta.env.VITE_GROQ_API_KEY;
+            if (model !== 'claude' && model !== 'gemini') {
+                showToast('Coming soon — only Gemini/Claude available in beta', 'error');
+                return;
+            }
             if (!apiKey) {
-                alert('Missing VITE_GROQ_API_KEY in environment');
+                showToast('Missing VITE_GROQ_API_KEY in environment', 'error');
                 return;
             }
 
@@ -186,19 +190,19 @@ Rules: first node always trigger, max 8 nodes, labels 2-4 words, descriptions on
                 });
 
                 setTimeout(() => {
-                    alert('Pipeline generated — ' + spacedNodes.length + ' steps');
+                    showToast('Pipeline generated — ' + spacedNodes.length + ' steps', 'success');
                     setIsGenerating(false);
                     setPrompt('');
                 }, spacedNodes.length * 150 + 100);
 
             } catch (error) {
                 console.error(error);
-                alert("Generation failed — please try again");
+                showToast("Generation failed — please try again", 'error');
                 setIsGenerating(false);
             }
         } catch (err) {
             console.error(err);
-            alert("Crash in handleGenerate: " + err.message);
+            showToast("Crash in handleGenerate: " + err.message, 'error');
         }
     };
 
