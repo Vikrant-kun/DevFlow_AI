@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/Button';
@@ -8,7 +8,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Github, Zap, GitBranch, Sparkles } from 'lucide-react';
 
 const Auth = () => {
-    const [isLogin, setIsLogin] = useState(true);
+    const [searchParams] = useSearchParams();
+    const mode = searchParams.get('mode');
+    const [isLogin, setIsLogin] = useState(mode === 'signup' ? false : true);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [fullName, setFullName] = useState('');
@@ -28,8 +30,15 @@ const Auth = () => {
     }, []);
 
     const navigate = useNavigate();
-    const location = useLocation();
     const { user } = useAuth();
+
+    useEffect(() => {
+        if (mode === 'signup') {
+            setIsLogin(false);
+        } else if (mode === 'login') {
+            setIsLogin(true);
+        }
+    }, [mode]);
 
     useEffect(() => {
         if (user) {

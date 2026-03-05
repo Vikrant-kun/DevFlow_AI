@@ -1,6 +1,8 @@
 import { motion } from 'framer-motion';
 import { Button } from '../components/ui/Button';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 
 const sectionVariants = {
     hidden: { opacity: 0, y: 20 },
@@ -9,6 +11,7 @@ const sectionVariants = {
 
 const Docs = () => {
     const navigate = useNavigate();
+    const { user } = useAuth();
 
     return (
         <div className="min-h-screen bg-[#080808] text-text-primary selection:bg-primary/30 flex flex-col">
@@ -26,8 +29,24 @@ const Docs = () => {
                         <Link to="/docs" className="text-text-primary transition-colors">Docs</Link>
                     </div>
                     <div className="flex items-center gap-4">
-                        <Button variant="ghost" onClick={() => navigate('/auth')}>Log in</Button>
-                        <Button onClick={() => navigate('/auth')}>Sign up</Button>
+                        {user ? (
+                            <div className="relative group">
+                                <Button variant="ghost" className="gap-2">
+                                    Account
+                                </Button>
+                                <div className="absolute right-0 mt-2 w-48 bg-[#111] border border-[#222] rounded-md shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
+                                    <div className="p-1">
+                                        <button onClick={() => navigate('/dashboard')} className="w-full text-left px-4 py-2 text-sm text-[#F1F5F9] hover:bg-[#222] rounded-sm transition-colors">Go to Dashboard →</button>
+                                        <button onClick={() => supabase.auth.signOut()} className="w-full text-left px-4 py-2 text-sm text-[#ef4444] hover:bg-[#222] rounded-sm transition-colors">Sign out</button>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <>
+                                <Button variant="ghost" onClick={() => navigate('/auth?mode=login')}>Log in</Button>
+                                <Button onClick={() => navigate('/auth?mode=signup')}>Sign up</Button>
+                            </>
+                        )}
                     </div>
                 </div>
             </nav>
