@@ -7,14 +7,6 @@ import { useToast } from '../contexts/ToastContext';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
-const [recentWorkflows, setRecentWorkflows] = useState([]);
-const [stats, setStats] = useState([
-    { label: 'Total Workflows', value: '0' },
-    { label: 'Runs Today', value: '0' },
-    { label: 'Success Rate', value: '—' },
-    { label: 'Time Saved', value: '0h' }
-]);
-
 const getStatusBadge = (status) => {
     switch (status) {
         case 'Active':
@@ -45,6 +37,13 @@ import TopBar from '../components/TopBar';
 
 const Dashboard = () => {
     const navigate = useNavigate();
+    const [recentWorkflows, setRecentWorkflows] = useState([]);
+    const [stats, setStats] = useState([
+        { label: "Total Workflows", value: "0" },
+        { label: "Runs Today", value: "0" },
+        { label: "Success Rate", value: "—" },
+        { label: "Time Saved", value: "0h" }
+    ]);
     const { showToast } = useToast();
     const { user } = useAuth();
     const [checklistDismissed, setChecklistDismissed] = useState(true); // Default true until checked
