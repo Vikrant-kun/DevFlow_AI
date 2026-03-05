@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, ChevronRight, Play, Server, Clock, Search, Filter, Terminal } from 'lucide-react';
 import TopBar from '../components/TopBar';
@@ -103,7 +103,7 @@ const Logs = () => {
                                         onClick={() => setExpandedRow(expandedRow === log.id ? null : log.id)}
                                     >
                                         <div className="pl-2">
-                                            <ChevronRight className={`w-4 h-4 text-[#64748B] group-hover:text-[#F1F5F9] transition-transform duration-200 ${expandedRow === log.id ? 'rotate-90' : ''}`} />
+                                            <ChevronRight className={`w - 4 h - 4 text - [#64748B] group - hover: text - [#F1F5F9] transition - transform duration - 200 ${expandedRow === log.id ? 'rotate-90' : ''} `} />
                                         </div>
                                         <div className="font-mono text-sm text-[#F1F5F9] truncate pr-4">
                                             {log.workflow}
@@ -140,7 +140,7 @@ const Logs = () => {
                                                                 <div className="flex items-center gap-3">
                                                                     <span className="text-text-secondary min-w-[60px] font-mono text-xs">{step.timestamp}</span>
                                                                     {getStepIcon(step.status)}
-                                                                    <span className={`font-medium ${step.status === 'Failed' ? 'text-error' : 'text-text-primary'}`}>{step.name}</span>
+                                                                    <span className={`font - medium ${step.status === 'Failed' ? 'text-error' : 'text-text-primary'} `}>{step.name}</span>
                                                                 </div>
                                                                 <div className="flex items-center gap-6 text-text-secondary">
                                                                     <span>{step.duration}</span>

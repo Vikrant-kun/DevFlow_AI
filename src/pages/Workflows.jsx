@@ -1,11 +1,12 @@
 import { motion } from 'framer-motion';
-import { Play, FileEdit, Plus } from 'lucide-react';
+import { Play, FileEdit, Plus, Trash2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import TopBar from '../components/TopBar';
 import { Button } from '../components/ui/Button';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 
 const getStatusBadge = (status) => {
     switch (status) {
@@ -33,7 +34,21 @@ const itemVariants = {
 const Workflows = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
+    const { showToast } = useToast();
     const [workflows, setWorkflows] = useState([]);
+
+    const handleDelete = async (id) => {
+        if (!window.confirm('Are you sure you want to delete this workflow?')) return;
+        try {
+            const { error } = await supabase.from('workflows').delete().eq('id', id);
+            if (error) throw error;
+            setWorkflows(workflows.filter(w => w.id !== id));
+            showToast('Workflow deleted', 'success');
+        } catch (err) {
+            console.error(err);
+            showToast('Failed to delete workflow', 'error');
+        }
+    };
 
     useEffect(() => {
         const fetchWorkflows = async () => {
@@ -49,7 +64,7 @@ const Workflows = () => {
                     id: w.id,
                     name: w.name,
                     status: w.status.charAt(0).toUpperCase() + w.status.slice(1),
-                    lastRun: w.updated_at ? new Date(w.updated_at).toLocaleDateString() : 'Never'
+                    createdDate: new Date(w.created_at).toLocaleDateString()
                 }));
                 setWorkflows(formatted);
             }
@@ -96,7 +111,7 @@ const Workflows = () => {
                                         <tr className="border-b border-[#1A1A1A]">
                                             <th className="py-3 pr-6 text-xs font-mono font-semibold text-[#64748B] lowercase tracking-wider">name</th>
                                             <th className="px-6 py-3 text-xs font-mono font-semibold text-[#64748B] lowercase tracking-wider">status</th>
-                                            <th className="px-6 py-3 text-xs font-mono font-semibold text-[#64748B] lowercase tracking-wider">last_run</th>
+                                            <th className="px-6 py-3 text-xs font-mono font-semibold text-[#64748B] lowercase tracking-wider">created</th>
                                             <th className="pl-6 py-3 text-xs font-mono font-semibold text-[#64748B] lowercase tracking-wider text-right">actions</th>
                                         </tr>
                                     </thead>
@@ -112,15 +127,15 @@ const Workflows = () => {
                                                     {getStatusBadge(workflow.status)}
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-[#64748B]">
-                                                    {workflow.lastRun}
+                                                    {workflow.createdDate}
                                                 </td>
                                                 <td className="pl-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                     <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <button className="text-[#64748B] hover:text-[#6EE7B7] transition-colors" title="Edit" onClick={() => navigate('/workflows/new')}>
+                                                        <button className="text-[#64748B] hover:text-[#6EE7B7] transition-colors" title="Edit" onClick={() => navigate(`/workflows/${workflow.id}`)}>
                                                             <FileEdit className="w-4 h-4" />
                                                         </button>
-                                                        <button className="text-[#64748B] hover:text-[#6EE7B7] transition-colors" title="Run">
-                                                            <Play className="w-4 h-4 fill-current" />
+                                                        <button className="text-[#64748B] hover:text-[#F87171] transition-colors" title="Delete" onClick={() => handleDelete(workflow.id)}>
+                                                            <Trash2 className="w-4 h-4" />
                                                         </button>
                                                     </div>
                                                 </td>

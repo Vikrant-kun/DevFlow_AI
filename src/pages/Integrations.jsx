@@ -11,6 +11,11 @@ const containerVariants = {
     show: { opacity: 1, transition: { staggerChildren: 0.1 } }
 };
 
+const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    show: { opacity: 1, y: 0 }
+};
+
 const Integrations = () => {
     const { user } = useAuth();
     const { showToast } = useToast();

@@ -206,6 +206,7 @@ Rules: first node always trigger, max 8 nodes, labels 2-4 words, descriptions on
 
     const handleSaveDraft = async () => {
         if (!user) {
+        console.log("handleSaveDraft called, user:", user);
             showToast("You must be logged in to save workflows.", "error");
             return;
         }
