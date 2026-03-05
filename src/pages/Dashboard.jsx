@@ -7,14 +7,13 @@ import { useToast } from '../contexts/ToastContext';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
-const stats = [
+const [recentWorkflows, setRecentWorkflows] = useState([]);
+const [stats, setStats] = useState([
     { label: 'Total Workflows', value: '0' },
     { label: 'Runs Today', value: '0' },
     { label: 'Success Rate', value: '—' },
     { label: 'Time Saved', value: '0h' }
-];
-
-const recentWorkflows = [];
+]);
 
 const getStatusBadge = (status) => {
     switch (status) {
@@ -47,6 +46,7 @@ import TopBar from '../components/TopBar';
 const Dashboard = () => {
     const navigate = useNavigate();
     const { showToast } = useToast();
+    const { user } = useAuth();
     const [checklistDismissed, setChecklistDismissed] = useState(true); // Default true until checked
     const [checklistItems, setChecklistItems] = useState([
         { id: 'create_account', label: 'create_account', done: true, route: null },
@@ -72,6 +72,31 @@ const Dashboard = () => {
                 { id: 'create_workflow', label: 'create_first_workflow', done: hasWorkflow, route: '/workflows/new' },
                 { id: 'run_pipeline', label: 'run_first_pipeline', done: hasRun, route: null, locked: true }
             ]);
+
+            if (user) {
+                const { data: workflowsData } = await supabase
+                    .from('workflows')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .order('created_at', { ascending: false });
+
+                if (workflowsData) {
+                    setStats([
+                        { label: 'Total Workflows', value: workflowsData.length.toString() },
+                        { label: 'Runs Today', value: '0' },
+                        { label: 'Success Rate', value: '—' },
+                        { label: 'Time Saved', value: '0h' }
+                    ]);
+
+                    const recent = workflowsData.slice(0, 4).map(w => ({
+                        id: w.id,
+                        name: w.name,
+                        status: w.status.charAt(0).toUpperCase() + w.status.slice(1),
+                        lastRun: w.updated_at ? new Date(w.updated_at).toLocaleDateString() : 'Never'
+                    }));
+                    setRecentWorkflows(recent);
+                }
+            }
         };
         checkStates();
     }, []);
@@ -96,7 +121,6 @@ const Dashboard = () => {
             }
         }
     };
-    const { user } = useAuth();
     return (
         <>
             <TopBar title={<span className="font-mono text-sm text-[#6EE7B7]">~ / dashboard</span>} />

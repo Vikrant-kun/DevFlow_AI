@@ -19,6 +19,8 @@ import TopBar from '../components/TopBar';
 
 import { useLocation } from 'react-router-dom';
 import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 import { templateNodesData } from '../lib/templateNodes';
 
 const nodeTypes = { custom: CustomNode };
@@ -38,6 +40,8 @@ const WorkflowBuilder = () => {
     const [placeholderIndex, setPlaceholderIndex] = useState(0);
     const { showToast } = useToast();
     const location = useLocation();
+    const { user } = useAuth();
+    const [currentWorkflowId, setCurrentWorkflowId] = useState(null);
 
     const placeholders = [
         ">_ When a PR is merged to main, run tests and notify Slack...",
@@ -200,6 +204,75 @@ Rules: first node always trigger, max 8 nodes, labels 2-4 words, descriptions on
         }
     };
 
+    const handleSaveDraft = async () => {
+        if (!user) {
+            showToast("You must be logged in to save workflows.", "error");
+            return;
+        }
+
+        try {
+            const workflowData = {
+                user_id: user.id,
+                name: title,
+                nodes: nodes,
+                edges: edges,
+                status: 'draft',
+                updated_at: new Date().toISOString()
+            };
+
+            if (!currentWorkflowId) {
+                workflowData.created_at = new Date().toISOString();
+            }
+
+            const { data, error } = await supabase
+                .from('workflows')
+                .upsert({ id: currentWorkflowId, ...workflowData })
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            setCurrentWorkflowId(data.id);
+            localStorage.setItem('devflow_has_workflow', 'true');
+            showToast("Workflow saved", "success");
+        } catch (err) {
+            console.error("Save error:", err);
+            showToast("Failed to save", "error");
+        }
+    };
+
+    const handleRunPipeline = async () => {
+        if (!user) {
+            showToast("You must be logged in to run workflows.", "error");
+            return;
+        }
+
+        // Auto save before run if not saved
+        if (!currentWorkflowId) {
+            await handleSaveDraft();
+        }
+
+        try {
+            const { error } = await supabase.from('workflow_runs').insert({
+                user_id: user.id,
+                workflow_id: currentWorkflowId,
+                workflow_name: title,
+                status: 'success',
+                started_at: new Date().toISOString(),
+                duration: '1m 24s',
+                triggered_by: 'manual'
+            });
+
+            if (error) throw error;
+
+            localStorage.setItem('devflow_has_run', 'true');
+            showToast("Pipeline executed successfully", "success");
+        } catch (err) {
+            console.error("Run error:", err);
+            showToast("Failed to run pipeline", "error");
+        }
+    };
+
     return (
         <div className="h-screen flex flex-col w-full">
             <TopBar title={
@@ -222,10 +295,10 @@ Rules: first node always trigger, max 8 nodes, labels 2-4 words, descriptions on
                     )}
                 </div>
             }>
-                <Button variant="ghost" className="gap-2 mr-2">
+                <Button variant="ghost" className="gap-2 mr-2" onClick={handleSaveDraft}>
                     Save Draft
                 </Button>
-                <Button variant="primary" className="gap-2 shadow-glow-primary">
+                <Button variant="primary" className="gap-2 shadow-glow-primary" onClick={handleRunPipeline}>
                     <Play className="w-4 h-4 fill-primary" /> Run Pipeline
                 </Button>
             </TopBar>

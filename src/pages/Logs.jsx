@@ -3,49 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, ChevronRight, Play, Server, Clock, Search, Filter, Terminal } from 'lucide-react';
 import TopBar from '../components/TopBar';
 
-const logsData = [
-    {
-        id: 'run-9823',
-        workflow: 'Production Deployment',
-        status: 'Success',
-        started: '2 mins ago',
-        duration: '1m 24s',
-        trigger: 'GitHub webhook (PR #492)',
-        steps: [
-            { name: 'Pull Request Merged', status: 'Success', duration: '0s', timestamp: '14:32:01' },
-            { name: 'Run Integration Tests', status: 'Success', duration: '45s', timestamp: '14:32:02' },
-            { name: 'Build Docker Image', status: 'Success', duration: '32s', timestamp: '14:32:47' },
-            { name: 'Deploy to ECS', status: 'Success', duration: '7s', timestamp: '14:33:19' }
-        ]
-    },
-    {
-        id: 'run-9822',
-        workflow: 'Nightly Sync',
-        status: 'Failed',
-        started: '8 hours ago',
-        duration: '4m 12s',
-        trigger: 'Schedule (Cron 0 2 * * *)',
-        steps: [
-            { name: 'Trigger on Schedule', status: 'Success', duration: '0s', timestamp: '02:00:00' },
-            { name: 'Backup Production DB', status: 'Success', duration: '3m 10s', timestamp: '02:00:01' },
-            { name: 'Sanitize Data', status: 'Success', duration: '58s', timestamp: '02:03:11' },
-            { name: 'Restore to Staging', status: 'Failed', duration: '4s', timestamp: '02:04:09' }
-        ]
-    },
-    {
-        id: 'run-9821',
-        workflow: 'PR Comment Analyzer',
-        status: 'Running',
-        started: 'Just now',
-        duration: '12s',
-        trigger: 'GitHub webhook (Comment)',
-        steps: [
-            { name: 'Issue Comment Created', status: 'Success', duration: '0s', timestamp: '14:33:45' },
-            { name: 'Analyze Sentiment', status: 'Running', duration: '12s', timestamp: '14:33:46' },
-            { name: 'Label Issue', status: 'Pending', duration: '-', timestamp: '-' }
-        ]
-    }
-];
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 
 const getStatusBadge = (status) => {
     switch (status) {
@@ -68,6 +27,35 @@ const itemVariants = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0, 
 
 const Logs = () => {
     const [expandedRow, setExpandedRow] = useState(null);
+    const { user } = useAuth();
+    const [logsData, setLogsData] = useState([]);
+
+    useEffect(() => {
+        const fetchLogs = async () => {
+            if (!user) return;
+            const { data, error } = await supabase
+                .from('workflow_runs')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('started_at', { ascending: false });
+
+            if (data && !error) {
+                const formatted = data.map(log => ({
+                    id: log.id,
+                    workflow: log.workflow_name || 'Unknown Workflow',
+                    status: log.status.charAt(0).toUpperCase() + log.status.slice(1),
+                    started: new Date(log.started_at).toLocaleString(),
+                    duration: log.duration,
+                    trigger: log.triggered_by,
+                    steps: [
+                        { name: 'Pipeline Initiated', status: log.status.charAt(0).toUpperCase() + log.status.slice(1), duration: log.duration, timestamp: new Date(log.started_at).toLocaleTimeString() }
+                    ]
+                }));
+                setLogsData(formatted);
+            }
+        };
+        fetchLogs();
+    }, [user]);
 
     return (
         <>
@@ -103,7 +91,11 @@ const Logs = () => {
 
                         {/* Data Rows */}
                         <div className="flex flex-col">
-                            {logsData.map((log) => (
+                            {logsData.length === 0 ? (
+                                <div className="py-12 text-center text-[#64748B] font-mono text-sm">
+                                    &gt;_ no execution logs found
+                                </div>
+                            ) : logsData.map((log) => (
                                 <motion.div key={log.id}>
                                     <div
                                         style={{ display: 'grid', gridTemplateColumns: '32px 280px 140px 140px 100px 1fr' }}

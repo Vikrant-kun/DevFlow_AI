@@ -3,8 +3,9 @@ import { Play, FileEdit, Plus } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import TopBar from '../components/TopBar';
 import { Button } from '../components/ui/Button';
-
-const dummyWorkflows = [];
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 
 const getStatusBadge = (status) => {
     switch (status) {
@@ -31,8 +32,30 @@ const itemVariants = {
 
 const Workflows = () => {
     const navigate = useNavigate();
-    // Toggle this to test empty state
-    const workflows = dummyWorkflows;
+    const { user } = useAuth();
+    const [workflows, setWorkflows] = useState([]);
+
+    useEffect(() => {
+        const fetchWorkflows = async () => {
+            if (!user) return;
+            const { data, error } = await supabase
+                .from('workflows')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false });
+
+            if (data && !error) {
+                const formatted = data.map(w => ({
+                    id: w.id,
+                    name: w.name,
+                    status: w.status.charAt(0).toUpperCase() + w.status.slice(1),
+                    lastRun: w.updated_at ? new Date(w.updated_at).toLocaleDateString() : 'Never'
+                }));
+                setWorkflows(formatted);
+            }
+        };
+        fetchWorkflows();
+    }, [user]);
 
     return (
         <>
