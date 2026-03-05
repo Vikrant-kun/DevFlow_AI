@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, FileEdit, Plus, Layers, CheckCircle2, PauseCircle, XCircle, X } from 'lucide-react';
+import { Play, FileEdit, Plus, Layers, CheckCircle2, PauseCircle, XCircle, X, Github, ChevronDown } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { useToast } from '../contexts/ToastContext';
@@ -44,6 +44,11 @@ const Dashboard = () => {
         { label: "Success Rate", value: "—" },
         { label: "Time Saved", value: "0h" }
     ]);
+    const [selectedRepo, setSelectedRepo] = useState(null);
+    const [repos, setRepos] = useState([]);
+    const [isLoadingRepos, setIsLoadingRepos] = useState(false);
+    const [isGithubConnected, setIsGithubConnected] = useState(false);
+    const [showRepoSelector, setShowRepoSelector] = useState(false);
     const { showToast } = useToast();
     const { user } = useAuth();
     const [checklistDismissed, setChecklistDismissed] = useState(true); // Default true until checked
@@ -60,8 +65,44 @@ const Dashboard = () => {
 
         const checkStates = async () => {
             const { data: { user } } = await supabase.auth.getUser();
+            const { data: { session } } = await supabase.auth.getSession();
             const isGithubConnected = user?.app_metadata?.provider === 'github' ||
                 user?.app_metadata?.providers?.includes('github');
+            setIsGithubConnected(!!isGithubConnected);
+
+            if (user && isGithubConnected) {
+                const { data: settings } = await supabase
+                    .from('user_settings')
+                    .select('selected_repo_full_name, selected_repo')
+                    .eq('user_id', user.id)
+                    .single();
+
+                if (settings && (settings.selected_repo_full_name || settings.selected_repo)) {
+                    setSelectedRepo({
+                        name: settings.selected_repo || settings.selected_repo_full_name.split('/')[1],
+                        full_name: settings.selected_repo_full_name || settings.selected_repo
+                    });
+                }
+
+                const token = session?.provider_token;
+                if (token) {
+                    setIsLoadingRepos(true);
+                    try {
+                        const res = await fetch('https://api.github.com/user/repos?sort=updated&per_page=20', {
+                            headers: { Authorization: `Bearer ${token}` }
+                        });
+                        if (res.ok) {
+                            const reposData = await res.json();
+                            setRepos(reposData);
+                        }
+                    } catch (err) {
+                        console.error("Failed to fetch repos", err);
+                    } finally {
+                        setIsLoadingRepos(false);
+                    }
+                }
+            }
+
             const hasWorkflow = localStorage.getItem('devflow_has_workflow') === 'true';
             const hasRun = localStorage.getItem('devflow_has_run') === 'true';
 
@@ -120,6 +161,36 @@ const Dashboard = () => {
             }
         }
     };
+
+    const handleRepoSelect = async (e) => {
+        const repoFullName = e.target.value;
+        const repo = repos.find(r => r.full_name === repoFullName);
+        if (!repo) return;
+
+        setSelectedRepo({
+            name: repo.name,
+            full_name: repo.full_name
+        });
+
+        if (user) {
+            const { error } = await supabase
+                .from('user_settings')
+                .upsert({
+                    user_id: user.id,
+                    selected_repo: repo.name,
+                    selected_repo_full_name: repo.full_name,
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'user_id' });
+
+            if (error) {
+                showToast("Failed to save repository", "error");
+            } else {
+                showToast("Repository updated", "success");
+            }
+        }
+        setShowRepoSelector(false);
+    };
+
     return (
         <>
             <TopBar title={<span className="font-mono text-sm text-[#6EE7B7]">~ / dashboard</span>} />
@@ -186,6 +257,96 @@ const Dashboard = () => {
                                 <h3 className="text-3xl font-mono font-bold tracking-tight text-[#6EE7B7]">{stat.value}</h3>
                             </motion.div>
                         ))}
+                    </motion.div>
+
+                    {/* Active Repository Card */}
+                    <motion.div variants={containerVariants} initial="hidden" animate="show" className="pt-4">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-sm font-mono text-[#64748B] lowercase tracking-wider">active_repository</h3>
+                        </div>
+
+                        <div className="bg-[#111111] border border-[#222222] rounded-md p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-[#0D0D0D] border border-[#222] flex items-center justify-center shrink-0">
+                                    <Github className="w-6 h-6 text-[#F1F5F9]" />
+                                </div>
+                                <div>
+                                    {selectedRepo ? (
+                                        <>
+                                            <h3 className="text-base font-mono font-semibold text-[#F1F5F9] mb-1">{selectedRepo.full_name}</h3>
+                                            <span className="flex items-center gap-2 text-xs font-mono text-[#6EE7B7]">
+                                                <span className="w-2 h-2 rounded-full bg-[#6EE7B7] animate-pulse"></span> connected
+                                            </span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <h3 className="text-base font-mono font-semibold text-[#F1F5F9] mb-1">No repository connected</h3>
+                                            <span className="text-xs font-mono text-[#64748B]">
+                                                Select a GitHub repository to get started with dev pipelines.
+                                            </span>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto relative">
+                                {selectedRepo ? (
+                                    <>
+                                        <Button variant="ghost" onClick={() => setShowRepoSelector(!showRepoSelector)} className="font-mono text-sm border-none shadow-none text-[#F1F5F9]">
+                                            Change Repo
+                                        </Button>
+                                        <Button
+                                            variant="primary"
+                                            className="gap-2 bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] border-none shadow-none font-bold"
+                                            onClick={() => navigate(`/workflows/new?repo=${selectedRepo.full_name}`)}
+                                        >
+                                            Create Workflow →
+                                        </Button>
+                                    </>
+                                ) : (
+                                    <Button
+                                        variant="primary"
+                                        className="gap-2 bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] border-none shadow-none font-bold"
+                                        onClick={() => setShowRepoSelector(!showRepoSelector)}
+                                    >
+                                        Select Repository →
+                                    </Button>
+                                )}
+
+                                <AnimatePresence>
+                                    {showRepoSelector && (
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0, y: 10 }}
+                                            className="absolute right-0 top-full mt-2 w-64 bg-[#111] border border-[#222] shadow-xl z-50 p-3 flex flex-col gap-2 rounded-md"
+                                        >
+                                            {!isGithubConnected ? (
+                                                <div className="text-xs font-mono text-[#F59E0B] p-2 text-center">
+                                                    Connect GitHub in Integrations first.
+                                                    <Button variant="ghost" className="mt-2 text-xs w-full justify-center" onClick={() => navigate('/integrations')}>Go to Integrations</Button>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <div className="text-xs font-mono text-[#64748B] mb-1 px-1">Select repository</div>
+                                                    <select
+                                                        className="w-full bg-[#0A0A0A] border border-[#222] rounded-none text-xs font-mono text-[#F1F5F9] outline-none px-3 py-2 cursor-pointer focus:border-[#444] hover:border-[#333]"
+                                                        value={selectedRepo?.full_name || ''}
+                                                        onChange={handleRepoSelect}
+                                                    >
+                                                        <option value="" disabled>Choose a repo...</option>
+                                                        {repos.map(r => (
+                                                            <option key={r.id} value={r.full_name}>{r.full_name}</option>
+                                                        ))}
+                                                    </select>
+                                                    {isLoadingRepos && <span className="text-[10px] font-mono text-[#64748B] pt-1 border-none shadow-none">Loading...</span>}
+                                                </>
+                                            )}
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </div>
+                        </div>
                     </motion.div>
 
                     <motion.div variants={containerVariants} initial="hidden" animate="show" className="pt-4">

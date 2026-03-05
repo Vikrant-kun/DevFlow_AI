@@ -37,12 +37,12 @@ const Integrations = () => {
                 if (user) {
                     const { data: settings } = await supabase
                         .from('user_settings')
-                        .select('selected_repo')
+                        .select('selected_repo_full_name, selected_repo')
                         .eq('user_id', user.id)
                         .single();
 
-                    if (settings?.selected_repo) {
-                        setSelectedRepo(settings.selected_repo);
+                    if (settings?.selected_repo_full_name || settings?.selected_repo) {
+                        setSelectedRepo(settings.selected_repo_full_name || settings.selected_repo);
                     }
                 }
 
@@ -70,12 +70,18 @@ const Integrations = () => {
 
     const handleRepoChange = async (e) => {
         const repoFullName = e.target.value;
+        const repo = repos.find(r => r.full_name === repoFullName);
         setSelectedRepo(repoFullName);
 
-        if (user) {
+        if (user && repo) {
             const { error } = await supabase
                 .from('user_settings')
-                .upsert({ user_id: user.id, selected_repo: repoFullName });
+                .upsert({
+                    user_id: user.id,
+                    selected_repo: repo.name,
+                    selected_repo_full_name: repo.full_name,
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'user_id' });
 
             if (error) {
                 showToast("Failed to save repository selection", "error");
