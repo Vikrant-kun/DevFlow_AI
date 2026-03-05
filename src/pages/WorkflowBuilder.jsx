@@ -94,13 +94,6 @@ const WorkflowBuilder = () => {
             console.log('API KEY:', import.meta.env.VITE_GROQ_API_KEY)
             console.log('Prompt:', prompt)
             if (!prompt.trim()) return;
-
-
-            const apiKey = import.meta.env.VITE_GROQ_API_KEY;
-            if (model !== 'claude' && model !== 'gemini') {
-                showToast('Coming soon — only Gemini/Claude available in beta', 'error');
-                return;
-            }
             if (!apiKey) {
                 showToast('Missing VITE_GROQ_API_KEY in environment', 'error');
                 return;
