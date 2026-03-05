@@ -93,6 +93,7 @@ const WorkflowBuilder = () => {
         try {
             console.log('API KEY:', import.meta.env.VITE_GROQ_API_KEY)
             console.log('Prompt:', prompt)
+            const apiKey = import.meta.env.VITE_GROQ_API_KEY;
             if (!prompt.trim()) return;
             if (!apiKey) {
                 showToast('Missing VITE_GROQ_API_KEY in environment', 'error');
