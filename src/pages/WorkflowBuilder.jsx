@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
     ReactFlow,
     Background,
@@ -42,6 +42,7 @@ const WorkflowBuilder = () => {
     const location = useLocation();
     const { user } = useAuth();
     const [currentWorkflowId, setCurrentWorkflowId] = useState(null);
+    const textareaRef = useRef(null);
 
     const placeholders = [
         ">_ When a PR is merged to main, run tests and notify Slack...",
@@ -73,6 +74,18 @@ const WorkflowBuilder = () => {
                     }
                 }, idx * 150);
             });
+        } else {
+            const initialPrompt = params.get('prompt');
+            if (initialPrompt) {
+                setPrompt(initialPrompt);
+                if (textareaRef.current) {
+                    textareaRef.current.value = initialPrompt;
+                    setTimeout(() => {
+                        textareaRef.current.style.height = '56px';
+                        textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 200) + 'px';
+                    }, 0);
+                }
+            }
         }
     }, [location, setNodes, setEdges]);
 
@@ -82,6 +95,14 @@ const WorkflowBuilder = () => {
         }, 3000);
         return () => clearInterval(intervalId);
     }, []);
+
+    const handlePromptChange = (e) => {
+        setPrompt(e.target.value);
+        if (textareaRef.current) {
+            textareaRef.current.style.height = '56px';
+            textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 200) + 'px';
+        }
+    };
 
     const onConnect = useCallback((params) => setEdges((eds) => addEdge({ ...params, animated: true, style: { stroke: '#444', strokeWidth: 2, strokeDasharray: '5,5' } }, eds)), [setEdges]);
 
@@ -112,6 +133,7 @@ const WorkflowBuilder = () => {
 Convert the user's description into a structured pipeline.
 Return ONLY valid JSON, no explanation, no markdown, no backticks:
 {
+  "name": "Short 3-5 word workflow name",
   "nodes": [
     {
       "id": "1",
@@ -123,7 +145,7 @@ Return ONLY valid JSON, no explanation, no markdown, no backticks:
   ],
   "edges": [{ "source": "1", "target": "2" }]
 }
-Rules: first node always trigger, max 8 nodes, labels 2-4 words, descriptions one sentence.`;
+Rules: first node always trigger, max 8 nodes, labels 2-4 words, descriptions one sentence. Also include a 'name' field in your JSON response with a short 3-5 word workflow name.`;
 
                 const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                     method: 'POST',
@@ -152,8 +174,33 @@ Rules: first node always trigger, max 8 nodes, labels 2-4 words, descriptions on
 
                 const newNodesData = parsedData.nodes;
                 const newEdgesData = parsedData.edges;
+                const newName = parsedData.name;
 
                 if (!newNodesData) throw new Error("Invalid format received");
+
+                if (newName) setTitle(newName);
+
+                const emailRegex = /[\\w.-]+@[\\w.-]+\\.\\w+/;
+                if (emailRegex.test(prompt)) {
+                    const lastNodeId = newNodesData.length > 0 ? newNodesData[newNodesData.length - 1].id : "0";
+                    const emailId = String(parseInt(lastNodeId) + 1);
+
+                    newNodesData.push({
+                        id: emailId,
+                        type: "notification",
+                        label: "Send Email",
+                        description: "Send notification email",
+                        icon: "mail"
+                    });
+
+                    if (newNodesData.length > 1) {
+                        if (!newEdgesData) parsedData.edges = [];
+                        parsedData.edges.push({
+                            source: lastNodeId,
+                            target: emailId
+                        });
+                    }
+                }
 
                 // Clear existing
                 setNodes([]);
@@ -206,7 +253,7 @@ Rules: first node always trigger, max 8 nodes, labels 2-4 words, descriptions on
 
     const handleSaveDraft = async () => {
         if (!user) {
-        console.log("handleSaveDraft called, user:", user);
+            console.log("handleSaveDraft called, user:", user);
             showToast("You must be logged in to save workflows.", "error");
             return;
         }
@@ -335,6 +382,27 @@ Rules: first node always trigger, max 8 nodes, labels 2-4 words, descriptions on
                         </div>
                     </ReactFlow>
 
+                    {/* Example Prompts */}
+                    <div className="absolute bottom-28 left-1/2 -translate-x-1/2 w-full max-w-3xl px-6 z-10 flex flex-wrap gap-2">
+                        {["Send daily report to Slack", "When issue closed, notify team", "Sync prod database to staging", "On deploy failure, team email"].map(text => (
+                            <button
+                                key={text}
+                                onClick={() => {
+                                    setPrompt(text);
+                                    if (textareaRef.current) {
+                                        textareaRef.current.style.height = '56px';
+                                        setTimeout(() => {
+                                            textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 200) + 'px';
+                                        }, 0);
+                                    }
+                                }}
+                                className="bg-[#111] hover:bg-[#1A1A1A] border border-[#222] text-[#64748B] hover:text-[#F1F5F9] font-mono text-[10px] px-3 py-1.5 transition-colors cursor-pointer"
+                            >
+                                {text}
+                            </button>
+                        ))}
+                    </div>
+
                     {/* AI Input Bar */}
                     <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-full max-w-3xl px-6 z-10">
                         <motion.div
@@ -342,15 +410,16 @@ Rules: first node always trigger, max 8 nodes, labels 2-4 words, descriptions on
                             animate={{ y: 0, opacity: 1 }}
                             className={`bg-[#111111] border border-[#222] shadow-2xl p-1.5 flex items-center gap-2 backdrop-blur-md rounded-none ${isGenerating ? 'animate-pulse' : ''}`}
                         >
-                            <input
-                                type="text"
+                            <textarea
+                                ref={textareaRef}
                                 placeholder={placeholders[placeholderIndex]}
-                                className="flex-1 bg-transparent border-none outline-none font-mono text-sm text-text-primary placeholder:text-text-secondary py-3 px-4 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
+                                className="flex-1 bg-transparent border-none outline-none font-mono text-sm text-text-primary placeholder:text-text-secondary py-[14px] px-4 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 resize-none hidden-scrollbar"
+                                style={{ height: '56px', minHeight: '56px', maxHeight: '200px' }}
                                 value={prompt}
-                                onChange={(e) => setPrompt(e.target.value)}
+                                onChange={handlePromptChange}
                                 disabled={isGenerating}
                             />
-                            <div className="h-6 w-px bg-[#222]"></div>
+                            <div className="h-6 w-px bg-[#222] shrink-0"></div>
                             <select
                                 className="bg-transparent border-none outline-none font-mono text-xs text-[#64748B] py-3 px-2 appearance-none cursor-pointer hover:text-text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 value={model}

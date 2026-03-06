@@ -349,7 +349,43 @@ const Dashboard = () => {
                         </div>
                     </motion.div>
 
-                    <motion.div variants={containerVariants} initial="hidden" animate="show" className="pt-4">
+                    {/* Quick Start Section */}
+                    <motion.div variants={containerVariants} initial="hidden" animate="show" className="pt-8 mt-2 border-t border-[#1A1A1A]">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-sm font-mono text-[#6EE7B7] lowercase tracking-widest">quick_start</h3>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {/* PR Pipeline */}
+                            <div
+                                onClick={() => navigate('/workflows/new?prompt=When a PR is merged to main, run tests and deploy')}
+                                className="bg-[#111] border border-[#1A1A1A] rounded-md p-4 cursor-pointer hover:border-[#6EE7B7] hover:shadow-[0_0_15px_rgba(110,231,183,0.1)] transition-all group"
+                            >
+                                <div className="text-2xl mb-2">🔀</div>
+                                <h4 className="font-mono text-sm text-[#F1F5F9] mb-1 group-hover:text-[#6EE7B7] transition-colors">PR Pipeline</h4>
+                                <p className="font-mono text-xs text-[#64748B]">Auto-test and deploy on merge</p>
+                            </div>
+                            {/* Alert System */}
+                            <div
+                                onClick={() => navigate('/workflows/new?prompt=When a deployment fails, rollback and alert the team')}
+                                className="bg-[#111] border border-[#1A1A1A] rounded-md p-4 cursor-pointer hover:border-[#6EE7B7] hover:shadow-[0_0_15px_rgba(110,231,183,0.1)] transition-all group"
+                            >
+                                <div className="text-2xl mb-2">🔔</div>
+                                <h4 className="font-mono text-sm text-[#F1F5F9] mb-1 group-hover:text-[#6EE7B7] transition-colors">Alert System</h4>
+                                <p className="font-mono text-xs text-[#64748B]">Get notified when things break</p>
+                            </div>
+                            {/* Issue Tracker */}
+                            <div
+                                onClick={() => navigate('/workflows/new?prompt=When a new issue is created, assign it and send email')}
+                                className="bg-[#111] border border-[#1A1A1A] rounded-md p-4 cursor-pointer hover:border-[#6EE7B7] hover:shadow-[0_0_15px_rgba(110,231,183,0.1)] transition-all group"
+                            >
+                                <div className="text-2xl mb-2">📋</div>
+                                <h4 className="font-mono text-sm text-[#F1F5F9] mb-1 group-hover:text-[#6EE7B7] transition-colors">Issue Tracker</h4>
+                                <p className="font-mono text-xs text-[#64748B]">Auto-assign and notify on new issues</p>
+                            </div>
+                        </div>
+                    </motion.div>
+
+                    <motion.div variants={containerVariants} initial="hidden" animate="show" className="pt-8 mt-2 border-t border-[#1A1A1A]">
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="text-sm font-mono text-[#64748B] lowercase tracking-wider">recent workflows</h3>
                         </div>

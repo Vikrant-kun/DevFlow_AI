@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutGrid, GitBranch, Layers, Terminal, Plug, Settings, User as UserIcon, LogOut, Zap } from 'lucide-react';
+import { LayoutGrid, GitBranch, Layers, Terminal, Plug, Settings, User as UserIcon, LogOut, Zap, Users } from "lucide-react";
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabase';
@@ -36,6 +36,7 @@ const Sidebar = () => {
         { icon: Layers, label: 'Templates', path: '/templates' },
         { icon: Terminal, label: 'Logs', path: '/logs' },
         { icon: Plug, label: 'Integrations', path: '/integrations' },
+        { icon: Users, label: 'Team', path: '/team' },
     ];
 
     return (
@@ -160,7 +161,7 @@ const Sidebar = () => {
                                     isExpanded ? "left-0 w-[204px]" : "left-0 w-48"
                                 )}
                             >
-                                <button onClick={() => { setDropdownOpen(false); navigate('/settings'); }} className="w-full text-left px-4 py-2 font-mono text-xs text-text-secondary hover:text-text-primary hover:bg-[#1A1A1A] flex items-center gap-2 transition-colors">
+                                <button onClick={() => { setDropdownOpen(false); navigate('/profile'); }} className="w-full text-left px-4 py-2 font-mono text-xs text-text-secondary hover:text-text-primary hover:bg-[#1A1A1A] flex items-center gap-2 transition-colors">
                                     <UserIcon className="w-3.5 h-3.5" /> profile
                                 </button>
                                 <div className="h-px bg-[#1A1A1A] my-1"></div>

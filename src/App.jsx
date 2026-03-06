@@ -21,6 +21,8 @@ import Logs from './pages/Logs';
 import Integrations from './pages/Integrations';
 import Settings from './pages/Settings';
 import Upgrade from './pages/Upgrade';
+import Profile from './pages/Profile';
+import Team from './pages/Team';
 
 const pageTransition = {
   initial: { opacity: 0, y: 10 },
@@ -112,9 +114,19 @@ const AnimatedRoutes = () => {
               <Settings />
             </motion.div>
           } />
+          <Route path="/profile" element={
+            <motion.div key="profile" {...pageTransition} className="h-full bg-background min-h-screen">
+              <Profile />
+            </motion.div>
+          } />
           <Route path="/upgrade" element={
             <motion.div key="upgrade" {...pageTransition} className="h-full bg-background min-h-screen">
               <Upgrade />
+            </motion.div>
+          } />
+          <Route path="/team" element={
+            <motion.div key="team" {...pageTransition} className="h-full bg-background min-h-screen">
+              <Team />
             </motion.div>
           } />
         </Route>
