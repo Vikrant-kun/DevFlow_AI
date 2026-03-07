@@ -20,7 +20,7 @@ const iconMap = {
 const typeColors = {
     trigger: { border: 'bg-[#6EE7B7]', text: 'text-[#6EE7B7]', shadow: 'hover:shadow-glow-primary' },
     action: { border: 'bg-[#64748B]', text: 'text-[#64748B]', shadow: 'hover:shadow-[0_0_20px_rgba(100,116,139,0.3)]' },
-    ai: { border: 'bg-[#A78BFA]', text: 'text-[#A78BFA]', shadow: 'hover:shadow-[0_0_20px_rgba(167,139,250,0.4)]' },
+    ai: { border: 'bg-[#F1F5F9]', text: 'text-[#F1F5F9]', shadow: 'hover:shadow-[0_0_20px_rgba(241,245,249,0.4)]' },
     notification: { border: 'bg-[#F59E0B]', text: 'text-[#F59E0B]', shadow: 'hover:shadow-[0_0_20px_rgba(245,158,11,0.3)]' }
 };
 
@@ -42,7 +42,7 @@ const CustomNode = ({ data, selected }) => {
 
             <div className="pl-4 pr-3 py-3">
                 <div className="flex items-start gap-3">
-                    <div className={cn("mt-0.5 p-1.5 rounded-md bg-[#222222]", colors.text)}>
+                    <div className={cn("mt-0.5 p-1.5 rounded-xl bg-[#222222]", colors.text)}>
                         <IconComponent className="w-4 h-4" />
                     </div>
                     <div>

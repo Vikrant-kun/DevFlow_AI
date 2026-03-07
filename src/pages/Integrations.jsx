@@ -114,7 +114,7 @@ const Integrations = () => {
                         {integrations.map((integration) => {
                             const Icon = integration.icon;
                             return (
-                                <motion.div key={integration.id} variants={itemVariants} className="bg-[#111111] border border-[#222222] rounded-none p-6 flex flex-col justify-between">
+                                <motion.div key={integration.id} variants={itemVariants} className="bg-[#111111] border border-[#222222] rounded-xl p-6 flex flex-col justify-between">
                                     <div className="flex items-start justify-between mb-4">
                                         <div className="flex items-center gap-4">
                                             <div className="w-12 h-12 bg-[#0D0D0D] border border-[#222] flex items-center justify-center shrink-0">
@@ -134,16 +134,16 @@ const Integrations = () => {
                                                         <span className="w-2 h-2 rounded-full bg-[#6EE7B7]"></span> connected
                                                     </span>
                                                     <div className="relative group flex items-center h-full">
-                                                        <button className="text-xs font-mono text-[#64748B] px-4 py-2 border border-[#222] hover:text-text-primary hover:border-[#444] transition-colors rounded-none">
+                                                        <button className="text-xs font-mono text-[#64748B] px-4 py-2 border border-[#222] hover:text-text-primary hover:border-[#444] transition-colors rounded-xl">
                                                             Manage
                                                         </button>
-                                                        <div className="absolute right-0 mt-2 w-48 bg-[#111] border border-[#222] rounded-md shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 top-full">
+                                                        <div className="absolute right-0 mt-2 w-48 bg-[#111] border border-[#222] rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 top-full">
                                                             <div className="p-1">
                                                                 <div className="px-4 py-2 text-xs text-[#64748B] border-b border-[#222] mb-1">
                                                                     {user?.user_metadata?.user_name ? `@${user.user_metadata.user_name}` : 'GitHub User'}
                                                                 </div>
-                                                                <a href={`https://github.com/${user?.user_metadata?.user_name || ''}`} target="_blank" rel="noreferrer" className="block w-full text-left px-4 py-2 text-sm text-[#F1F5F9] hover:bg-[#222] rounded-sm transition-colors">View on GitHub →</a>
-                                                                <button onClick={() => showToast("Disconnect coming soon", "info")} className="w-full text-left px-4 py-2 text-sm text-[#ef4444] hover:bg-[#222] rounded-sm transition-colors">Disconnect</button>
+                                                                <a href={`https://github.com/${user?.user_metadata?.user_name || ''}`} target="_blank" rel="noreferrer" className="block w-full text-left px-4 py-2 text-sm text-[#F1F5F9] hover:bg-[#222] rounded-xl transition-colors">View on GitHub →</a>
+                                                                <button onClick={() => showToast("Disconnect coming soon", "info")} className="w-full text-left px-4 py-2 text-sm text-[#ef4444] hover:bg-[#222] rounded-xl transition-colors">Disconnect</button>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -153,7 +153,7 @@ const Integrations = () => {
                                                     <span className="flex items-center gap-2 text-xs font-mono text-[#64748B]">
                                                         <span className="w-2 h-2 rounded-full bg-[#333]"></span> disconnected
                                                     </span>
-                                                    <button className="text-xs font-mono text-[#080808] bg-[#6EE7B7] hover:bg-[#34D399] px-4 py-2 transition-colors rounded-none">
+                                                    <button className="text-xs font-mono text-[#080808] bg-[#6EE7B7] hover:bg-[#34D399] px-4 py-2 transition-colors rounded-xl">
                                                         Connect
                                                     </button>
                                                 </>
@@ -171,7 +171,7 @@ const Integrations = () => {
                                                     )}
                                                 </div>
                                                 <select
-                                                    className="w-full bg-[#111] border border-[#222] rounded-none text-xs font-mono text-[#F1F5F9] outline-none px-3 py-2 focus:border-[#444] transition-colors appearance-none cursor-pointer hover:border-[#333]"
+                                                    className="w-full bg-[#111] border border-[#222] rounded-xl text-xs font-mono text-[#F1F5F9] outline-none px-3 py-2 focus:border-[#444] transition-colors appearance-none cursor-pointer hover:border-[#333]"
                                                     value={selectedRepo || ''}
                                                     onChange={handleRepoChange}
                                                 >

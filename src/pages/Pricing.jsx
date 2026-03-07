@@ -6,7 +6,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import confetti from 'canvas-confetti';
 
-// ── Animated price number ──
 const AnimatedPrice = ({ value }) => {
     const [display, setDisplay] = useState(value);
     const prevRef = useRef(value);
@@ -28,18 +27,16 @@ const AnimatedPrice = ({ value }) => {
     return <span>{display}</span>;
 };
 
-// ── Star particle ──
 const StarParticle = ({ mouseX, mouseY, containerRef }) => {
     const [pos] = useState({ x: Math.random() * 100, y: Math.random() * 100 });
     const [size] = useState(1 + Math.random() * 1.5);
-    const [color] = useState(Math.random() > 0.5 ? '#6EE7B7' : '#A78BFA');
+    const [color] = useState(Math.random() > 0.5 ? '#6EE7B7' : '#60A5FA');
     const [delay] = useState(Math.random() * 5);
     const [dur] = useState(2 + Math.random() * 3);
     const mx = useMotionValue(0);
     const my = useMotionValue(0);
     const sx = useSpring(mx, { stiffness: 80, damping: 20, mass: 0.1 });
     const sy = useSpring(my, { stiffness: 80, damping: 20, mass: 0.1 });
-
     useEffect(() => {
         if (!containerRef.current || mouseX === null) { mx.set(0); my.set(0); return; }
         const rect = containerRef.current.getBoundingClientRect();
@@ -50,7 +47,6 @@ const StarParticle = ({ mouseX, mouseY, containerRef }) => {
         if (dist < 350) { const f = (1 - dist / 350) * 0.4; mx.set(dx * f); my.set(dy * f); }
         else { mx.set(0); my.set(0); }
     }, [mouseX, mouseY]);
-
     return (
         <motion.div className="absolute rounded-full pointer-events-none"
             style={{ left: `${pos.x}%`, top: `${pos.y}%`, width: size, height: size, backgroundColor: color, x: sx, y: sy }}
@@ -59,7 +55,6 @@ const StarParticle = ({ mouseX, mouseY, containerRef }) => {
     );
 };
 
-// ── Data ──
 const plans = [
     {
         id: 'free', name: 'Free', icon: Zap, iconColor: '#64748B',
@@ -81,8 +76,8 @@ const plans = [
         missing: [],
     },
     {
-        id: 'team', name: 'Team', icon: Star, iconColor: '#A78BFA',
-        border: 'border-[#A78BFA]/30', glow: 'shadow-[0_0_30px_rgba(167,139,250,0.08)]',
+        id: 'team', name: 'Team', icon: Star, iconColor: '#60A5FA',
+        border: 'border-[#60A5FA]/30', glow: 'shadow-[0_0_30px_rgba(96,165,250,0.08)]',
         badge: null, lift: false,
         monthly: 29, yearly: 23, inr: '~₹2,490 / mo', period: 'month',
         desc: 'For teams building together',
@@ -118,8 +113,51 @@ const faqs = [
     { q: 'can I switch plans anytime?', a: 'Yes — upgrade or downgrade anytime. Changes take effect immediately and billing is prorated automatically.' },
     { q: 'is there a free trial?', a: 'Every paid plan includes a 14-day free trial. No credit card required to start.' },
     { q: 'what happens if I exceed my run limit?', a: 'We notify you at 80% usage. Once you hit the limit, workflows pause until the next billing cycle or you upgrade.' },
-    { q: 'do you offer student or OSS discounts?', a: 'Yes — reach out at hello@devflowai.com with proof. We offer 50% off for verified students and open source maintainers.' },
+    { q: 'do you offer student or OSS discounts?', a: 'Yes — reach out at hello@devflowai.com. We offer 50% off for verified students and open source maintainers.' },
 ];
+
+// ── Shared billing toggle (used by both Pricing and Upgrade) ──
+export const BillingToggle = ({ isYearly, onToggle }) => {
+    const toggleRef = useRef(null);
+    const handleToggle = (yearly) => {
+        if (yearly === isYearly) return;
+        onToggle(yearly);
+        if (yearly && toggleRef.current) {
+            const rect = toggleRef.current.getBoundingClientRect();
+            confetti({
+                particleCount: 80, spread: 70,
+                origin: { x: (rect.left + rect.width / 2) / window.innerWidth, y: (rect.top + rect.height / 2) / window.innerHeight },
+                colors: ['#6EE7B7', '#F1F5F9', '#60A5FA'],
+                ticks: 250, gravity: 1.1, decay: 0.93, startVelocity: 28,
+            });
+        }
+    };
+    return (
+        <div ref={toggleRef} className="relative inline-flex items-center bg-[#111] border border-[#1A1A1A] rounded-xl p-1">
+            {/* fixed-width pill that slides */}
+            <motion.div
+                className="absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-xl bg-[#6EE7B7]"
+                animate={{ left: isYearly ? 'calc(50% + 0px)' : '4px' }}
+                transition={{ type: 'spring', stiffness: 400, damping: 35 }}
+            />
+            <button
+                onClick={() => handleToggle(false)}
+                className={`relative z-10 w-32 py-2 font-mono text-sm rounded-xl transition-colors ${!isYearly ? 'text-[#080808] font-bold' : 'text-[#64748B]'}`}
+            >
+                monthly
+            </button>
+            <button
+                onClick={() => handleToggle(true)}
+                className={`relative z-10 w-32 py-2 font-mono text-sm rounded-xl transition-colors flex items-center justify-center gap-1 ${isYearly ? 'text-[#080808] font-bold' : 'text-[#64748B]'}`}
+            >
+                yearly
+                <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-xl border font-bold transition-all whitespace-nowrap ${isYearly ? 'bg-[#080808]/20 text-[#080808] border-[#080808]/20' : 'bg-[#6EE7B7]/10 text-[#6EE7B7] border-[#6EE7B7]/30'}`}>
+                    save 20%
+                </span>
+            </button>
+        </div>
+    );
+};
 
 const Pricing = () => {
     const navigate = useNavigate();
@@ -129,22 +167,7 @@ const Pricing = () => {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [mouse, setMouse] = useState({ x: null, y: null });
     const containerRef = useRef(null);
-    const toggleRef = useRef(null);
     const stars = useRef(Array.from({ length: 150 }, (_, i) => i));
-
-    const handleToggle = (yearly) => {
-        if (yearly === isYearly) return;
-        setIsYearly(yearly);
-        if (yearly && toggleRef.current) {
-            const rect = toggleRef.current.getBoundingClientRect();
-            confetti({
-                particleCount: 80, spread: 70,
-                origin: { x: (rect.left + rect.width / 2) / window.innerWidth, y: (rect.top + rect.height / 2) / window.innerHeight },
-                colors: ['#6EE7B7', '#A78BFA', '#60A5FA'],
-                ticks: 250, gravity: 1.1, decay: 0.93, startVelocity: 28,
-            });
-        }
-    };
 
     return (
         <div ref={containerRef}
@@ -152,7 +175,6 @@ const Pricing = () => {
             onMouseMove={(e) => setMouse({ x: e.clientX, y: e.clientY })}
             onMouseLeave={() => setMouse({ x: null, y: null })}>
 
-            {/* Starfield */}
             <div className="fixed inset-0 pointer-events-none z-0">
                 {stars.current.map((i) => <StarParticle key={i} mouseX={mouse.x} mouseY={mouse.y} containerRef={containerRef} />)}
             </div>
@@ -160,8 +182,8 @@ const Pricing = () => {
             {/* Navbar */}
             <nav className="fixed top-0 w-full z-50 border-b border-[#1A1A1A] bg-[#080808]/80 backdrop-blur-md">
                 <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
-                    <Link to="/" className="flex items-center gap-2 font-bold text-xl">
-                        <span>DevFlow</span><span className="text-[#6EE7B7]">AI</span>
+                    <Link to="/" className="flex items-center gap-2 font-bold text-xl font-mono hover:bg-white/5 hover:rounded-xl px-2 py-1 -ml-2 transition-colors">
+                        <span className="text-[#F1F5F9]">DevFlow</span><span className="text-[#6EE7B7]">AI</span>
                     </Link>
                     <div className="hidden md:flex items-center gap-8 text-sm font-medium text-[#64748B]">
                         <a href="/#features" className="hover:text-[#F1F5F9] transition-colors">Features</a>
@@ -182,8 +204,8 @@ const Pricing = () => {
                             </div>
                         ) : (
                             <>
-                                <button onClick={() => navigate('/auth?mode=login')} className="font-mono text-sm text-[#64748B] hover:text-white px-4 py-2 transition-colors">Log in</button>
-                                <button onClick={() => navigate('/auth?mode=signup')} className="font-mono text-sm bg-[#6EE7B7] text-[#080808] px-4 py-2 font-bold hover:bg-[#34D399] transition-colors">Sign up</button>
+                                <button onClick={() => navigate('/auth?mode=login')} className="font-mono text-sm text-[#64748B] hover:text-white px-4 py-2 transition-colors rounded-xl">Log in</button>
+                                <button onClick={() => navigate('/auth?mode=signup')} className="font-mono text-sm bg-[#6EE7B7] text-[#080808] px-4 py-2 font-bold hover:bg-[#34D399] transition-colors rounded-xl">Sign up</button>
                             </>
                         )}
                     </div>
@@ -196,12 +218,12 @@ const Pricing = () => {
                         <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
                             className="md:hidden bg-[#0D0D0D] border-t border-[#1A1A1A] overflow-hidden">
                             <div className="px-4 py-4 space-y-1">
-                                {[['/#features','Features'],['/about','About'],['/pricing','Pricing'],['/docs','Docs']].map(([href, label]) => (
+                                {[['/#features', 'Features'], ['/about', 'About'], ['/pricing', 'Pricing'], ['/docs', 'Docs']].map(([href, label]) => (
                                     <Link key={href} to={href} onClick={() => setMobileMenuOpen(false)} className="block py-2.5 text-sm text-[#64748B] hover:text-white border-b border-[#1A1A1A] transition-colors">{label}</Link>
                                 ))}
                                 <div className="pt-3 flex gap-3">
-                                    <button className="flex-1 font-mono text-xs border border-[#1A1A1A] text-[#64748B] py-2 hover:text-white transition-colors" onClick={() => { navigate('/auth?mode=login'); setMobileMenuOpen(false); }}>Log in</button>
-                                    <button className="flex-1 font-mono text-xs bg-[#6EE7B7] text-[#080808] py-2 font-bold hover:bg-[#34D399] transition-colors" onClick={() => { navigate('/auth?mode=signup'); setMobileMenuOpen(false); }}>Sign up</button>
+                                    <button className="flex-1 font-mono text-xs border border-[#1A1A1A] text-[#64748B] py-2 hover:text-white transition-colors rounded-xl" onClick={() => { navigate('/auth?mode=login'); setMobileMenuOpen(false); }}>Log in</button>
+                                    <button className="flex-1 font-mono text-xs bg-[#6EE7B7] text-[#080808] py-2 font-bold hover:bg-[#34D399] transition-colors rounded-xl" onClick={() => { navigate('/auth?mode=signup'); setMobileMenuOpen(false); }}>Sign up</button>
                                 </div>
                             </div>
                         </motion.div>
@@ -209,7 +231,6 @@ const Pricing = () => {
                 </AnimatePresence>
             </nav>
 
-            {/* Main */}
             <main className="relative z-10 flex-1 pt-32 pb-24 px-4 md:px-6">
                 <div className="max-w-7xl mx-auto">
 
@@ -224,22 +245,7 @@ const Pricing = () => {
 
                     {/* Toggle */}
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="flex justify-center mb-16">
-                        <div ref={toggleRef} className="relative flex items-center bg-[#111] border border-[#1A1A1A] rounded-full p-1">
-                            <motion.div className="absolute top-1 bottom-1 rounded-full bg-[#6EE7B7]"
-                                animate={{ left: isYearly ? '50%' : '4px', right: isYearly ? '4px' : '50%' }}
-                                transition={{ type: 'spring', stiffness: 400, damping: 35 }} />
-                            <button onClick={() => handleToggle(false)}
-                                className={`relative z-10 px-5 py-2 font-mono text-sm rounded-full transition-colors ${!isYearly ? 'text-[#080808] font-bold' : 'text-[#64748B]'}`}>
-                                monthly
-                            </button>
-                            <button onClick={() => handleToggle(true)}
-                                className={`relative z-10 px-5 py-2 font-mono text-sm rounded-full transition-colors flex items-center gap-2 ${isYearly ? 'text-[#080808] font-bold' : 'text-[#64748B]'}`}>
-                                yearly
-                                <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full border font-bold transition-all ${isYearly ? 'bg-[#080808]/20 text-[#080808] border-[#080808]/20' : 'bg-[#6EE7B7]/10 text-[#6EE7B7] border-[#6EE7B7]/30'}`}>
-                                    save 20%
-                                </span>
-                            </button>
-                        </div>
+                        <BillingToggle isYearly={isYearly} onToggle={setIsYearly} />
                     </motion.div>
 
                     {/* Cards */}
@@ -254,7 +260,7 @@ const Pricing = () => {
                                     className={`relative bg-[#0D0D0D] border ${plan.border} ${plan.glow} rounded-2xl p-7 flex flex-col ${plan.lift ? 'lg:-translate-y-5' : ''}`}>
                                     {plan.badge && (
                                         <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                                            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full font-mono text-[10px] font-bold uppercase tracking-wider whitespace-nowrap"
+                                            <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl font-mono text-[10px] font-bold uppercase tracking-wider whitespace-nowrap"
                                                 style={{ backgroundColor: plan.badge.color + '18', color: plan.badge.color, border: `1px solid ${plan.badge.color}40` }}>
                                                 <Star className="w-3 h-3 fill-current" />{plan.badge.label}
                                             </div>
@@ -294,33 +300,27 @@ const Pricing = () => {
                                         ))}
                                     </div>
                                     {plan.ctaStyle === 'primary' && (
-                                        <button onClick={() => navigate(plan.href)} className="w-full font-mono text-xs font-bold py-3 bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] transition-colors">
-                                            {plan.cta} →
-                                        </button>
+                                        <button onClick={() => navigate(plan.href)} className="w-full font-mono text-xs font-bold py-3 bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] transition-colors rounded-xl">{plan.cta} →</button>
                                     )}
                                     {plan.ctaStyle === 'violet' && (
-                                        <button onClick={() => navigate(plan.href)} className="w-full font-mono text-xs font-bold py-3 bg-[#A78BFA]/10 text-[#A78BFA] border border-[#A78BFA]/30 hover:bg-[#A78BFA]/20 transition-colors">
-                                            {plan.cta} →
-                                        </button>
+                                        <button onClick={() => navigate(plan.href)} className="w-full font-mono text-xs font-bold py-3 bg-[#60A5FA]/10 text-[#60A5FA] border border-[#60A5FA]/30 hover:bg-[#60A5FA]/20 transition-colors rounded-xl">{plan.cta} →</button>
                                     )}
                                     {plan.ctaStyle === 'ghost' && (
                                         <button onClick={() => plan.href.startsWith('mailto') ? (window.location.href = plan.href) : navigate(plan.href)}
-                                            className="w-full font-mono text-xs py-3 border border-[#1A1A1A] text-[#64748B] hover:text-white hover:border-[#333] transition-colors">
-                                            {plan.cta} →
-                                        </button>
+                                            className="w-full font-mono text-xs py-3 border border-[#1A1A1A] text-[#64748B] hover:text-white hover:border-[#333] transition-colors rounded-xl">{plan.cta} →</button>
                                     )}
                                 </motion.div>
                             );
                         })}
                     </div>
 
-                    {/* Comparison Table — desktop only */}
+                    {/* Comparison Table */}
                     <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="hidden md:block mb-24">
                         <h2 className="font-mono text-xs text-[#64748B] uppercase tracking-widest text-center mb-8">feature_comparison</h2>
                         <div className="bg-[#0D0D0D] border border-[#1A1A1A] rounded-2xl overflow-hidden">
                             <div className="grid grid-cols-5 border-b border-[#1A1A1A]">
                                 <div className="p-5 font-mono text-xs text-[#333] uppercase tracking-widest">feature</div>
-                                {[['Free','#64748B'],['Pro','#6EE7B7'],['Team','#A78BFA'],['Enterprise','#F1F5F9']].map(([label, color]) => (
+                                {[['Free', '#64748B'], ['Pro', '#6EE7B7'], ['Team', '#60A5FA'], ['Enterprise', '#F1F5F9']].map(([label, color]) => (
                                     <div key={label} className="p-5 text-center font-mono text-xs font-bold uppercase tracking-widest" style={{ color }}>{label}</div>
                                 ))}
                             </div>
@@ -331,7 +331,7 @@ const Pricing = () => {
                                         <div key={j} className="p-4 flex justify-center items-center">
                                             {val === true ? <Check className="w-4 h-4 text-[#6EE7B7]" />
                                                 : val === false ? <Minus className="w-4 h-4 text-[#222]" />
-                                                : <span className="font-mono text-xs text-[#64748B] text-center">{val}</span>}
+                                                    : <span className="font-mono text-xs text-[#64748B] text-center">{val}</span>}
                                         </div>
                                     ))}
                                 </div>
@@ -374,16 +374,11 @@ const Pricing = () => {
                             <h2 className="text-2xl md:text-3xl font-bold text-white mb-2 font-mono">start free. upgrade anytime.</h2>
                             <p className="font-mono text-xs text-[#64748B] mb-8">14-day free trial on all paid plans. no credit card required.</p>
                             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                                <button onClick={() => navigate('/auth')} className="w-full sm:w-auto font-mono text-sm font-bold bg-[#6EE7B7] text-[#080808] px-8 py-3 hover:bg-[#34D399] transition-colors">
-                                    start_free →
-                                </button>
-                                <a href="mailto:hello@devflowai.com" className="w-full sm:w-auto font-mono text-sm text-[#64748B] border border-[#1A1A1A] px-8 py-3 hover:text-white hover:border-[#333] transition-colors text-center">
-                                    talk_to_us →
-                                </a>
+                                <button onClick={() => navigate('/auth')} className="w-full sm:w-auto font-mono text-sm font-bold bg-[#6EE7B7] text-[#080808] px-8 py-3 hover:bg-[#34D399] transition-colors rounded-xl">start_free →</button>
+                                <a href="mailto:hello@devflowai.com" className="w-full sm:w-auto font-mono text-sm text-[#64748B] border border-[#1A1A1A] px-8 py-3 hover:text-white hover:border-[#333] transition-colors text-center rounded-xl">talk_to_us →</a>
                             </div>
                         </div>
                     </motion.div>
-
                 </div>
             </main>
 

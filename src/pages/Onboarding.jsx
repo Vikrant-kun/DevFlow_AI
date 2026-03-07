@@ -81,7 +81,7 @@ const Onboarding = () => {
                         </p>
                         <button
                             onClick={() => setStep(2)}
-                            className="mt-4 px-8 py-3 bg-[#6EE7B7] hover:bg-[#34D399] text-[#080808] font-mono text-sm uppercase tracking-widest transition-colors rounded-none outline-none"
+                            className="mt-4 px-8 py-3 bg-[#6EE7B7] hover:bg-[#34D399] text-[#080808] font-mono text-sm uppercase tracking-widest transition-colors rounded-xl outline-none"
                         >
                             Let's go &rarr;
                         </button>
@@ -153,7 +153,7 @@ const Onboarding = () => {
                         <div className="flex flex-col items-center gap-4 mt-4">
                             <button
                                 onClick={() => setStep(3)}
-                                className="px-8 py-3 bg-white hover:bg-[#E2E8F0] text-[#080808] font-mono text-sm uppercase tracking-widest transition-colors rounded-none outline-none"
+                                className="px-8 py-3 bg-white hover:bg-[#E2E8F0] text-[#080808] font-mono text-sm uppercase tracking-widest transition-colors rounded-xl outline-none"
                             >
                                 Continue &rarr;
                             </button>

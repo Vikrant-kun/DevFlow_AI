@@ -11,14 +11,14 @@
     --surface-2: #1A1A1A;
     --border: #222222;
     --accent-mint: #6EE7B7;
-    --accent-violet: #A78BFA;
+    --accent-slate: #64748B;
     --text-primary: #F1F5F9;
     --text-secondary: #64748B;
     --error: #F87171;
   }
 
   body {
-    @apply bg-background text-text-primary font-sans antialiased;
+    @apply bg-[#080808] text-[#F1F5F9] font-sans antialiased;
     overflow-x: hidden;
   }
 

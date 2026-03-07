@@ -35,7 +35,7 @@ const Templates = () => {
                         {templates.map((tpl, i) => {
                             const Icon = tpl.icon;
                             return (
-                                <motion.div key={i} variants={itemVariants} className="bg-[#111] border border-[#222] rounded-none p-6 hover:border-[#6EE7B7] transition-colors group flex flex-col h-full relative cursor-pointer" onClick={() => navigate(`/workflows/new?template=${tpl.slug}`)}>
+                                <motion.div key={i} variants={itemVariants} className="bg-[#111] border border-[#222] rounded-xl p-6 hover:border-[#6EE7B7] transition-colors group flex flex-col h-full relative cursor-pointer" onClick={() => navigate(`/workflows/new?template=${tpl.slug}`)}>
                                     <div className="flex items-start justify-between mb-4">
                                         <div className="w-10 h-10 bg-[#222] flex items-center justify-center shrink-0 group-hover:bg-[#6EE7B7] group-hover:text-[#080808] transition-colors text-[#64748B]">
                                             <Icon className="w-5 h-5 group-hover:fill-current" />

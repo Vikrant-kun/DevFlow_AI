@@ -142,7 +142,7 @@ const Profile = () => {
 
                     {/* Left Column: Avatar Card */}
                     <motion.div variants={containerVariants} initial="hidden" animate="show" className="w-full lg:w-[300px] shrink-0 space-y-6">
-                        <motion.div variants={itemVariants} className="bg-[#111] border border-[#1A1A1A] p-6 rounded-md text-center flex flex-col items-center">
+                        <motion.div variants={itemVariants} className="bg-[#111] border border-[#1A1A1A] p-6 rounded-xl text-center flex flex-col items-center">
 
                             <div className="w-[80px] h-[80px] shrink-0 bg-[#6EE7B7] rounded-full overflow-hidden flex items-center justify-center text-[#080808] font-mono text-3xl mb-4 uppercase relative">
                                 {avatarUrl ? (
@@ -191,7 +191,7 @@ const Profile = () => {
                                         type="text"
                                         value={fullName}
                                         onChange={(e) => setFullName(e.target.value)}
-                                        className="w-full bg-[#111] border border-[#1A1A1A] rounded-none px-4 py-3 font-mono text-sm text-[#F1F5F9] focus:border-[#6EE7B7] outline-none transition-colors"
+                                        className="w-full bg-[#111] border border-[#1A1A1A] rounded-xl px-4 py-3 font-mono text-sm text-[#F1F5F9] focus:border-[#6EE7B7] outline-none transition-colors"
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -200,7 +200,7 @@ const Profile = () => {
                                         type="text"
                                         value={displayName}
                                         onChange={(e) => setDisplayName(e.target.value)}
-                                        className="w-full bg-[#111] border border-[#1A1A1A] rounded-none px-4 py-3 font-mono text-sm text-[#F1F5F9] focus:border-[#6EE7B7] outline-none transition-colors"
+                                        className="w-full bg-[#111] border border-[#1A1A1A] rounded-xl px-4 py-3 font-mono text-sm text-[#F1F5F9] focus:border-[#6EE7B7] outline-none transition-colors"
                                     />
                                 </div>
                             </div>
@@ -211,7 +211,7 @@ const Profile = () => {
                                     rows="3"
                                     value={bio}
                                     onChange={(e) => setBio(e.target.value)}
-                                    className="w-full bg-[#111] border border-[#1A1A1A] rounded-none px-4 py-3 font-mono text-sm text-[#F1F5F9] focus:border-[#6EE7B7] outline-none transition-colors resize-none"
+                                    className="w-full bg-[#111] border border-[#1A1A1A] rounded-xl px-4 py-3 font-mono text-sm text-[#F1F5F9] focus:border-[#6EE7B7] outline-none transition-colors resize-none"
                                 />
                             </div>
 
@@ -222,7 +222,7 @@ const Profile = () => {
                                         type="text"
                                         value={location}
                                         onChange={(e) => setLocation(e.target.value)}
-                                        className="w-full bg-[#111] border border-[#1A1A1A] rounded-none px-4 py-3 font-mono text-sm text-[#F1F5F9] focus:border-[#6EE7B7] outline-none transition-colors"
+                                        className="w-full bg-[#111] border border-[#1A1A1A] rounded-xl px-4 py-3 font-mono text-sm text-[#F1F5F9] focus:border-[#6EE7B7] outline-none transition-colors"
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -231,7 +231,7 @@ const Profile = () => {
                                         type="text"
                                         value={website}
                                         onChange={(e) => setWebsite(e.target.value)}
-                                        className="w-full bg-[#111] border border-[#1A1A1A] rounded-none px-4 py-3 font-mono text-sm text-[#F1F5F9] focus:border-[#6EE7B7] outline-none transition-colors"
+                                        className="w-full bg-[#111] border border-[#1A1A1A] rounded-xl px-4 py-3 font-mono text-sm text-[#F1F5F9] focus:border-[#6EE7B7] outline-none transition-colors"
                                     />
                                 </div>
                             </div>
@@ -252,25 +252,25 @@ const Profile = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
                                     <label className="text-xs font-mono text-[#64748B] lowercase">email</label>
-                                    <div className="w-full bg-[#111] border border-[#1A1A1A] rounded-none px-4 py-3 font-mono text-sm text-[#64748B] opacity-70">
+                                    <div className="w-full bg-[#111] border border-[#1A1A1A] rounded-xl px-4 py-3 font-mono text-sm text-[#64748B] opacity-70">
                                         {userEmail}
                                     </div>
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-xs font-mono text-[#64748B] lowercase">user_id</label>
-                                    <div className="w-full bg-[#111] border border-[#1A1A1A] rounded-none px-4 py-3 font-mono text-sm text-[#64748B] opacity-70">
+                                    <div className="w-full bg-[#111] border border-[#1A1A1A] rounded-xl px-4 py-3 font-mono text-sm text-[#64748B] opacity-70">
                                         {user?.id?.substring(0, 8)}...
                                     </div>
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-xs font-mono text-[#64748B] lowercase">last_login</label>
-                                    <div className="w-full bg-[#111] border border-[#1A1A1A] rounded-none px-4 py-3 font-mono text-sm text-[#F1F5F9]">
+                                    <div className="w-full bg-[#111] border border-[#1A1A1A] rounded-xl px-4 py-3 font-mono text-sm text-[#F1F5F9]">
                                         {lastLoginDate}
                                     </div>
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-xs font-mono text-[#64748B] lowercase">account_type</label>
-                                    <div className="w-full bg-[#111] border border-[#1A1A1A] rounded-none px-4 py-3 font-mono text-sm text-[#F1F5F9] flex justify-between items-center">
+                                    <div className="w-full bg-[#111] border border-[#1A1A1A] rounded-xl px-4 py-3 font-mono text-sm text-[#F1F5F9] flex justify-between items-center">
                                         <span>free plan</span>
                                         <a href="/upgrade" className="text-[#6EE7B7] hover:text-[#34D399] transition-colors lowercase font-bold">upgrade →</a>
                                     </div>
@@ -285,7 +285,7 @@ const Profile = () => {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-2">
                                         <label className="text-xs font-mono text-[#64748B] lowercase">github_username</label>
-                                        <div className="w-full bg-[#111] border border-[#1A1A1A] rounded-none px-4 py-3 font-mono text-sm text-[#F1F5F9] flex justify-between items-center">
+                                        <div className="w-full bg-[#111] border border-[#1A1A1A] rounded-xl px-4 py-3 font-mono text-sm text-[#F1F5F9] flex justify-between items-center">
                                             <span>{user.user_metadata?.user_name || 'username'}</span>
                                             <a
                                                 href={`https://github.com/${user.user_metadata?.user_name}`}
@@ -299,7 +299,7 @@ const Profile = () => {
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-xs font-mono text-[#64748B] lowercase">active_repository</label>
-                                        <div className="w-full bg-[#111] border border-[#1A1A1A] rounded-none px-4 py-3 font-mono text-sm text-[#F1F5F9]">
+                                        <div className="w-full bg-[#111] border border-[#1A1A1A] rounded-xl px-4 py-3 font-mono text-sm text-[#F1F5F9]">
                                             {selectedRepo || <span className="text-[#64748B]">None selected</span>}
                                         </div>
                                     </div>

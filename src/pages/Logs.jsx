@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, ChevronRight, Play, Server, Clock, Search, Filter, Terminal } from 'lucide-react';
+import { CheckCircle2, ChevronRight, Play, Server, Clock, Search, Filter, Terminal, AlertCircle } from 'lucide-react';
 import TopBar from '../components/TopBar';
 
 import { supabase } from '../lib/supabase';
@@ -8,18 +8,37 @@ import { useAuth } from '../contexts/AuthContext';
 
 const getStatusBadge = (status) => {
     switch (status) {
-        case 'Success': return <span className="inline-flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-[#6EE7B7]"></span><span>Success</span></span>;
-        case 'Running': return <span className="inline-flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]"></span><span>Running</span></span>;
-        case 'Failed': return <span className="inline-flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-[#F87171]"></span><span>Failed</span></span>;
-        default: return null;
+        case 'Success':
+            return (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#6EE7B7]/10 border border-[#6EE7B7]/20 text-[#6EE7B7] text-[10px] md:text-xs font-mono">
+                    <CheckCircle2 className="w-3 h-3" />
+                    <span>Success</span>
+                </span>
+            );
+        case 'Running':
+            return (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#F59E0B]/10 border border-[#F59E0B]/20 text-[#F59E0B] text-[10px] md:text-xs font-mono">
+                    <Play className="w-3 h-3 animate-pulse" />
+                    <span>Running</span>
+                </span>
+            );
+        case 'Failed':
+            return (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#F87171]/10 border border-[#F87171]/20 text-[#F87171] text-[10px] md:text-xs font-mono">
+                    <AlertCircle className="w-3 h-3" />
+                    <span>Failed</span>
+                </span>
+            );
+        default:
+            return null;
     }
 };
 
 const getStepIcon = (status) => {
-    if (status === 'Success') return <CheckCircle2 className="w-4 h-4 text-primary" />;
-    if (status === 'Failed') return <Server className="w-4 h-4 text-error" />;
+    if (status === 'Success') return <CheckCircle2 className="w-4 h-4 text-[#6EE7B7]" />;
+    if (status === 'Failed') return <AlertCircle className="w-4 h-4 text-[#F87171]" />;
     if (status === 'Running') return <Play className="w-4 h-4 text-[#F59E0B]" />;
-    return <Clock className="w-4 h-4 text-[#444]" />;
+    return <Clock className="w-4 h-4 text-[#64748B]" />;
 };
 
 const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } };
@@ -29,10 +48,15 @@ const Logs = () => {
     const [expandedRow, setExpandedRow] = useState(null);
     const { user } = useAuth();
     const [logsData, setLogsData] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         const fetchLogs = async () => {
-            if (!user) return;
+            setIsLoading(true);
+            if (!user) {
+                setIsLoading(false);
+                return;
+            }
             const { data, error } = await supabase
                 .from('workflow_runs')
                 .select('*')
@@ -44,121 +68,165 @@ const Logs = () => {
                     id: log.id,
                     workflow: log.workflow_name || 'Unknown Workflow',
                     status: log.status.charAt(0).toUpperCase() + log.status.slice(1),
-                    started: new Date(log.started_at).toLocaleString(),
+                    started: new Date(log.started_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }),
                     duration: log.duration,
                     trigger: log.triggered_by,
                     steps: [
-                        { name: 'Pipeline Initiated', status: log.status.charAt(0).toUpperCase() + log.status.slice(1), duration: log.duration, timestamp: new Date(log.started_at).toLocaleTimeString() }
+                        { name: 'Pipeline Initiated', status: 'Success', duration: '0s', timestamp: new Date(log.started_at).toLocaleTimeString() },
+                        { name: 'Execution Completed', status: log.status.charAt(0).toUpperCase() + log.status.slice(1), duration: log.duration, timestamp: new Date(new Date(log.started_at).getTime() + 84000).toLocaleTimeString() }
                     ]
                 }));
                 setLogsData(formatted);
             }
+            setIsLoading(false);
         };
         fetchLogs();
     }, [user]);
 
     return (
-        <>
-            <TopBar title="Execution Logs" />
-            <div className="p-6">
-                <div className="w-full max-w-6xl mx-auto space-y-8 pb-12">
-                    <motion.div variants={containerVariants} initial="hidden" animate="show" className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                        <motion.div variants={itemVariants}>
-                            <h2 className="text-2xl font-bold text-text-primary">Execution Logs</h2>
-                            <p className="text-text-secondary text-sm mt-1">Detailed history and step-by-step traces of all your workflow runs.</p>
+        <div className="flex flex-col h-[100dvh] bg-[#080808] overflow-hidden">
+            <TopBar title={<span className="font-mono text-xs md:text-sm font-bold text-[#F1F5F9]">Logs</span>} />
+
+            <div className="flex-1 overflow-y-auto p-4 md:p-8">
+                <div className="w-full max-w-6xl mx-auto space-y-6 md:space-y-8 pb-12">
+
+                    {/* Header Section */}
+                    <motion.div variants={containerVariants} initial="hidden" animate="show" className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+                        <motion.div variants={itemVariants} className="space-y-1">
+                            <h2 className="text-2xl md:text-3xl font-mono font-bold text-[#F1F5F9] tracking-tight">Execution Logs</h2>
+                            <p className="text-[#64748B] font-mono text-xs md:text-sm">Detailed history and step-by-step traces of all your workflow runs.</p>
                         </motion.div>
-                        <motion.div variants={itemVariants} className="flex gap-3">
-                            <div className="relative">
-                                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
-                                <input type="text" placeholder="Search runs..." className="pl-9 pr-4 py-2 bg-[#111] border border-[#222] rounded-lg text-sm text-text-primary outline-none focus:border-primary transition-colors w-64" />
+                        <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                            <div className="relative flex-1 sm:flex-none">
+                                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#64748B]" />
+                                <input type="text" placeholder="Search runs..." className="w-full sm:w-64 pl-9 pr-4 py-2 h-10 bg-[#111] border border-[#222] rounded-xl font-mono text-xs text-[#F1F5F9] outline-none focus:border-[#6EE7B7]/50 focus:bg-[#1A1A1A] transition-all" />
                             </div>
-                            <button className="px-3 py-2 bg-[#111] border border-[#222] rounded-lg text-text-secondary hover:text-text-primary hover:border-[#333] transition-colors flex items-center gap-2">
+                            <button className="px-4 py-2 h-10 bg-[#111] border border-[#222] rounded-xl font-mono text-xs text-[#64748B] hover:text-[#F1F5F9] hover:bg-[#1A1A1A] hover:border-[#333] transition-all flex items-center justify-center gap-2 w-full sm:w-auto">
                                 <Filter className="w-4 h-4" /> Filter
                             </button>
                         </motion.div>
                     </motion.div>
 
-                    <motion.div variants={containerVariants} initial="hidden" animate="show" className="w-full">
-                        {/* Header Row */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '32px 280px 140px 140px 100px 1fr' }} className="pb-3 border-b border-[#1A1A1A]">
-                            <div></div>
-                            <div className="font-mono text-[11px] tracking-widest uppercase text-[#64748B]">WORKFLOW</div>
-                            <div className="font-mono text-[11px] tracking-widest uppercase text-[#64748B]">STATUS</div>
-                            <div className="font-mono text-[11px] tracking-widest uppercase text-[#64748B]">STARTED</div>
-                            <div className="font-mono text-[11px] tracking-widest uppercase text-[#64748B]">DURATION</div>
-                            <div className="font-mono text-[11px] tracking-widest uppercase text-[#64748B]">TRIGGERED BY</div>
-                        </div>
+                    {/* Table Section */}
+                    <motion.div variants={containerVariants} initial="hidden" animate="show" className="w-full bg-[#0D0D0D] border border-[#222] rounded-2xl overflow-hidden shadow-2xl">
 
-                        {/* Data Rows */}
-                        <div className="flex flex-col">
-                            {logsData.length === 0 ? (
-                                <div className="py-12 text-center text-[#64748B] font-mono text-sm">
-                                    &gt;_ no execution logs found
+                        <div className="w-full overflow-x-auto scrollbar-thin scrollbar-thumb-[#333] scrollbar-track-transparent">
+                            <div className="min-w-[900px]">
+
+                                {/* Table Header */}
+                                <div style={{ display: 'grid', gridTemplateColumns: '48px 2fr 1fr 1.5fr 1fr 1fr' }} className="py-3 bg-[#111] border-b border-[#222] px-2">
+                                    <div></div>
+                                    <div className="font-mono text-[10px] font-semibold tracking-widest uppercase text-[#64748B]">Workflow</div>
+                                    <div className="font-mono text-[10px] font-semibold tracking-widest uppercase text-[#64748B]">Status</div>
+                                    <div className="font-mono text-[10px] font-semibold tracking-widest uppercase text-[#64748B]">Started</div>
+                                    <div className="font-mono text-[10px] font-semibold tracking-widest uppercase text-[#64748B]">Duration</div>
+                                    <div className="font-mono text-[10px] font-semibold tracking-widest uppercase text-[#64748B]">Triggered By</div>
                                 </div>
-                            ) : logsData.map((log) => (
-                                <motion.div key={log.id}>
-                                    <div
-                                        style={{ display: 'grid', gridTemplateColumns: '32px 280px 140px 140px 100px 1fr' }}
-                                        className="py-4 border-b border-[#111111] hover:bg-[#0D0D0D] transition cursor-pointer group items-center"
-                                        onClick={() => setExpandedRow(expandedRow === log.id ? null : log.id)}
-                                    >
-                                        <div className="pl-2">
-                                            <ChevronRight className={`w - 4 h - 4 text - [#64748B] group - hover: text - [#F1F5F9] transition - transform duration - 200 ${expandedRow === log.id ? 'rotate-90' : ''} `} />
-                                        </div>
-                                        <div className="font-mono text-sm text-[#F1F5F9] truncate pr-4">
-                                            {log.workflow}
-                                        </div>
-                                        <div className="font-mono text-sm text-[#F1F5F9]">
-                                            {getStatusBadge(log.status)}
-                                        </div>
-                                        <div className="font-mono text-sm text-[#64748B]">
-                                            {log.started}
-                                        </div>
-                                        <div className="font-mono text-sm text-[#64748B]">
-                                            {log.duration}
-                                        </div>
-                                        <div className="font-mono text-sm text-[#64748B] truncate">
-                                            {log.trigger}
-                                        </div>
-                                    </div>
 
-                                    <AnimatePresence>
-                                        {expandedRow === log.id && (
-                                            <motion.div
-                                                initial={{ opacity: 0, height: 0 }}
-                                                animate={{ opacity: 1, height: 'auto' }}
-                                                exit={{ opacity: 0, height: 0 }}
-                                                className="bg-[#0A0A0A] overflow-hidden"
+                                {/* Table Body */}
+                                <div className="flex flex-col">
+                                    {isLoading ? (
+                                        <div className="py-20 flex flex-col items-center justify-center text-[#64748B] space-y-4">
+                                            <div className="w-6 h-6 border-2 border-[#64748B] border-t-transparent rounded-full animate-spin" />
+                                            <span className="font-mono text-xs">Loading logs...</span>
+                                        </div>
+                                    ) : logsData.length === 0 ? (
+                                        <div className="py-20 text-center text-[#64748B] font-mono text-sm border-t border-[#111]">
+                                            &gt;_ No execution logs found.
+                                        </div>
+                                    ) : logsData.map((log) => (
+                                        <div key={log.id} className="flex flex-col border-b border-[#222] last:border-0 group">
+
+                                            {/* Main Row */}
+                                            <div
+                                                style={{ display: 'grid', gridTemplateColumns: '48px 2fr 1fr 1.5fr 1fr 1fr' }}
+                                                className={`py-3.5 px-2 items-center transition-all cursor-pointer ${expandedRow === log.id ? 'bg-[#111]' : 'hover:bg-[#111]/50'}`}
+                                                onClick={() => setExpandedRow(expandedRow === log.id ? null : log.id)}
                                             >
-                                                <div className="px-6 py-6 border-b border-[#222]">
-                                                    <div className="max-w-4xl mx-auto space-y-4">
-                                                        <h4 className="flex items-center gap-2 text-sm font-semibold text-text-primary mb-4 p-2 bg-[#151515] rounded border border-[#222]">
-                                                            <Terminal className="w-4 h-4 text-text-secondary" /> Trace: {log.id}
-                                                        </h4>
-                                                        {log.steps.map((step, idx) => (
-                                                            <div key={idx} className="flex items-center justify-between text-sm py-2 px-4 rounded-lg bg-[#111] border border-[#222] hover:border-[#333] transition-colors">
-                                                                <div className="flex items-center gap-3">
-                                                                    <span className="text-text-secondary min-w-[60px] font-mono text-xs">{step.timestamp}</span>
-                                                                    {getStepIcon(step.status)}
-                                                                    <span className={`font - medium ${step.status === 'Failed' ? 'text-error' : 'text-text-primary'} `}>{step.name}</span>
+                                                <div className="flex justify-center">
+                                                    <ChevronRight className={`w-4 h-4 text-[#64748B] group-hover:text-[#F1F5F9] transition-transform duration-200 ${expandedRow === log.id ? 'rotate-90 text-[#6EE7B7]' : ''}`} />
+                                                </div>
+                                                <div className="font-mono text-xs md:text-sm font-medium text-[#F1F5F9] truncate pr-4">
+                                                    {log.workflow}
+                                                </div>
+                                                <div>
+                                                    {getStatusBadge(log.status)}
+                                                </div>
+                                                <div className="font-mono text-xs text-[#9CA3AF]">
+                                                    {log.started}
+                                                </div>
+                                                <div className="font-mono text-xs text-[#9CA3AF]">
+                                                    {log.duration}
+                                                </div>
+                                                <div className="font-mono text-xs text-[#9CA3AF] truncate flex items-center gap-2">
+                                                    <span className="w-5 h-5 rounded-full bg-[#1A1A1A] border border-[#333] flex items-center justify-center text-[10px]">🤖</span>
+                                                    {log.trigger}
+                                                </div>
+                                            </div>
+
+                                            {/* Expanded Trace View */}
+                                            <AnimatePresence>
+                                                {expandedRow === log.id && (
+                                                    <motion.div
+                                                        initial={{ opacity: 0, height: 0 }}
+                                                        animate={{ opacity: 1, height: 'auto' }}
+                                                        exit={{ opacity: 0, height: 0 }}
+                                                        className="bg-[#080808] border-t border-[#222] overflow-hidden"
+                                                    >
+                                                        <div className="p-6 md:p-8 pl-[64px] relative">
+
+                                                            {/* Vertical Timeline Line */}
+                                                            <div className="absolute left-[79px] top-10 bottom-10 w-px bg-[#222]" />
+
+                                                            <div className="space-y-6 max-w-3xl relative">
+                                                                <div className="flex items-center justify-between">
+                                                                    <h4 className="flex items-center gap-2 text-xs font-mono font-bold text-[#64748B]">
+                                                                        <Terminal className="w-4 h-4" /> Trace ID: <span className="text-[#F1F5F9] select-all">{log.id}</span>
+                                                                    </h4>
+                                                                    <button className="text-xs font-mono text-[#6EE7B7] hover:underline">View Raw JSON</button>
                                                                 </div>
-                                                                <div className="flex items-center gap-6 text-text-secondary">
-                                                                    <span>{step.duration}</span>
+
+                                                                <div className="space-y-4">
+                                                                    {log.steps.map((step, idx) => (
+                                                                        <div key={idx} className="flex items-start gap-4 relative z-10 group/step">
+                                                                            <div className="mt-0.5 bg-[#080808] p-1 rounded-full border border-[#222] group-hover/step:border-[#444] transition-colors">
+                                                                                {getStepIcon(step.status)}
+                                                                            </div>
+
+                                                                            <div className="flex-1 bg-[#111] border border-[#222] rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 group-hover/step:border-[#333] transition-colors">
+                                                                                <div className="flex flex-col gap-1">
+                                                                                    <span className={`font-mono text-sm font-semibold ${step.status === 'Failed' ? 'text-[#F87171]' : 'text-[#F1F5F9]'}`}>
+                                                                                        {step.name}
+                                                                                    </span>
+                                                                                    <span className="font-mono text-[10px] text-[#64748B]">
+                                                                                        {step.timestamp}
+                                                                                    </span>
+                                                                                </div>
+
+                                                                                <div className="flex items-center gap-3">
+                                                                                    <span className="font-mono text-xs text-[#64748B] bg-[#0D0D0D] border border-[#222] px-2 py-1 rounded-md">
+                                                                                        {step.duration}
+                                                                                    </span>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
                                                                 </div>
                                                             </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
-                                </motion.div>
-                            ))}
+                                                        </div>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
                     </motion.div>
+
                 </div>
             </div>
-        </>
+        </div>
     );
 };
 

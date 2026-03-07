@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Github, Zap, GitBranch, Sparkles } from 'lucide-react';
+import { Github, Zap, GitBranch, Sparkles, ArrowLeft } from 'lucide-react';
 
 const Auth = () => {
     const [searchParams] = useSearchParams();
@@ -17,6 +17,29 @@ const Auth = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [completedNodes, setCompletedNodes] = useState([0]);
+    const [terminalLines, setTerminalLines] = useState([]);
+
+    const TERMINAL_SEQUENCE = [
+        '>_ REQUESTING_ACCESS...',
+        '>_ STATUS: UNAUTHORIZED',
+        '>_ ACTION: PLEASE_SIGN_IN',
+    ];
+
+    useEffect(() => {
+        let lineIdx = 0;
+        const showNext = () => {
+            if (lineIdx < TERMINAL_SEQUENCE.length) {
+                const line = TERMINAL_SEQUENCE[lineIdx];
+                lineIdx++;
+                setTerminalLines(prev => [...prev, line]);
+                setTimeout(showNext, 700);
+            } else {
+                setTimeout(() => { setTerminalLines([]); lineIdx = 0; setTimeout(showNext, 400); }, 3500);
+            }
+        };
+        const t = setTimeout(showNext, 600);
+        return () => clearTimeout(t);
+    }, []);
 
     useEffect(() => {
         let step = 0;
@@ -84,12 +107,19 @@ const Auth = () => {
 
 
     return (
-        <div className="min-h-screen bg-background text-text-primary flex">
+        <div className="min-h-screen bg-background text-text-primary flex relative">
+            {/* Back button — top-left for unauthenticated users */}
+            {!user && (
+                <Link to="/"
+                    className="absolute top-4 left-4 z-50 flex items-center gap-1.5 font-mono text-xs text-[#64748B] hover:text-[#6EE7B7] transition-colors bg-[#111] border border-[#222] hover:border-[#6EE7B7]/40 px-3 py-2 rounded-xl"
+                >
+                    <ArrowLeft className="w-3.5 h-3.5" /> Back
+                </Link>
+            )}
             {/* Left Half - Animated Visualization */}
             <div className="hidden lg:flex w-1/2 bg-[#080808] border-r border-border p-12 flex-col relative overflow-hidden justify-center items-center">
-                <Link to="/" className="absolute top-12 left-12 flex items-center gap-2 font-bold text-2xl z-10 hover:opacity-80 transition-opacity">
-                    <span>DevFlow</span>
-                    <span className="text-primary text-glow-primary">AI</span>
+                <Link to="/" className="flex items-center justify-center gap-2 font-bold text-2xl font-mono mb-8 hover:bg-white/5 hover:rounded-xl pt-2 pb-2 px-4 transition-colors">
+                    <span className="text-[#F1F5F9]">DevFlow</span><span className="text-[#6EE7B7]">AI</span>
                 </Link>
 
                 <div className="flex flex-col items-center justify-center w-full relative flex-1">
@@ -132,16 +162,33 @@ const Auth = () => {
 
             {/* Right Half - Auth Form */}
             <div className="flex-1 bg-surface-1 flex items-center justify-center p-8 sm:p-12 relative overflow-y-auto">
-                <div className="w-full max-w-sm space-y-8">
+                <div className="w-full max-w-sm space-y-6">
 
-                    <div className="flex bg-surface-2 p-1 rounded-xl mb-8 border border-border">
+                    {/* Mobile-only terminal identity card */}
+                    <div className="lg:hidden bg-[#0D0D0D] border border-[#222] rounded-xl p-4 mb-2">
+                        <div className="flex gap-1.5 mb-3">
+                            <div className="w-2 h-2 rounded-full bg-[#FF5F56]" />
+                            <div className="w-2 h-2 rounded-full bg-[#FFBD2E]" />
+                            <div className="w-2 h-2 rounded-full bg-[#27C93F]" />
+                        </div>
+                        <div className="font-mono text-xs space-y-1.5 min-h-[60px]">
+                            {terminalLines.map((line, i) => (
+                                <div key={i} className={`${i === terminalLines.length - 1 ? 'text-[#6EE7B7]' : 'text-[#333]'} flex items-center gap-1`}>
+                                    <span>{line}</span>
+                                    {i === terminalLines.length - 1 && <span className="inline-block w-1.5 h-3 bg-[#6EE7B7] animate-pulse ml-0.5" />}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="flex bg-surface-2 p-1 rounded-xl mb-2 border border-border">
                         <button
                             onClick={() => setIsLogin(false)}
-                            className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${!isLogin ? 'bg-surface-1 text-text-primary shadow-sm border border-border/50' : 'text-text-secondary hover:text-text-primary'}`}
+                            className={`flex-1 py-2 text-sm font-medium rounded-xl transition-all ${!isLogin ? 'bg-surface-1 text-text-primary shadow-sm border border-border/50' : 'text-text-secondary hover:text-text-primary'}`}
                         >Sign up</button>
                         <button
                             onClick={() => setIsLogin(true)}
-                            className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${isLogin ? 'bg-surface-1 text-text-primary shadow-sm border border-border/50' : 'text-text-secondary hover:text-text-primary'}`}
+                            className={`flex-1 py-2 text-sm font-medium rounded-xl transition-all ${isLogin ? 'bg-surface-1 text-text-primary shadow-sm border border-border/50' : 'text-text-secondary hover:text-text-primary'}`}
                         >Log in</button>
                     </div>
 
@@ -151,10 +198,10 @@ const Auth = () => {
                     </div>
 
                     <div className="space-y-4">
-                        <Button variant="dark" className="w-full gap-2 relative group" onClick={() => handleOAuth('github')}>
+                        <Button variant="dark" className="w-full gap-2 relative group rounded-xl" onClick={() => handleOAuth('github')}>
                             <Github className="h-5 w-5 group-hover:text-text-primary text-text-secondary transition-colors" /> Continue with GitHub
                         </Button>
-                        <Button variant="dark" className="w-full gap-2 relative group" onClick={() => handleOAuth('google')}>
+                        <Button variant="dark" className="w-full gap-2 relative group rounded-xl" onClick={() => handleOAuth('google')}>
                             <svg className="h-5 w-5 opacity-70 group-hover:opacity-100 transition-opacity" viewBox="0 0 24 24">
                                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
                                 <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
@@ -171,7 +218,7 @@ const Auth = () => {
                     </div>
 
                     {error && (
-                        <div className="bg-error/10 border border-error/20 text-error text-sm rounded-lg p-3">
+                        <div className="bg-error/10 border border-error/20 text-error text-sm rounded-xl p-3">
                             {error}
                         </div>
                     )}
@@ -188,6 +235,7 @@ const Auth = () => {
                                         onChange={(e) => setFullName(e.target.value)}
                                         required={!isLogin}
                                         isValid={fullName.length > 2}
+                                        className="rounded-xl"
                                     />
                                 </motion.div>
                             )}
@@ -201,6 +249,7 @@ const Auth = () => {
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
                                 isValid={email.includes('@')}
+                                className="rounded-xl"
                             />
                         </div>
                         <div>
@@ -212,12 +261,13 @@ const Auth = () => {
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
                                 isValid={password.length >= 6}
+                                className="rounded-xl"
                             />
                         </div>
 
-                        <Button type="submit" className="w-full mt-2" disabled={loading}>
+                        <button type="submit" className="w-full mt-2 py-2 bg-[#6EE7B7] text-[#080808] font-bold hover:bg-[#34D399] transition-colors rounded-xl" disabled={loading}>
                             {loading ? 'Processing...' : isLogin ? 'Log in' : 'Sign up'}
-                        </Button>
+                        </button>
                     </form>
 
                 </div>
