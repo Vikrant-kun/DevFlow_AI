@@ -1,3 +1,6 @@
 node_modules
 dist
 .env
+.envy
+.env
+.env.local
