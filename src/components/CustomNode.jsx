@@ -11,61 +11,75 @@ const iconMap = {
     'code': Code,
     'database': Database,
     'mail': Mail,
+    'play': Zap,
     'trigger': GitBranch,
     'action': Zap,
     'ai': Sparkles,
-    'notification': Bell
+    'notification': Bell,
 };
 
 const typeColors = {
-    trigger: { border: 'bg-[#6EE7B7]', text: 'text-[#6EE7B7]', shadow: 'hover:shadow-glow-primary' },
-    action: { border: 'bg-[#64748B]', text: 'text-[#64748B]', shadow: 'hover:shadow-[0_0_20px_rgba(100,116,139,0.3)]' },
-    ai: { border: 'bg-[#F1F5F9]', text: 'text-[#F1F5F9]', shadow: 'hover:shadow-[0_0_20px_rgba(241,245,249,0.4)]' },
-    notification: { border: 'bg-[#F59E0B]', text: 'text-[#F59E0B]', shadow: 'hover:shadow-[0_0_20px_rgba(245,158,11,0.3)]' }
+    trigger: { strip: '#6EE7B7', text: '#6EE7B7', iconBg: 'rgba(110,231,183,0.12)', label: '#F1F5F9', shadow: '0 0 20px rgba(110,231,183,0.15)' },
+    action: { strip: '#64748B', text: '#94A3B8', iconBg: 'rgba(148,163,184,0.10)', label: '#F1F5F9', shadow: '0 0 20px rgba(100,116,139,0.15)' },
+    ai: { strip: '#A78BFA', text: '#A78BFA', iconBg: 'rgba(167,139,250,0.12)', label: '#F1F5F9', shadow: '0 0 20px rgba(167,139,250,0.20)' },
+    notification: { strip: '#F59E0B', text: '#F59E0B', iconBg: 'rgba(245,158,11,0.12)', label: '#F1F5F9', shadow: '0 0 20px rgba(245,158,11,0.15)' },
 };
 
 const CustomNode = ({ data, selected }) => {
-    const { type = 'action', label, description, icon } = data;
-    const colors = typeColors[type] || typeColors.action;
+    const rawType = data?.type || 'action';
+    const type = typeColors[rawType] ? rawType : 'action';
+    const colors = typeColors[type];
 
-    // Choose icon based on explicit 'icon' field or fallback to 'type'
+    const label = data?.label || 'Step';
+    const description = data?.description || '';
+    const icon = data?.icon;
+
     const IconComponent = iconMap[icon] || iconMap[type] || Zap;
 
     return (
-        <div className={cn(
-            "relative w-[280px] bg-[#111111] border rounded-xl overflow-hidden transition-all duration-300",
-            selected ? "border-text-primary" : "border-[#222222]",
-            colors.shadow
-        )}>
+        <div
+            className={cn(
+                'relative w-[260px] bg-[#111] border rounded-xl overflow-hidden transition-all duration-300 cursor-pointer',
+                selected ? 'border-[#6EE7B7]/60' : 'border-[#222] hover:border-[#333]'
+            )}
+            style={{ boxShadow: selected ? colors.shadow : 'none' }}
+        >
             {/* Colored left strip */}
-            <div className={cn("absolute left-0 top-0 bottom-0 w-1", colors.border)} />
+            <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl"
+                style={{ background: colors.strip }} />
 
-            <div className="pl-4 pr-3 py-3">
+            <div className="pl-5 pr-4 py-3.5">
                 <div className="flex items-start gap-3">
-                    <div className={cn("mt-0.5 p-1.5 rounded-xl bg-[#222222]", colors.text)}>
-                        <IconComponent className="w-4 h-4" />
+                    {/* Icon */}
+                    <div className="mt-0.5 p-1.5 rounded-lg shrink-0"
+                        style={{ background: colors.iconBg }}>
+                        <IconComponent className="w-4 h-4" style={{ color: colors.text }} />
                     </div>
-                    <div>
-                        <div className="font-semibold text-text-primary text-sm tracking-tight">{label}</div>
-                        <div className="text-[11px] font-medium text-text-secondary uppercase tracking-wider mt-0.5 mb-1">{type}</div>
-                        <div className="text-xs text-[#888888] leading-tight line-clamp-2">{description}</div>
+
+                    {/* Text */}
+                    <div className="min-w-0">
+                        <div className="font-mono text-sm font-semibold leading-snug truncate"
+                            style={{ color: colors.label }}>
+                            {label}
+                        </div>
+                        <div className="font-mono text-[9px] uppercase tracking-widest mt-0.5 mb-1.5"
+                            style={{ color: colors.text }}>
+                            {type}
+                        </div>
+                        <div className="font-mono text-[10px] leading-relaxed line-clamp-2"
+                            style={{ color: '#64748B' }}>
+                            {description}
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* Always add both handles so flow layout works naturally, hiding left on triggers */}
             {type !== 'trigger' && (
-                <Handle
-                    type="target"
-                    position={Position.Left}
-                    className="w-3 h-3 bg-[#222222] border-2 border-[#444444]"
-                />
+                <Handle type="target" position={Position.Left}
+                    className="!w-3 !h-3 !bg-[#1A1A1A] !border-2 !border-[#333]" />
             )}
-            <Handle
-                type="source"
-                position={Position.Right}
-                className="w-3 h-3 bg-[#222222] border-2 border-[#444444]"
-            />
+            <Handle type="source" position={Position.Right}
+                className="!w-3 !h-3 !bg-[#1A1A1A] !border-2 !border-[#333]" />
         </div>
     );
 };
