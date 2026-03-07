@@ -1,10 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bell, ChevronDown, User as UserIcon, Settings, LogOut, CheckCircle2, Zap, GitCommit, AlertCircle } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
-import { useToast } from '../contexts/ToastContext';
-import { supabase } from '../lib/supabase';
+import { Bell, CheckCircle2, Zap, GitCommit, AlertCircle, User as UserIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
+import WebhookDisplay from './WebhookDisplay';
 
 // Using inline icon references to ensure no import collisions
 const MOCK_NOTIFICATIONS = [
@@ -13,24 +11,15 @@ const MOCK_NOTIFICATIONS = [
 ];
 
 const TopBar = ({ title, children }) => {
-    const { user } = useAuth();
     const navigate = useNavigate();
-    const { showToast } = useToast();
-    const [dropdownOpen, setDropdownOpen] = useState(false);
     const [notificationsOpen, setNotificationsOpen] = useState(false);
-    const dropdownRef = useRef(null);
     const notificationsRef = useRef(null);
 
     // Animated List state
     const [activeNotifications, setActiveNotifications] = useState(MOCK_NOTIFICATIONS);
 
-    const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
-
     useEffect(() => {
         const handleClickOutside = (event) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-                setDropdownOpen(false);
-            }
             if (notificationsRef.current && !notificationsRef.current.contains(event.target)) {
                 setNotificationsOpen(false);
             }
@@ -73,17 +62,6 @@ const TopBar = ({ title, children }) => {
         return () => clearInterval(interval);
     }, [notificationsOpen]);
 
-    const handleLogout = async () => {
-        await supabase.auth.signOut();
-    };
-
-    const getGreeting = () => {
-        const hour = new Date().getHours();
-        if (hour < 12) return 'Good morning';
-        if (hour < 18) return 'Good afternoon';
-        return 'Good evening';
-    };
-
     // Helper to render the correct icon safely
     const renderIcon = (type, color) => {
         const props = { className: "h-4 w-4", style: { color } };
@@ -98,18 +76,17 @@ const TopBar = ({ title, children }) => {
     };
 
     return (
-        <header className="h-16 flex items-center justify-between px-4 md:px-6 border-b border-[#1A1A1A] bg-[#080808]/80 backdrop-blur-md sticky top-0 z-30 shrink-0 transition-colors duration-300">
+        <header className="h-14 md:h-16 flex items-center justify-between px-4 md:px-6 border-b border-[#222] bg-[#080808]/80 backdrop-blur-md sticky top-0 z-40 shrink-0 transition-colors duration-300">
+
+            {/* Left side (Title) */}
             <div className="flex items-center min-w-0 flex-1 mr-2">
-                {typeof title === 'string' ? (
-                    <h1 className="text-sm md:text-lg font-semibold text-[#F1F5F9] truncate max-w-[200px] md:max-w-none">
-                        {title || `${getGreeting()}, ${userName}`}
-                    </h1>
-                ) : (
-                    <div className="min-w-0 truncate">{title || <h1 className="text-sm md:text-lg font-semibold text-[#F1F5F9] truncate max-w-[200px] md:max-w-none">{`${getGreeting()}, ${userName}`}</h1>}</div>
-                )}
+                {title}
             </div>
 
+            {/* Right side (Actions, Notifications & Webhook) */}
             <div className="flex items-center gap-2 md:gap-4 shrink-0 relative">
+
+                {/* Save & Run Buttons passed from WorkflowBuilder */}
                 {children}
 
                 {/* Notifications Dropdown */}
@@ -182,52 +159,10 @@ const TopBar = ({ title, children }) => {
                     </AnimatePresence>
                 </div>
 
-                {/* Profile Dropdown */}
-                <div className="relative pl-2 md:pl-4 border-l border-[#1A1A1A]" ref={dropdownRef}>
-                    <div
-                        className="flex items-center gap-2 md:gap-3 group cursor-pointer"
-                        onClick={() => setDropdownOpen(!dropdownOpen)}
-                    >
-                        <div className="h-7 w-7 md:h-8 md:w-8 rounded-xl bg-[#111] overflow-hidden flex items-center justify-center border border-[#333] shrink-0">
-                            {user?.user_metadata?.avatar_url ? (
-                                <img src={user.user_metadata.avatar_url} alt="Avatar" className="h-full w-full object-cover" />
-                            ) : (
-                                <span className="text-xs md:text-sm font-medium text-[#F1F5F9]">
-                                    {userName.charAt(0).toUpperCase()}
-                                </span>
-                            )}
-                        </div>
-                        <span className="text-xs md:text-sm font-mono text-slate-500 text-text-secondary hidden md:block truncate max-w-[100px]">{userName}</span>
-                        <ChevronDown className="h-3 w-3 md:h-4 md:w-4 text-slate-400 text-text-secondary group-hover:text-slate-900 group-hover:text-text-primary transition-colors hidden sm:block" />
-                    </div>
+                <div className="w-px h-5 bg-[#333] hidden sm:block mx-1"></div>
 
-                    <AnimatePresence>
-                        {dropdownOpen && (
-                            <motion.div
-                                initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                                animate={{ opacity: 1, y: 0, scale: 1 }}
-                                exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                transition={{ duration: 0.15, ease: "easeOut" }}
-                                className="absolute right-0 top-full mt-2 w-48 bg-[#111] border border-[#222] rounded-xl shadow-xl overflow-hidden z-50 py-1"
-                            >
-                                <div className="px-4 py-2 border-b border-[#222] mb-1 bg-[#0A0A0A]">
-                                    <p className="text-[10px] md:text-xs font-mono font-bold text-[#F1F5F9] truncate">{userName}</p>
-                                    <p className="text-[9px] md:text-[10px] font-mono text-[#64748B] truncate mt-0.5">{user?.email}</p>
-                                </div>
-                                <button onClick={() => { setDropdownOpen(false); navigate('/profile'); }} className="w-full text-left px-4 py-2 text-[10px] md:text-xs font-mono text-[#64748B] hover:text-[#F1F5F9] hover:bg-[#1A1A1A] flex items-center gap-2 transition-colors lowercase">
-                                    <UserIcon className="w-3.5 h-3.5" /> profile
-                                </button>
-                                <button onClick={() => { setDropdownOpen(false); navigate('/settings'); }} className="w-full text-left px-4 py-2 text-[10px] md:text-xs font-mono text-[#64748B] hover:text-[#F1F5F9] hover:bg-[#1A1A1A] flex items-center gap-2 transition-colors lowercase">
-                                    <Settings className="w-3.5 h-3.5" /> settings
-                                </button>
-                                <div className="h-px bg-[#222] my-1"></div>
-                                <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-[10px] md:text-xs font-mono text-[#F87171] hover:bg-[#F87171]/10 flex items-center gap-2 transition-colors lowercase">
-                                    <LogOut className="w-3.5 h-3.5" /> log_out
-                                </button>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                </div>
+                {/* The God-Tier Webhook Flex */}
+                <WebhookDisplay />
             </div>
         </header>
     );

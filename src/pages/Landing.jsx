@@ -5,6 +5,7 @@ import { Zap, Menu, X, Github, ArrowRight } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+
 const sv = {
     hidden: { opacity: 0, y: 20 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } }
@@ -18,15 +19,18 @@ const Landing = () => {
     const [activeAppIndex, setActiveAppIndex] = useState(0);
 
     const block3Models = ['Claude 3.5 Sonnet', 'GPT-4o', 'Gemini 1.5 Pro', 'Groq 2'];
+
     useEffect(() => {
         const i = setInterval(() => setActiveBlock3Model(p => (p + 1) % block3Models.length), 2000);
         return () => clearInterval(i);
     }, []);
+
     // Slow, elegant carousel effect for Block 2
     useEffect(() => {
         const i = setInterval(() => setActiveAppIndex(p => (p + 1) % 3), 3000);
         return () => clearInterval(i);
     }, []);
+
     return (
         <div className="min-h-screen bg-[#080808] text-[#F1F5F9] selection:bg-[#6EE7B7]/30">
             <nav className="fixed top-0 w-full z-50 border-b border-[#1A1A1A] bg-[#080808]/80 backdrop-blur-md">
@@ -85,8 +89,34 @@ const Landing = () => {
                     )}
                 </AnimatePresence>
             </nav>
+
             <section className="relative pt-24 pb-12 md:pt-36 md:pb-24 overflow-hidden min-h-[90vh] flex flex-col justify-center">
+
+                {/* **** GOD-TIER ANIMATED GLOW BACKGROUND **** */}
+                <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none flex items-center justify-center">
+                    <motion.div
+                        animate={{
+                            scale: [1, 1.2, 1],
+                            rotate: [0, 90, 0],
+                            opacity: [0.03, 0.07, 0.03],
+                        }}
+                        transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+                        className="absolute w-[40rem] h-[40rem] bg-[#6EE7B7] rounded-full blur-[120px]"
+                    />
+                    <motion.div
+                        animate={{
+                            scale: [1, 1.4, 1],
+                            rotate: [0, -90, 0],
+                            opacity: [0.02, 0.05, 0.02],
+                        }}
+                        transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                        className="absolute w-[35rem] h-[35rem] bg-[#34D399] rounded-full blur-[150px] ml-32 mt-32"
+                    />
+                </div>
+                {/* ******************************************* */}
+
                 <div className="absolute inset-0 z-0 bg-[radial-gradient(#1A1A1A_1px,transparent_1px)] [background-size:24px_24px] opacity-40 [mask-image:linear-gradient(to_bottom,black_40%,transparent_100%)]" />
+
                 <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sv} className="max-w-4xl mx-auto px-4 md:px-6 text-center relative z-10">
                     <div className="inline-flex items-center gap-2 bg-[#111]/80 backdrop-blur-sm border border-[#222] px-3 py-1.5 font-mono text-xs text-[#64748B] mb-8 rounded-full shadow-lg cursor-default">
                         <span className="w-1.5 h-1.5 rounded-full bg-[#6EE7B7] animate-pulse" />
@@ -106,12 +136,13 @@ const Landing = () => {
                     </div>
                 </motion.div>
             </section>
+
             <div id="demo-section" className="relative z-20">
                 <div className="absolute inset-0 bg-gradient-to-b from-[#080808] via-transparent to-[#0D0D0D] pointer-events-none h-32 -top-32" />
                 <ProductDemo />
             </div>
-            <div id="features" className="py-10 md:py-24 space-y-16 md:space-y-32 bg-[#0D0D0D]">
 
+            <div id="features" className="py-10 md:py-24 space-y-16 md:space-y-32 bg-[#0D0D0D]">
                 {/* Block 2 — Tools connected (Smooth Carousel) */}
                 <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={sv} className="w-full bg-[#111] py-16 md:py-24 border-y border-[#1A1A1A]">
                     <div className="max-w-6xl mx-auto px-4 md:px-6 grid md:grid-cols-2 gap-8 md:gap-16 items-center">
@@ -140,6 +171,7 @@ const Landing = () => {
                         </div>
                     </div>
                 </motion.section>
+
                 {/* Block 3 — Terminal AI Block (No purple) */}
                 <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={sv} className="max-w-6xl mx-auto px-4 md:px-6">
                     <div className="grid md:grid-cols-2 gap-8 md:gap-16 items-center">
