@@ -239,6 +239,14 @@ const Dashboard = () => {
             showToast('Run failed: ' + err.message, 'error');
         }
     };
+
+    const handleDeleteWorkflow = async (workflow) => {
+        if (!confirm(`Delete "${workflow.name}"? This cannot be undone.`)) return;
+        const { error } = await supabase.from('workflows').delete().eq('id', workflow.id);
+        if (error) { showToast('Failed to delete', 'error'); return; }
+        setRecentWorkflows(prev => prev.filter(w => w.id !== workflow.id));
+        showToast(`"${workflow.name}" deleted`, 'success');
+    };
     // ─────────────────────────────────────────────────────────────────────────
 
     return (
@@ -311,8 +319,8 @@ const Dashboard = () => {
                                                 return (
                                                     <div key={item.id} onClick={() => handleChecklistClick(item)}
                                                         className={`p-4 flex items-start gap-3 transition-colors ${item.locked ? 'opacity-40 cursor-not-allowed' :
-                                                                item.done ? 'cursor-default' :
-                                                                    'cursor-pointer hover:bg-[#111]'
+                                                            item.done ? 'cursor-default' :
+                                                                'cursor-pointer hover:bg-[#111]'
                                                             }`}>
                                                         <div className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0 border transition-all ${item.done ? 'bg-[#6EE7B7]/15 border-[#6EE7B7]/40' : 'bg-[#111] border-[#333]'
                                                             }`}>
@@ -514,13 +522,24 @@ const Dashboard = () => {
                                                             {workflow.lastRun}
                                                         </td>
                                                         <td className="pl-4 py-3 md:pl-6 md:py-4 whitespace-nowrap text-right">
-                                                            <div className="flex justify-end gap-3 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                                                                {/* ── REPLACED ACTION BUTTONS ────────────────────────────── */}
-                                                                <Link to={`/workflows/${workflow.id}`} className="text-[#64748B] hover:text-[#6EE7B7] transition-colors p-1" title="Edit">
-                                                                    <FileEdit className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                                                            <div className="flex justify-end items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                                                <Link to={`/workflows/${workflow.id}`}
+                                                                    className="flex items-center gap-1.5 font-mono text-[10px] text-[#64748B] hover:text-[#6EE7B7] hover:bg-[#6EE7B7]/8 border border-transparent hover:border-[#6EE7B7]/20 px-2.5 py-1.5 rounded-lg transition-all"
+                                                                    title="Open in builder">
+                                                                    <FileEdit className="w-3 h-3" />
+                                                                    <span className="hidden lg:inline">Edit</span>
                                                                 </Link>
-                                                                <button onClick={() => handleRunWorkflow(workflow)} className="text-[#64748B] hover:text-[#6EE7B7] transition-colors p-1" title="Run">
-                                                                    <Play className="w-3.5 h-3.5 md:w-4 md:h-4 fill-current" />
+                                                                <button onClick={() => handleRunWorkflow(workflow)}
+                                                                    className="flex items-center gap-1.5 font-mono text-[10px] text-[#64748B] hover:text-[#6EE7B7] hover:bg-[#6EE7B7]/8 border border-transparent hover:border-[#6EE7B7]/20 px-2.5 py-1.5 rounded-lg transition-all"
+                                                                    title="Run this pipeline now">
+                                                                    <Play className="w-3 h-3 fill-current" />
+                                                                    <span className="hidden lg:inline">Run</span>
+                                                                </button>
+                                                                <button onClick={() => handleDeleteWorkflow(workflow)}
+                                                                    className="flex items-center gap-1.5 font-mono text-[10px] text-[#64748B] hover:text-[#F87171] hover:bg-[#F87171]/8 border border-transparent hover:border-[#F87171]/20 px-2.5 py-1.5 rounded-lg transition-all"
+                                                                    title="Delete workflow">
+                                                                    <X className="w-3 h-3" />
+                                                                    <span className="hidden lg:inline">Delete</span>
                                                                 </button>
                                                             </div>
                                                         </td>
