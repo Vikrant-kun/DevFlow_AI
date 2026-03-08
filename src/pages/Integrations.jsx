@@ -161,27 +161,16 @@ const Integrations = () => {
         checkGithubConnection();
     }, []);
 
-    const handleRepoChange = async (e) => {
-        const repoFullName = e.target.value;
-        const repo = repos.find(r => r.full_name === repoFullName);
-        setSelectedRepo(repoFullName);
-
-        if (user && repo) {
-            const { error } = await supabase
-                .from('user_settings')
-                .upsert({
-                    user_id: user.id,
-                    selected_repo: repo.name,
-                    selected_repo_full_name: repo.full_name,
-                    updated_at: new Date().toISOString()
-                }, { onConflict: 'user_id' });
-
-            if (error) {
-                showToast("Failed to save repository selection", "error");
-            } else {
-                showToast("Repository linked successfully", "success");
-            }
-        }
+    const handleRepoSelect = async (fullName) => {
+        setSelectedRepo(fullName);
+        const { data: { session } } = await supabase.auth.getSession();
+        await supabase.from('user_settings').upsert({
+            user_id: session.user.id,
+            selected_repo: fullName.split('/')[1],
+            selected_repo_full_name: fullName,
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'user_id' });
+        showToast(`Active repo set to ${fullName}`, 'success');
     };
 
     const handleCreateRepo = async () => {
@@ -384,26 +373,38 @@ const Integrations = () => {
                                         {/* ── GITHUB CONNECTED BLOCK ────────────────────────────────────────── */}
                                         {integration.connected && integration.id === 'github' && (
                                             <div className="mt-4 flex flex-col gap-3 bg-[#0D0D0D] p-3 border border-[#222] rounded-xl">
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-xs font-mono text-[#64748B]">Repository</span>
+                                                <div className="flex items-center justify-between mt-1">
+                                                    <p className="font-mono text-[9px] text-[#444] uppercase tracking-widest">Active Repository</p>
                                                     <button
                                                         onClick={() => setShowCreateRepo(true)}
                                                         className="text-[10px] font-mono text-[#6EE7B7] hover:underline flex items-center gap-1">
                                                         + New Repo
                                                     </button>
                                                 </div>
-                                                <select
-                                                    className="w-full bg-[#111] border border-[#222] rounded-xl text-xs font-mono text-[#F1F5F9] outline-none px-3 py-2 focus:border-[#444] transition-colors appearance-none cursor-pointer hover:border-[#333]"
-                                                    value={selectedRepo || ''}
-                                                    onChange={handleRepoChange}>
-                                                    <option value="" disabled>Select a repository...</option>
-                                                    {repos.map(r => (
-                                                        <option key={r.id} value={r.full_name}>{r.full_name}</option>
-                                                    ))}
-                                                </select>
-                                                {isLoadingRepos && <span className="text-[10px] font-mono text-[#64748B]">Loading repositories...</span>}
-                                                {!isLoadingRepos && repos.length === 0 && (
-                                                    <span className="text-[10px] font-mono text-[#F59E0B]">No repos found. Create one above.</span>
+                                                {isLoadingRepos ? (
+                                                    <div className="flex items-center gap-2 py-2">
+                                                        <div className="w-3 h-3 border-2 border-[#333] border-t-[#6EE7B7] rounded-full animate-spin" />
+                                                        <span className="font-mono text-[10px] text-[#64748B]">Loading repos...</span>
+                                                    </div>
+                                                ) : (
+                                                    <div className="max-h-44 overflow-y-auto space-y-0.5 bg-[#0A0A0A] border border-[#1A1A1A] rounded-xl p-1.5">
+                                                        {repos.length === 0 ? (
+                                                            <p className="font-mono text-[10px] text-[#444] p-2 text-center">No repos found — try reconnecting GitHub.</p>
+                                                        ) : repos.map(r => (
+                                                            <motion.button key={r.id}
+                                                                whileHover={{ x: 3 }}
+                                                                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                                                                onClick={() => handleRepoSelect(r.full_name)}
+                                                                className={`w-full text-left px-3 py-2.5 rounded-lg font-mono text-xs transition-colors flex items-center gap-2 ${selectedRepo === r.full_name
+                                                                        ? 'bg-[#6EE7B7]/10 text-[#6EE7B7] border border-[#6EE7B7]/20'
+                                                                        : 'text-[#94A3B8] hover:bg-[#1A1A1A] border border-transparent'
+                                                                    }`}>
+                                                                <span className="text-[#444] shrink-0">/</span>
+                                                                <span className="truncate flex-1">{r.full_name || r.name}</span>
+                                                                {selectedRepo === r.full_name && <span className="text-[#6EE7B7] shrink-0 text-[10px]">✓ active</span>}
+                                                            </motion.button>
+                                                        ))}
+                                                    </div>
                                                 )}
 
                                                 {/* Create Repo Modal */}

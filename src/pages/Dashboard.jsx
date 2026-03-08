@@ -455,47 +455,50 @@ const Dashboard = () => {
                                             {showRepoSelector && (
                                                 <motion.div
                                                     initial={{ opacity: 0, height: 0, scale: 0.97 }}
-                                                    animate={{ opacity: 1, height: 'auto', scale: 1, transition: { type: 'spring', stiffness: 500, damping: 30 } }}
-                                                    exit={{ opacity: 0, height: 0, scale: 0.97, transition: { duration: 0.15 } }}
-                                                    className="absolute right-0 left-0 md:left-auto top-full mt-2 w-full md:w-72 bg-[#0D0D0D] border border-[#333] shadow-2xl p-3 flex flex-col gap-2 rounded-xl overflow-hidden"
+                                                    animate={{ opacity: 1, height: 'auto', scale: 1 }}
+                                                    exit={{ opacity: 0, height: 0, scale: 0.97 }}
+                                                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                                                    className="absolute right-0 left-0 md:left-auto top-full mt-2 w-full md:w-72 bg-[#0D0D0D] border border-[#333] rounded-xl overflow-hidden shadow-2xl"
                                                     style={{ zIndex: 9999 }}>
                                                     {!isGithubConnected ? (
-                                                        <div className="text-xs font-mono text-[#F59E0B] p-2 text-center">
-                                                            Connect GitHub in Integrations first.
-                                                            <Button variant="ghost" className="mt-2 text-xs w-full justify-center rounded-xl border border-[#333]"
-                                                                onClick={() => navigate('/integrations')}>Go to Integrations</Button>
+                                                        <div className="p-3 text-center space-y-2">
+                                                            <p className="font-mono text-[11px] text-[#F59E0B]">GitHub not connected yet.</p>
+                                                            <button onClick={() => { setShowRepoSelector(false); setShowGithubConnectModal(true); }}
+                                                                className="w-full font-mono text-xs font-bold text-[#080808] py-2.5 rounded-xl transition-all"
+                                                                style={{ background: 'linear-gradient(135deg, #6EE7B7, #A78BFA)' }}>
+                                                                Connect GitHub →
+                                                            </button>
+                                                        </div>
+                                                    ) : isLoadingRepos ? (
+                                                        <div className="p-4 flex items-center gap-2">
+                                                            <div className="w-3 h-3 border-2 border-[#333] border-t-[#6EE7B7] rounded-full animate-spin" />
+                                                            <span className="font-mono text-[10px] text-[#64748B]">Loading repos...</span>
+                                                        </div>
+                                                    ) : repos.length === 0 ? (
+                                                        <div className="p-4 text-center space-y-2">
+                                                            <p className="font-mono text-[11px] text-[#64748B]">No repositories found.</p>
+                                                            <p className="font-mono text-[10px] text-[#444]">Make sure GitHub is connected in Integrations.</p>
                                                         </div>
                                                     ) : (
-                                                        <>
-                                                            <div className="text-[10px] font-mono text-[#64748B] px-1 pb-1">Select repository</div>
-                                                            {isLoadingRepos ? (
-                                                                <div className="flex items-center gap-2 px-2 py-3">
-                                                                    <div className="w-3 h-3 border-2 border-[#333] border-t-[#6EE7B7] rounded-full animate-spin" />
-                                                                    <span className="font-mono text-[10px] text-[#64748B]">Loading repos...</span>
-                                                                </div>
-                                                            ) : repos.length === 0 ? (
-                                                                <p className="font-mono text-[10px] text-[#444] px-2 py-2">No repos found. Connect GitHub first.</p>
-                                                            ) : (
-                                                                <div className="max-h-48 overflow-y-auto space-y-0.5">
-                                                                    {repos.map(r => (
-                                                                        <motion.button key={r.id}
-                                                                            whileHover={{ x: 4 }}
-                                                                            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                                                                            onClick={() => handleRepoSelect({ target: { value: r.full_name } })}
-                                                                            className={`w-full text-left px-3 py-2.5 rounded-xl font-mono text-xs transition-colors flex items-center gap-2 ${selectedRepo?.full_name === r.full_name
-                                                                                ? 'bg-[#6EE7B7]/10 text-[#6EE7B7] border border-[#6EE7B7]/20'
-                                                                                : 'text-[#F1F5F9] hover:bg-[#1A1A1A] border border-transparent'
-                                                                                }`}>
-                                                                            <span className="text-[#444]">/</span>
-                                                                            <span className="truncate">{r.full_name || r.name}</span>
-                                                                            {selectedRepo?.full_name === r.full_name && (
-                                                                                <span className="ml-auto text-[#6EE7B7]">✓</span>
-                                                                            )}
-                                                                        </motion.button>
-                                                                    ))}
-                                                                </div>
-                                                            )}
-                                                        </>
+                                                        <div className="p-2 max-h-56 overflow-y-auto space-y-0.5">
+                                                            <p className="font-mono text-[9px] text-[#444] uppercase tracking-widest px-2 pb-1">Your repositories</p>
+                                                            {repos.map(r => (
+                                                                <motion.button key={r.id}
+                                                                    whileHover={{ x: 3 }}
+                                                                    transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                                                                    onClick={() => handleRepoSelect({ target: { value: r.full_name } })}
+                                                                    className={`w-full text-left px-3 py-2.5 rounded-lg font-mono text-xs transition-colors flex items-center gap-2 ${selectedRepo?.full_name === r.full_name
+                                                                            ? 'bg-[#6EE7B7]/10 text-[#6EE7B7] border border-[#6EE7B7]/20'
+                                                                            : 'text-[#94A3B8] hover:bg-[#1A1A1A] border border-transparent'
+                                                                        }`}>
+                                                                    <span className="text-[#444] shrink-0">/</span>
+                                                                    <span className="truncate flex-1">{r.full_name || r.name}</span>
+                                                                    {selectedRepo?.full_name === r.full_name && (
+                                                                        <span className="text-[#6EE7B7] text-[10px] shrink-0">✓</span>
+                                                                    )}
+                                                                </motion.button>
+                                                            ))}
+                                                        </div>
                                                     )}
                                                 </motion.div>
                                             )}
@@ -504,11 +507,11 @@ const Dashboard = () => {
                                 </div>
 
                                 {/* File upload zone — only when repo connected */}
-                                {selectedRepo && isGithubConnected && (
+                                {selectedRepo?.full_name && isGithubConnected && (
                                     <motion.div
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        transition={{ delay: 0.3, duration: 0.3 }}
+                                        initial={{ opacity: 0, y: 8 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 0.2, duration: 0.3 }}
                                         className="border-t border-[#1A1A1A] p-4 md:p-6 space-y-3">
                                         <p className="font-mono text-[10px] text-[#64748B] uppercase tracking-widest">Push Files to Repo</p>
                                         <div
