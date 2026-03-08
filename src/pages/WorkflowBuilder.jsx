@@ -33,6 +33,7 @@ const AGENTS = [
     { id: 'groq', name: 'Groq', desc: 'Llama 3.3 70B', icon: '⚡️' },
     { id: 'gpt4', name: 'GPT-4o', desc: 'OpenAI', icon: '🤖' },
     { id: 'gemini', name: 'Gemini', desc: 'Flash 2.0', icon: '✨' },
+    { id: 'claude', name: 'Claude', desc: 'via Groq', icon: '🧠' },
 ];
 
 const NODE_LEGEND = [
@@ -482,9 +483,34 @@ const WorkflowBuilder = () => {
         setSelectedNode(null);
         setLastPrompt(prompt);
 
+        // Fetch repo files for context
+        let repoContext = '';
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const { data: settingsData } = await supabase
+                .from('user_settings')
+                .select('selected_repo_full_name')
+                .eq('user_id', user.id)
+                .single();
+            const selectedRepo = settingsData?.selected_repo_full_name
+                ? { full_name: settingsData.selected_repo_full_name }
+                : null;
+            if (selectedRepo?.full_name) {
+                const treeRes = await fetch(`${API_URL}/github/tree`, {
+                    headers: { Authorization: `Bearer ${session.access_token}` }
+                });
+                if (treeRes.ok) {
+                    const treeData = await treeRes.json();
+                    repoContext = `\nThe user's GitHub repo is "${selectedRepo.full_name}" and contains these files: ${treeData.files.slice(0, 30).join(', ')}`;
+                }
+            }
+        } catch (e) { }
+
+        // ── UPDATED SYSTEM PROMPT ────────────────────────────────────────────────
         const systemPrompt = `You are a workflow automation expert. Convert the user's description into a structured pipeline. Return ONLY valid JSON, no markdown:
 {"name":"Short workflow name","nodes":[{"id":"1","type":"trigger|action|ai|notification","label":"Short Name","description":"What this step does","icon":"git-branch|zap|sparkles|bell|code|database|mail"}],"edges":[{"source":"1","target":"2"}]}
-Rules: first node always trigger, max 8 nodes, labels 2-4 words.`;
+Rules: first node always trigger, max 8 nodes, labels 2-4 words. For github/fix/commit nodes, always include the specific file path in the node description field based on what the user mentioned.${repoContext}
+IMPORTANT: When generating github/fix/commit nodes, use REAL file paths from the repo above in the description field, not placeholder paths like /path/to/file.js.`;
 
         try {
             let raw;
