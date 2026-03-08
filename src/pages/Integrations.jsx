@@ -481,6 +481,30 @@ const Integrations = () => {
                                                 )}
                                             </AnimatePresence>
                                         )}
+                                        {integration.id === 'slack' && isSlackConnected && !showSlackInput && (
+                                            <div className="mt-3 flex gap-2">
+                                                <button
+                                                    onClick={async () => {
+                                                        try {
+                                                            const res = await fetch(slackWebhook, {
+                                                                method: 'POST',
+                                                                headers: { 'Content-Type': 'application/json' },
+                                                                body: JSON.stringify({ text: '✅ DevFlow connection test successful!' })
+                                                            });
+                                                            if (res.ok) showToast('Slack test message sent!', 'success');
+                                                            else showToast('Slack test failed', 'error');
+                                                        } catch { showToast('Slack test failed', 'error'); }
+                                                    }}
+                                                    className="flex-1 font-mono text-[10px] text-[#64748B] border border-[#222] py-2 rounded-xl hover:border-[#333] transition-all">
+                                                    Test Connection
+                                                </button>
+                                                <button
+                                                    onClick={() => { setIsSlackConnected(false); setSlackWebhook(''); setShowSlackInput(true); }}
+                                                    className="font-mono text-[10px] text-[#F87171] border border-[#F87171]/20 px-3 py-2 rounded-xl hover:bg-[#F87171]/10 transition-all">
+                                                    Disconnect
+                                                </button>
+                                            </div>
+                                        )}
 
                                         {/* ── NOTION CONNECTED BLOCK ────────────────────────────────────────── */}
                                         {integration.id === 'notion' && (
@@ -512,6 +536,15 @@ const Integrations = () => {
                                                 )}
                                             </AnimatePresence>
                                         )}
+                                        {integration.id === 'notion' && isNotionConnected && !showNotionInput && (
+                                            <div className="mt-3 flex gap-2">
+                                                <button
+                                                    onClick={() => { setIsNotionConnected(false); setNotionToken(''); setShowNotionInput(true); }}
+                                                    className="flex-1 font-mono text-[10px] text-[#F87171] border border-[#F87171]/20 px-3 py-2 rounded-xl hover:bg-[#F87171]/10 transition-all">
+                                                    Disconnect
+                                                </button>
+                                            </div>
+                                        )}
 
                                         {/* ── LINEAR CONNECTED BLOCK ────────────────────────────────────────── */}
                                         {integration.id === 'linear' && (
@@ -542,6 +575,15 @@ const Integrations = () => {
                                                     </motion.div>
                                                 )}
                                             </AnimatePresence>
+                                        )}
+                                        {integration.id === 'linear' && isLinearConnected && !showLinearInput && (
+                                            <div className="mt-3 flex gap-2">
+                                                <button
+                                                    onClick={() => { setIsLinearConnected(false); setLinearToken(''); setShowLinearInput(true); }}
+                                                    className="flex-1 font-mono text-[10px] text-[#F87171] border border-[#F87171]/20 px-3 py-2 rounded-xl hover:bg-[#F87171]/10 transition-all">
+                                                    Disconnect
+                                                </button>
+                                            </div>
                                         )}
 
                                         {/* ── JIRA CONNECTED BLOCK ──────────────────────────────────────────── */}
@@ -581,6 +623,15 @@ const Integrations = () => {
                                                     </motion.div>
                                                 )}
                                             </AnimatePresence>
+                                        )}
+                                        {integration.id === 'jira' && isJiraConnected && !showJiraInput && (
+                                            <div className="mt-3 flex gap-2">
+                                                <button
+                                                    onClick={() => { setIsJiraConnected(false); setJiraToken(''); setJiraDomain(''); setShowJiraInput(true); }}
+                                                    className="flex-1 font-mono text-[10px] text-[#F87171] border border-[#F87171]/20 px-3 py-2 rounded-xl hover:bg-[#F87171]/10 transition-all">
+                                                    Disconnect
+                                                </button>
+                                            </div>
                                         )}
                                     </div>
                                 </motion.div>

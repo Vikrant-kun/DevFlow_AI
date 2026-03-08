@@ -211,6 +211,7 @@ const WorkflowBuilder = () => {
 
     const historyRef = useRef([]);
     const historyIndexRef = useRef(-1);
+    const autoSaveTimer = useRef(null);
 
     const { showToast } = useToast();
     const location = useLocation();
@@ -233,6 +234,16 @@ const WorkflowBuilder = () => {
         historyRef.current.push(snapshot);
         historyIndexRef.current = historyRef.current.length - 1;
     }, [nodes, edges]);
+
+    // Auto-save node config changes after 1.5s of inactivity
+    useEffect(() => {
+        if (!isDirty || !currentWorkflowId) return;
+        if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+        autoSaveTimer.current = setTimeout(() => {
+            handleSaveDraft();
+        }, 1500);
+        return () => clearTimeout(autoSaveTimer.current);
+    }, [nodes, isDirty, currentWorkflowId]);
 
     const handleUndo = useCallback(() => {
         if (historyIndexRef.current <= 0) return;

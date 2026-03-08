@@ -126,12 +126,32 @@ const Dashboard = () => {
                     .eq('user_id', user.id)
                     .order('created_at', { ascending: false });
 
-                if (workflowsData) {
+                // Fetch real run stats
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const { data: runsData } = await supabase
+                    .from('workflow_runs')
+                    .select('status, started_at, duration')
+                    .eq('user_id', user.id);
+
+                if (runsData && workflowsData) {
+                    const todayRuns = runsData.filter(r => new Date(r.started_at) >= today);
+                    const successRuns = runsData.filter(r => r.status === 'success');
+                    const successRate = runsData.length > 0
+                        ? Math.round((successRuns.length / runsData.length) * 100)
+                        : 0;
+
+                    // Calculate time saved (estimate 5min per successful run)
+                    const minutesSaved = successRuns.length * 5;
+                    const timeSaved = minutesSaved >= 60
+                        ? `${Math.floor(minutesSaved / 60)}h ${minutesSaved % 60}m`
+                        : `${minutesSaved}m`;
+
                     setStats([
                         { label: 'Total Workflows', value: workflowsData.length.toString() },
-                        { label: 'Runs Today', value: '0' },
-                        { label: 'Success Rate', value: '—' },
-                        { label: 'Time Saved', value: '0h' }
+                        { label: 'Runs Today', value: todayRuns.length.toString() },
+                        { label: 'Success Rate', value: runsData.length > 0 ? `${successRate}%` : '—' },
+                        { label: 'Time Saved', value: timeSaved || '0m' }
                     ]);
 
                     const recent = workflowsData.slice(0, 4).map(w => ({
@@ -354,7 +374,7 @@ const Dashboard = () => {
                         </motion.div>
 
                         {/* Active Repository Card */}
-                        <motion.div variants={containerVariants} initial="hidden" animate="show" className="pt-2 md:pt-4">
+                        <motion.div variants={containerVariants} initial="hidden" animate="show" className="pt-2 md:pt-4 relative" style={{ zIndex: 10 }}>
                             <div className="flex items-center justify-between mb-3 md:mb-4">
                                 <h3 className="text-[10px] md:text-sm font-mono text-[#64748B] lowercase tracking-wider">active_repository</h3>
                             </div>
@@ -400,21 +420,48 @@ const Dashboard = () => {
                                         )}
                                         <AnimatePresence>
                                             {showRepoSelector && (
-                                                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
-                                                    className="absolute right-0 left-0 md:left-auto top-full mt-2 w-full md:w-64 bg-[#111] border border-[#222] shadow-xl z-50 p-3 flex flex-col gap-2 rounded-xl">
+                                                <motion.div
+                                                    initial={{ opacity: 0, height: 0, scale: 0.97 }}
+                                                    animate={{ opacity: 1, height: 'auto', scale: 1, transition: { type: 'spring', stiffness: 500, damping: 30 } }}
+                                                    exit={{ opacity: 0, height: 0, scale: 0.97, transition: { duration: 0.15 } }}
+                                                    className="absolute right-0 left-0 md:left-auto top-full mt-2 w-full md:w-72 bg-[#0D0D0D] border border-[#333] shadow-2xl p-3 flex flex-col gap-2 rounded-xl overflow-hidden"
+                                                    style={{ zIndex: 9999 }}>
                                                     {!isGithubConnected ? (
                                                         <div className="text-xs font-mono text-[#F59E0B] p-2 text-center">
                                                             Connect GitHub in Integrations first.
-                                                            <Button variant="ghost" className="mt-2 text-xs w-full justify-center rounded-xl border border-[#333]" onClick={() => navigate('/integrations')}>Go to Integrations</Button>
+                                                            <Button variant="ghost" className="mt-2 text-xs w-full justify-center rounded-xl border border-[#333]"
+                                                                onClick={() => navigate('/integrations')}>Go to Integrations</Button>
                                                         </div>
                                                     ) : (
                                                         <>
-                                                            <div className="text-[10px] font-mono text-[#64748B] px-1">Select repository</div>
-                                                            <select className="w-full bg-[#0A0A0A] border border-[#222] rounded-xl text-xs font-mono text-[#F1F5F9] outline-none px-3 py-2 cursor-pointer hover:border-[#333]" value={selectedRepo?.full_name || ''} onChange={handleRepoSelect}>
-                                                                <option value="" disabled>Choose a repo...</option>
-                                                                {repos.map(r => <option key={r.id} value={r.full_name}>{r.full_name}</option>)}
-                                                            </select>
-                                                            {isLoadingRepos && <span className="text-[10px] font-mono text-[#64748B]">Loading...</span>}
+                                                            <div className="text-[10px] font-mono text-[#64748B] px-1 pb-1">Select repository</div>
+                                                            {isLoadingRepos ? (
+                                                                <div className="flex items-center gap-2 px-2 py-3">
+                                                                    <div className="w-3 h-3 border-2 border-[#333] border-t-[#6EE7B7] rounded-full animate-spin" />
+                                                                    <span className="font-mono text-[10px] text-[#64748B]">Loading repos...</span>
+                                                                </div>
+                                                            ) : repos.length === 0 ? (
+                                                                <p className="font-mono text-[10px] text-[#444] px-2 py-2">No repos found. Connect GitHub first.</p>
+                                                            ) : (
+                                                                <div className="max-h-48 overflow-y-auto space-y-0.5">
+                                                                    {repos.map(r => (
+                                                                        <motion.button key={r.id}
+                                                                            whileHover={{ x: 4 }}
+                                                                            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                                                                            onClick={() => handleRepoSelect({ target: { value: r.full_name } })}
+                                                                            className={`w-full text-left px-3 py-2.5 rounded-xl font-mono text-xs transition-colors flex items-center gap-2 ${selectedRepo?.full_name === r.full_name
+                                                                                    ? 'bg-[#6EE7B7]/10 text-[#6EE7B7] border border-[#6EE7B7]/20'
+                                                                                    : 'text-[#F1F5F9] hover:bg-[#1A1A1A] border border-transparent'
+                                                                                }`}>
+                                                                            <span className="text-[#444]">/</span>
+                                                                            <span className="truncate">{r.full_name || r.name}</span>
+                                                                            {selectedRepo?.full_name === r.full_name && (
+                                                                                <span className="ml-auto text-[#6EE7B7]">✓</span>
+                                                                            )}
+                                                                        </motion.button>
+                                                                    ))}
+                                                                </div>
+                                                            )}
                                                         </>
                                                     )}
                                                 </motion.div>
