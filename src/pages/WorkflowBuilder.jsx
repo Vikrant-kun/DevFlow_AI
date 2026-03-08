@@ -200,6 +200,7 @@ const WorkflowBuilder = () => {
     const [isCanvasLocked, setIsCanvasLocked] = useState(false);
     const [lastPrompt, setLastPrompt] = useState('');
     const [isRunning, setIsRunning] = useState(false);
+    const [isDirty, setIsDirty] = useState(false);
 
     const historyRef = useRef([]);
     const historyIndexRef = useRef(-1);
@@ -217,6 +218,7 @@ const WorkflowBuilder = () => {
 
     useEffect(() => {
         if (nodes.length === 0 && edges.length === 0) return;
+        setIsDirty(true);
         const snapshot = { nodes, edges };
         const history = historyRef.current;
         historyRef.current = history.slice(0, historyIndexRef.current + 1);
@@ -312,6 +314,7 @@ const WorkflowBuilder = () => {
             const data = await res.json();
             setCurrentWorkflowId(data.id);
             localStorage.setItem('devflow_has_workflow', 'true');
+            setIsDirty(false);
             showToast('Workflow saved', 'success');
             return data.id;
         } catch (err) {
@@ -325,6 +328,10 @@ const WorkflowBuilder = () => {
         if (!user) { showToast('Log in to run.', 'error'); return; }
         if (nodes.length === 0) { showToast('Build a pipeline first', 'error'); return; }
         if (isRunning) { showToast('Pipeline is already running', 'info'); return; }
+        if (currentWorkflowId && !isDirty) {
+            showToast('No changes since last save — edit your pipeline to run again', 'info');
+            return;
+        }
         setIsRunning(true);
 
         let workflowId = currentWorkflowId;
@@ -353,6 +360,7 @@ const WorkflowBuilder = () => {
 
             if (result.status === 'success') {
                 showToast(`Pipeline executed — ${result.duration}`, 'success');
+                setIsDirty(false);
             } else {
                 showToast('Pipeline failed — check Logs for details', 'error');
             }
