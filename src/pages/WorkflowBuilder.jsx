@@ -33,7 +33,6 @@ const AGENTS = [
     { id: 'groq', name: 'Groq', desc: 'Llama 3.3 70B', icon: '⚡️' },
     { id: 'gpt4', name: 'GPT-4o', desc: 'OpenAI', icon: '🤖' },
     { id: 'gemini', name: 'Gemini', desc: 'Flash 2.0', icon: '✨' },
-    { id: 'claude', name: 'Claude', desc: 'via Groq', icon: '🧠' },
 ];
 
 const NODE_LEGEND = [
@@ -491,6 +490,7 @@ Rules: first node always trigger, max 8 nodes, labels 2-4 words.`;
                 raw = data.choices[0].message.content;
             } else if (model === 'gpt4') {
                 const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+                if (!apiKey) throw new Error('OpenAI API key not configured. Add VITE_OPENAI_API_KEY to your environment.');
                 const res = await fetch('https://api.openai.com/v1/chat/completions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
@@ -501,32 +501,27 @@ Rules: first node always trigger, max 8 nodes, labels 2-4 words.`;
                         temperature: 0.7
                     })
                 });
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(`OpenAI error: ${err.error?.message || res.status}`);
+                }
                 const data = await res.json();
                 raw = data.choices[0].message.content;
             } else if (model === 'gemini') {
                 const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                if (!apiKey) throw new Error('Gemini API key not configured. Add VITE_GEMINI_API_KEY to your environment.');
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ contents: [{ parts: [{ text: systemPrompt + '\n\nUser: ' + prompt }] }] })
                 });
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(`Gemini error: ${err.error?.message || res.status}`);
+                }
                 const data = await res.json();
-                raw = data.candidates[0].content.parts[0].text;
-            } else {
-                // claude → fallback to groq
-                const apiKey = import.meta.env.VITE_GROQ_API_KEY;
-                const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-                    body: JSON.stringify({
-                        model: 'llama-3.3-70b-versatile',
-                        messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: prompt }],
-                        max_tokens: 1024,
-                        temperature: 0.7
-                    })
-                });
-                const data = await res.json();
-                raw = data.choices[0].message.content;
+                raw = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!raw) throw new Error('Gemini returned empty response');
             }
 
             const cleaned = raw.replace(/```json|```/g, '').trim();
