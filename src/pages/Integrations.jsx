@@ -1,8 +1,8 @@
-import { motion } from 'framer-motion';
-import { Github, Slack, Trello, Hash, CheckCircle2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Github, Slack, Trello, Hash, CheckCircle2, X } from 'lucide-react';
 import TopBar from '../components/TopBar';
 import { supabase } from '../lib/supabase';
-import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 
@@ -24,44 +24,65 @@ const Integrations = () => {
     const [selectedRepo, setSelectedRepo] = useState(null);
     const [isLoadingRepos, setIsLoadingRepos] = useState(false);
 
+    // ── NEW STATE VARIABLES ──────────────────────────────────────────────────
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    const [showCreateRepo, setShowCreateRepo] = useState(false);
+    const [newRepoName, setNewRepoName] = useState('');
+    const [newRepoPrivate, setNewRepoPrivate] = useState(false);
+    const [isCreatingRepo, setIsCreatingRepo] = useState(false);
+
     useEffect(() => {
         const checkGithubConnection = async () => {
             const { data: { session } } = await supabase.auth.getSession();
-            const { data: { user } } = await supabase.auth.getUser();
+            const { data: { user: authUser } } = await supabase.auth.getUser();
 
-            const connected = user?.app_metadata?.provider === 'github' ||
-                user?.app_metadata?.providers?.includes('github');
+            const connected = authUser?.app_metadata?.provider === 'github' ||
+                authUser?.app_metadata?.providers?.includes('github');
             setIsGithubConnected(!!connected);
 
-            if (connected) {
-                if (user) {
+            if (connected && session) {
+                // Save provider_token to backend if available
+                const providerToken = session?.provider_token;
+                if (providerToken) {
+                    try {
+                        await fetch(`${API_URL}/github/token`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${session.access_token}`
+                            },
+                            body: JSON.stringify({ token: providerToken })
+                        });
+                    } catch (err) {
+                        console.error('Failed to save GitHub token', err);
+                    }
+                }
+
+                // Load repos from backend
+                if (authUser) {
                     const { data: settings } = await supabase
                         .from('user_settings')
                         .select('selected_repo_full_name, selected_repo')
-                        .eq('user_id', user.id)
+                        .eq('user_id', authUser.id)
                         .single();
-
                     if (settings?.selected_repo_full_name || settings?.selected_repo) {
                         setSelectedRepo(settings.selected_repo_full_name || settings.selected_repo);
                     }
                 }
 
-                const token = session?.provider_token;
-                if (token) {
-                    setIsLoadingRepos(true);
-                    try {
-                        const res = await fetch('https://api.github.com/user/repos?sort=updated&per_page=20', {
-                            headers: { Authorization: `Bearer ${token}` }
-                        });
-                        if (res.ok) {
-                            const reposData = await res.json();
-                            setRepos(reposData);
-                        }
-                    } catch (err) {
-                        console.error("Failed to fetch repos", err);
-                    } finally {
-                        setIsLoadingRepos(false);
+                setIsLoadingRepos(true);
+                try {
+                    const res = await fetch(`${API_URL}/github/repos`, {
+                        headers: { 'Authorization': `Bearer ${session.access_token}` }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        setRepos(data.repos || []);
                     }
+                } catch (err) {
+                    console.error('Failed to fetch repos', err);
+                } finally {
+                    setIsLoadingRepos(false);
                 }
             }
         };
@@ -91,11 +112,41 @@ const Integrations = () => {
         }
     };
 
+    // ── NEW CREATE REPO FUNCTION ─────────────────────────────────────────────
+    const handleCreateRepo = async () => {
+        if (!newRepoName.trim()) return;
+        setIsCreatingRepo(true);
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const res = await fetch(`${API_URL}/github/repos`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`
+                },
+                body: JSON.stringify({ name: newRepoName.trim(), private: newRepoPrivate })
+            });
+
+            if (!res.ok) throw new Error((await res.json()).detail);
+
+            const data = await res.json();
+            setRepos(prev => [data.repo, ...prev]);
+            setSelectedRepo(data.repo.full_name);
+            setShowCreateRepo(false);
+            setNewRepoName('');
+            showToast(`Repo "${data.repo.name}" created!`, 'success');
+        } catch (err) {
+            showToast('Failed to create repo: ' + err.message, 'error');
+        } finally {
+            setIsCreatingRepo(false);
+        }
+    };
+
     const integrations = [
         { id: 'github', name: 'GitHub', desc: 'Trigger workflows from PRs, merges, and issues.', icon: Github, connected: isGithubConnected },
         { id: 'slack', name: 'Slack', desc: 'Send notifications and alerts to channels.', icon: Hash, connected: false },
         { id: 'jira', name: 'Jira', desc: 'Sync issues, epic status, and bug reports.', icon: Trello, connected: false },
-        { id: 'linear', name: 'Linear', desc: 'Link commits to issues and manage cycles.', icon: CheckCircle2, connected: false }, // Linear logo approximation
+        { id: 'linear', name: 'Linear', desc: 'Link commits to issues and manage cycles.', icon: CheckCircle2, connected: false },
     ];
 
     return (
@@ -105,8 +156,8 @@ const Integrations = () => {
                 <div className="w-full max-w-6xl mx-auto space-y-8 pb-12">
                     <motion.div variants={containerVariants} initial="hidden" animate="show" className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <motion.div variants={itemVariants}>
-                            <h2 className="text-xl font-mono text-text-primary lowercase tracking-tight">integrations</h2>
-                            <p className="text-text-secondary text-sm font-mono mt-1">connect_your_external_services</p>
+                            <h2 className="text-xl font-mono text-[#F1F5F9] lowercase tracking-tight">integrations</h2>
+                            <p className="text-[#64748B] text-sm font-mono mt-1">connect_your_external_services</p>
                         </motion.div>
                     </motion.div>
 
@@ -114,14 +165,14 @@ const Integrations = () => {
                         {integrations.map((integration) => {
                             const Icon = integration.icon;
                             return (
-                                <motion.div key={integration.id} variants={itemVariants} className="bg-[#111111] border border-[#222222] rounded-xl p-6 flex flex-col justify-between">
+                                <motion.div key={integration.id} variants={itemVariants} className="bg-[#111] border border-[#222] rounded-xl p-6 flex flex-col justify-between">
                                     <div className="flex items-start justify-between mb-4">
                                         <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 bg-[#0D0D0D] border border-[#222] flex items-center justify-center shrink-0">
-                                                <Icon className="w-6 h-6 text-text-primary" />
+                                            <div className="w-12 h-12 bg-[#0D0D0D] border border-[#222] flex items-center justify-center shrink-0 rounded-xl">
+                                                <Icon className="w-6 h-6 text-[#F1F5F9]" />
                                             </div>
                                             <div>
-                                                <h3 className="text-base font-mono font-semibold text-text-primary">{integration.name}</h3>
+                                                <h3 className="text-base font-mono font-semibold text-[#F1F5F9]">{integration.name}</h3>
                                                 <p className="text-[#64748B] text-xs font-mono mt-1 max-w-[200px]">{integration.desc}</p>
                                             </div>
                                         </div>
@@ -134,12 +185,12 @@ const Integrations = () => {
                                                         <span className="w-2 h-2 rounded-full bg-[#6EE7B7]"></span> connected
                                                     </span>
                                                     <div className="relative group flex items-center h-full">
-                                                        <button className="text-xs font-mono text-[#64748B] px-4 py-2 border border-[#222] hover:text-text-primary hover:border-[#444] transition-colors rounded-xl">
+                                                        <button className="text-xs font-mono text-[#64748B] px-4 py-2 border border-[#222] hover:text-[#F1F5F9] hover:border-[#444] transition-colors rounded-xl">
                                                             Manage
                                                         </button>
                                                         <div className="absolute right-0 mt-2 w-48 bg-[#111] border border-[#222] rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 top-full">
                                                             <div className="p-1">
-                                                                <div className="px-4 py-2 text-xs text-[#64748B] border-b border-[#222] mb-1">
+                                                                <div className="px-4 py-2 text-xs text-[#64748B] border-b border-[#222] mb-1 truncate">
                                                                     {user?.user_metadata?.user_name ? `@${user.user_metadata.user_name}` : 'GitHub User'}
                                                                 </div>
                                                                 <a href={`https://github.com/${user?.user_metadata?.user_name || ''}`} target="_blank" rel="noreferrer" className="block w-full text-left px-4 py-2 text-sm text-[#F1F5F9] hover:bg-[#222] rounded-xl transition-colors">View on GitHub →</a>
@@ -165,35 +216,99 @@ const Integrations = () => {
                                                                 showToast(`${integration.name} integration coming soon`, 'info');
                                                             }
                                                         }}
-                                                        className="text-xs font-mono text-[#080808] bg-[#6EE7B7] hover:bg-[#34D399] px-4 py-2 transition-colors rounded-xl">
+                                                        className="text-xs font-mono text-[#080808] bg-[#6EE7B7] hover:bg-[#34D399] px-4 py-2 transition-colors rounded-xl font-bold">
                                                         Connect
                                                     </button>
                                                 </>
                                             )}
                                         </div>
 
+                                        {/* ── NEW GITHUB CONNECTED BLOCK ────────────────────────────────────────── */}
                                         {integration.connected && integration.id === 'github' && (
-                                            <div className="mt-4 flex flex-col gap-3 bg-[#0D0D0D] p-3 border border-[#222]">
-                                                <div className="flex items-center justify-between mb-1">
-                                                    <span className="text-xs font-mono text-[#64748B]">Repository Link</span>
-                                                    {selectedRepo && (
-                                                        <span className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest text-[#6EE7B7]">
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-[#6EE7B7] animate-pulse"></span> Active repo
-                                                        </span>
-                                                    )}
+                                            <div className="mt-4 flex flex-col gap-3 bg-[#0D0D0D] p-3 border border-[#222] rounded-xl">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-xs font-mono text-[#64748B]">Repository</span>
+                                                    <button
+                                                        onClick={() => setShowCreateRepo(true)}
+                                                        className="text-[10px] font-mono text-[#6EE7B7] hover:underline flex items-center gap-1">
+                                                        + New Repo
+                                                    </button>
                                                 </div>
                                                 <select
                                                     className="w-full bg-[#111] border border-[#222] rounded-xl text-xs font-mono text-[#F1F5F9] outline-none px-3 py-2 focus:border-[#444] transition-colors appearance-none cursor-pointer hover:border-[#333]"
                                                     value={selectedRepo || ''}
-                                                    onChange={handleRepoChange}
-                                                >
+                                                    onChange={handleRepoChange}>
                                                     <option value="" disabled>Select a repository...</option>
                                                     {repos.map(r => (
                                                         <option key={r.id} value={r.full_name}>{r.full_name}</option>
                                                     ))}
                                                 </select>
-                                                {isLoadingRepos && <span className="text-[10px] font-mono text-[#64748B]">Loading available repositories...</span>}
-                                                {!isLoadingRepos && repos.length === 0 && <span className="text-[10px] font-mono text-[#F59E0B]">No repos found. To view private repos, ensure scopes are granted.</span>}
+                                                {isLoadingRepos && <span className="text-[10px] font-mono text-[#64748B]">Loading repositories...</span>}
+                                                {!isLoadingRepos && repos.length === 0 && (
+                                                    <span className="text-[10px] font-mono text-[#F59E0B]">No repos found. Create one above.</span>
+                                                )}
+
+                                                {/* Create Repo Modal */}
+                                                <AnimatePresence>
+                                                    {showCreateRepo && (
+                                                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                                                            className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+                                                            style={{ background: 'rgba(8,8,8,0.85)', backdropFilter: 'blur(12px)' }}
+                                                            onClick={() => setShowCreateRepo(false)}>
+                                                            <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                                exit={{ opacity: 0, scale: 0.95 }}
+                                                                className="w-full max-w-md bg-[#0D0D0D] border border-[#222] rounded-2xl shadow-[0_0_50px_rgba(0,0,0,1)] overflow-hidden"
+                                                                onClick={e => e.stopPropagation()}>
+                                                                <div className="flex items-center justify-between px-6 py-4 border-b border-[#1A1A1A]">
+                                                                    <div className="flex items-center gap-3">
+                                                                        <Github className="w-5 h-5 text-[#6EE7B7]" />
+                                                                        <h3 className="font-mono text-sm font-bold text-[#F1F5F9]">Create Repository</h3>
+                                                                    </div>
+                                                                    <button onClick={() => setShowCreateRepo(false)} className="text-[#64748B] hover:text-[#F1F5F9] bg-[#111] p-1.5 rounded-full transition-colors">
+                                                                        <X className="w-4 h-4" />
+                                                                    </button>
+                                                                </div>
+                                                                <div className="p-6 space-y-4">
+                                                                    <div>
+                                                                        <label className="font-mono text-[10px] text-[#64748B] uppercase tracking-wider mb-2 block">Repository Name</label>
+                                                                        <input
+                                                                            type="text"
+                                                                            value={newRepoName}
+                                                                            onChange={e => setNewRepoName(e.target.value.replace(/\s+/g, '-').toLowerCase())}
+                                                                            placeholder="my-awesome-project"
+                                                                            className="w-full bg-[#111] border border-[#222] rounded-xl px-4 py-2.5 font-mono text-xs text-[#F1F5F9] outline-none focus:border-[#6EE7B7]/40 transition-colors placeholder:text-[#444]"
+                                                                        />
+                                                                    </div>
+                                                                    <div className="flex items-center justify-between bg-[#111] border border-[#222] rounded-xl px-4 py-3">
+                                                                        <div>
+                                                                            <p className="font-mono text-xs text-[#F1F5F9]">Private repository</p>
+                                                                            <p className="font-mono text-[10px] text-[#64748B] mt-0.5">Only you can see this repo</p>
+                                                                        </div>
+                                                                        <button
+                                                                            onClick={() => setNewRepoPrivate(!newRepoPrivate)}
+                                                                            className={`w-10 h-5 rounded-full transition-colors relative ${newRepoPrivate ? 'bg-[#6EE7B7]' : 'bg-[#333]'}`}>
+                                                                            <div className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-all ${newRepoPrivate ? 'left-5' : 'left-0.5'}`} />
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="px-6 pb-6 flex gap-3">
+                                                                    <button onClick={() => setShowCreateRepo(false)}
+                                                                        className="flex-1 font-mono text-xs text-[#64748B] border border-[#222] py-2.5 rounded-xl hover:border-[#333] hover:text-[#F1F5F9] transition-all bg-[#111]">
+                                                                        Cancel
+                                                                    </button>
+                                                                    <button onClick={handleCreateRepo} disabled={!newRepoName.trim() || isCreatingRepo}
+                                                                        className="flex-1 font-mono text-xs font-bold bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] py-2.5 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                                                                        {isCreatingRepo
+                                                                            ? <div className="w-3.5 h-3.5 border-2 border-[#080808]/40 border-t-[#080808] rounded-full animate-spin" />
+                                                                            : <Github className="w-3.5 h-3.5" />}
+                                                                        {isCreatingRepo ? 'Creating...' : 'Create Repo'}
+                                                                    </button>
+                                                                </div>
+                                                            </motion.div>
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
                                             </div>
                                         )}
                                     </div>
