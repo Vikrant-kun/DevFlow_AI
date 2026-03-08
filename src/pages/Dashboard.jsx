@@ -46,6 +46,7 @@ const Dashboard = () => {
     const [isLoadingRepos, setIsLoadingRepos] = useState(false);
     const [isGithubConnected, setIsGithubConnected] = useState(false);
     const [showRepoSelector, setShowRepoSelector] = useState(false);
+    const [showGithubConnectModal, setShowGithubConnectModal] = useState(false);
     const { showToast } = useToast();
     const { user } = useAuth();
     const [checklistDismissed, setChecklistDismissed] = useState(true);
@@ -426,7 +427,13 @@ const Dashboard = () => {
                                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto relative">
                                         {selectedRepo ? (
                                             <>
-                                                <Button variant="ghost" onClick={() => setShowRepoSelector(!showRepoSelector)} className="font-mono text-xs border border-[#222] text-[#F1F5F9] rounded-xl w-full sm:w-auto justify-center">
+                                                <Button variant="ghost" onClick={() => {
+                                                    if (!isGithubConnected) {
+                                                        setShowGithubConnectModal(true);
+                                                        return;
+                                                    }
+                                                    setShowRepoSelector(!showRepoSelector);
+                                                }} className="font-mono text-xs border border-[#222] text-[#F1F5F9] rounded-xl w-full sm:w-auto justify-center">
                                                     Change Repo
                                                 </Button>
                                                 <Button variant="primary" className="gap-2 bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] border-none font-bold rounded-xl text-xs w-full sm:w-auto justify-center" onClick={() => navigate(`/workflows/new`)}>
@@ -434,7 +441,13 @@ const Dashboard = () => {
                                                 </Button>
                                             </>
                                         ) : (
-                                            <Button variant="primary" className="gap-2 bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] border-none font-bold rounded-xl w-full sm:w-auto justify-center text-xs" onClick={() => setShowRepoSelector(!showRepoSelector)}>
+                                            <Button variant="primary" className="gap-2 bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] border-none font-bold rounded-xl w-full sm:w-auto justify-center text-xs" onClick={() => {
+                                                if (!isGithubConnected) {
+                                                    setShowGithubConnectModal(true);
+                                                    return;
+                                                }
+                                                setShowRepoSelector(!showRepoSelector);
+                                            }}>
                                                 Select Repository →
                                             </Button>
                                         )}
@@ -637,6 +650,95 @@ const Dashboard = () => {
                     </div>
                 </main>
             </div>
+
+            {/* GitHub Connect Modal */}
+            <AnimatePresence>
+                {showGithubConnectModal && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+                        style={{ background: 'rgba(8,8,8,0.88)', backdropFilter: 'blur(16px)' }}
+                        onClick={() => setShowGithubConnectModal(false)}>
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.94, y: 16 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.94, y: 8 }}
+                            transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+                            className="w-full max-w-sm bg-[#0D0D0D] border border-[#222] rounded-2xl shadow-2xl overflow-hidden"
+                            onClick={e => e.stopPropagation()}>
+
+                            {/* Top accent bar */}
+                            <div className="h-[2px] w-full" style={{ background: 'linear-gradient(90deg, #6EE7B7, #A78BFA)' }} />
+
+                            <div className="p-7 space-y-5">
+                                {/* Icon */}
+                                <div className="flex items-center justify-center">
+                                    <div className="w-14 h-14 rounded-2xl bg-[#111] border border-[#222] flex items-center justify-center shadow-inner">
+                                        <svg className="w-7 h-7 text-[#F1F5F9]" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
+                                        </svg>
+                                    </div>
+                                </div>
+
+                                {/* Text */}
+                                <div className="text-center space-y-2">
+                                    <h3 className="font-mono text-sm font-bold text-[#F1F5F9]">
+                                        Link your GitHub account
+                                    </h3>
+                                    <p className="font-mono text-[11px] text-[#64748B] leading-relaxed">
+                                        To select a repository, DevFlow needs access to your GitHub. This lets you commit files, create issues, and trigger pipelines directly from your repos.
+                                    </p>
+                                </div>
+
+                                {/* What you get */}
+                                <div className="bg-[#111] border border-[#1A1A1A] rounded-xl p-4 space-y-2.5">
+                                    {[
+                                        { icon: '📁', text: 'Browse and select your repositories' },
+                                        { icon: '⚡', text: 'Trigger pipelines on push & PR events' },
+                                        { icon: '🔒', text: 'Read/write access — revoke anytime' },
+                                    ].map(({ icon, text }) => (
+                                        <div key={text} className="flex items-center gap-3">
+                                            <span className="text-sm">{icon}</span>
+                                            <span className="font-mono text-[10px] text-[#94A3B8]">{text}</span>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Buttons */}
+                                <div className="flex gap-3 pt-1">
+                                    <button
+                                        onClick={() => setShowGithubConnectModal(false)}
+                                        className="flex-1 font-mono text-xs text-[#64748B] border border-[#222] py-2.5 rounded-xl hover:border-[#333] hover:text-[#94A3B8] transition-all">
+                                        Later
+                                    </button>
+                                    <button
+                                        onClick={async () => {
+                                            setShowGithubConnectModal(false);
+                                            const { error } = await supabase.auth.signInWithOAuth({
+                                                provider: 'github',
+                                                options: {
+                                                    scopes: 'repo read:user',
+                                                    redirectTo: window.location.href
+                                                }
+                                            });
+                                            if (error) showToast('GitHub connect failed', 'error');
+                                        }}
+                                        className="flex-1 font-mono text-xs font-bold text-[#080808] py-2.5 rounded-xl transition-all"
+                                        style={{ background: 'linear-gradient(135deg, #6EE7B7, #A78BFA)' }}>
+                                        Connect GitHub
+                                    </button>
+                                </div>
+
+                                <p className="font-mono text-[9px] text-[#333] text-center">
+                                    You can also connect from Settings → Integrations
+                                </p>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };
