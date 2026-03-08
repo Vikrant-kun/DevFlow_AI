@@ -49,7 +49,6 @@ const CustomCanvasControls = ({ isLocked, setIsLocked, onUndo, onRedo, hasNodes 
     const { zoomIn, zoomOut, fitView } = useReactFlow();
     return (
         <>
-            {/* Controls — bottom-left, desktop only */}
             <Panel position="bottom-left" className="hidden md:flex flex-col bg-[#111] border border-[#222] rounded-xl shadow-xl overflow-hidden mb-[100px] ml-4">
                 <button onClick={onUndo} className="p-2 border-b border-[#222] text-[#64748B] hover:text-[#F1F5F9] hover:bg-[#1A1A1A] transition-colors" title="Undo"><Undo2 className="w-4 h-4" /></button>
                 <button onClick={onRedo} className="p-2 border-b border-[#222] text-[#64748B] hover:text-[#F1F5F9] hover:bg-[#1A1A1A] transition-colors" title="Redo"><Redo2 className="w-4 h-4" /></button>
@@ -61,10 +60,8 @@ const CustomCanvasControls = ({ isLocked, setIsLocked, onUndo, onRedo, hasNodes 
                 </button>
             </Panel>
 
-            {/* Legend — only when nodes exist */}
             {hasNodes && (
                 <>
-                    {/* Desktop: top-right vertical */}
                     <Panel position="top-right" className="hidden md:flex flex-col gap-1.5 bg-[#111]/90 backdrop-blur-sm border border-[#222] rounded-xl p-3 shadow-xl mr-2 mt-2">
                         <p className="font-mono text-[8px] text-[#3A3A4A] uppercase tracking-widest mb-0.5">Node Types</p>
                         {NODE_LEGEND.map(({ color, label }) => (
@@ -75,7 +72,6 @@ const CustomCanvasControls = ({ isLocked, setIsLocked, onUndo, onRedo, hasNodes 
                         ))}
                     </Panel>
 
-                    {/* Mobile: top-center horizontal strip */}
                     <Panel position="top-center" className="md:hidden flex items-center gap-3 bg-[#111]/90 backdrop-blur-sm border border-[#222] rounded-xl px-3 py-1.5 shadow-lg mt-2">
                         {NODE_LEGEND.map(({ color, label }) => (
                             <div key={label} className="flex items-center gap-1.5">
@@ -96,17 +92,20 @@ const AgentSelector = ({ value, onChange, disabled }) => {
     const [open, setOpen] = useState(false);
     const selected = AGENTS.find(a => a.id === value) || AGENTS[0];
     const ref = useRef(null);
+
     useEffect(() => {
         const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
         document.addEventListener('mousedown', h);
         return () => document.removeEventListener('mousedown', h);
     }, []);
+
     return (
         <div className="relative shrink-0" ref={ref}>
             <button type="button" disabled={disabled} onClick={() => setOpen(!open)}
                 className="flex h-8 w-8 items-center justify-center rounded-full border border-[#222] bg-[#0D0D0D] hover:bg-[#1A1A1A] disabled:opacity-50 transition-all">
                 <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#111] border border-[#222] text-[10px]">{selected.icon}</div>
             </button>
+
             <AnimatePresence>
                 {open && (
                     <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 5 }} transition={{ duration: 0.15 }}
@@ -136,7 +135,11 @@ const AgentSelector = ({ value, onChange, disabled }) => {
 const UnifiedPromptBox = ({ prompt, setPrompt, model, setModel, isGenerating, handleGenerate, onToggleRecipes, isRecipeOpen, onToggleSuggestions, isSuggestionsOpen, hasStarted }) => {
     const textareaRef = useRef(null);
     const [placeholderIndex, setPlaceholderIndex] = useState(0);
-    const placeholders = ["When a PR is merged, run tests and notify Slack...", "Every night at 2am, sync staging with production...", "When a deploy fails, rollback and page on-call..."];
+    const placeholders = [
+        "When a PR is merged, run tests and notify Slack...",
+        "Every night at 2am, sync staging with production...",
+        "When a deploy fails, rollback and page on-call..."
+    ];
 
     useEffect(() => {
         const id = setInterval(() => setPlaceholderIndex(p => (p + 1) % placeholders.length), 3000);
@@ -154,10 +157,12 @@ const UnifiedPromptBox = ({ prompt, setPrompt, model, setModel, isGenerating, ha
 
     return (
         <div className="w-full max-w-2xl mx-auto rounded-[24px] border border-[#333] bg-[#111]/95 backdrop-blur-xl p-2 shadow-[0_8px_40px_rgba(0,0,0,0.8)] flex flex-col pointer-events-auto">
-            <textarea ref={textareaRef}
+            <textarea
+                ref={textareaRef}
                 placeholder={activePlaceholder}
                 className="w-full resize-none bg-transparent px-3 pt-2 pb-3 text-sm md:text-base text-[#F1F5F9] placeholder:text-[#555] focus:outline-none disabled:opacity-50 font-mono scrollbar-thin scrollbar-thumb-[#333] scrollbar-track-transparent leading-normal"
-                style={{ minHeight: '48px', overflowY: 'auto' }} rows={1}
+                style={{ minHeight: '48px', overflowY: 'auto' }}
+                rows={1}
                 value={prompt}
                 onChange={e => { setPrompt(e.target.value); resizeTextarea(); }}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleGenerate(); } }}
@@ -184,7 +189,7 @@ const UnifiedPromptBox = ({ prompt, setPrompt, model, setModel, isGenerating, ha
     );
 };
 
-// ── MAIN ─────────────────────────────────────────────────────────────────────
+// ── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
 const WorkflowBuilder = () => {
     const [title, setTitle] = useState('Untitled Workflow');
@@ -202,6 +207,7 @@ const WorkflowBuilder = () => {
     const [lastPrompt, setLastPrompt] = useState('');
     const [isRunning, setIsRunning] = useState(false);
     const [isDirty, setIsDirty] = useState(false);
+    const [unsupportedFeature, setUnsupportedFeature] = useState(null);
 
     const historyRef = useRef([]);
     const historyIndexRef = useRef(-1);
@@ -210,7 +216,7 @@ const WorkflowBuilder = () => {
     const location = useLocation();
     const { user } = useAuth();
 
-    // ── History Tracking for Undo/Redo
+    // ── History (Undo / Redo) ────────────────────────────────────────────────
     const pushHistory = useCallback((n, e) => {
         historyRef.current = historyRef.current.slice(0, historyIndexRef.current + 1);
         historyRef.current.push({ nodes: n, edges: e });
@@ -220,6 +226,7 @@ const WorkflowBuilder = () => {
     useEffect(() => {
         if (nodes.length === 0 && edges.length === 0) return;
         setIsDirty(true);
+
         const snapshot = { nodes, edges };
         const history = historyRef.current;
         historyRef.current = history.slice(0, historyIndexRef.current + 1);
@@ -243,7 +250,7 @@ const WorkflowBuilder = () => {
         setEdges(snap.edges);
     }, [setNodes, setEdges]);
 
-    // ── Replay Snapshot Integration
+    // ── Replay from location state ───────────────────────────────────────────
     const locationState = location.state;
     useEffect(() => {
         if (locationState?.replaySnapshot) {
@@ -251,6 +258,7 @@ const WorkflowBuilder = () => {
             if (snap.title) setTitle(snap.title);
             setNodes([]); setEdges([]);
             setHasStarted(true);
+
             snap.nodes?.forEach((node, idx) => {
                 setTimeout(() => {
                     setNodes(nds => [...nds, node]);
@@ -258,12 +266,13 @@ const WorkflowBuilder = () => {
                         setEdges(eds => [...eds, { ...snap.edges[idx - 1], animated: true, style: { stroke: '#333', strokeWidth: 2, strokeDasharray: '6,6' } }]);
                 }, idx * 150);
             });
+
             showToast('Snapshot loaded from run history', 'success');
-            // Clear state so re-navigating doesn't re-load
             window.history.replaceState({}, '');
         }
-    }, [locationState]);
+    }, [locationState, setNodes, setEdges, showToast]);
 
+    // ── Template from URL ────────────────────────────────────────────────────
     useEffect(() => {
         const params = new URLSearchParams(location.search);
         const templateSlug = params.get('template');
@@ -272,10 +281,11 @@ const WorkflowBuilder = () => {
             setTitle(templateSlug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '));
             setNodes([]); setEdges([]);
             setHasStarted(true);
+
             tpl.nodes.forEach((node, idx) => {
                 setTimeout(() => {
                     setNodes(nds => [...nds, node]);
-                    if (idx > 0 && tpl.edges[idx - 1])
+                    if (idx > 0 && tpl.edges?.[idx - 1])
                         setEdges(eds => [...eds, { ...tpl.edges[idx - 1], animated: true, style: { stroke: '#333', strokeWidth: 2, strokeDasharray: '6,6' } }]);
                 }, idx * 150);
             });
@@ -283,15 +293,15 @@ const WorkflowBuilder = () => {
     }, [location, setNodes, setEdges]);
 
     const onConnect = useCallback((params) =>
-        setEdges(eds => addEdge({ ...params, animated: true, style: { stroke: '#333', strokeWidth: 2, strokeDasharray: '6,6' } }, eds)), [setEdges]);
+        setEdges(eds => addEdge({ ...params, animated: true, style: { stroke: '#333', strokeWidth: 2, strokeDasharray: '6,6' } }, eds)),
+        [setEdges]
+    );
 
-    // Get Supabase JWT for backend calls
     const getToken = async () => {
         const { data } = await supabase.auth.getSession();
         return data?.session?.access_token;
     };
 
-    // ── Save → FastAPI backend 
     const handleSaveDraft = async () => {
         if (!user) { showToast('Log in to save.', 'error'); return null; }
         try {
@@ -324,15 +334,38 @@ const WorkflowBuilder = () => {
         }
     };
 
-    // ── Run → FastAPI backend + Check GitHub connection ─────────
+    // ── Unsupported Features Check ───────────────────────────────────────────
+    const UNSUPPORTED_FEATURES = [
+        { keywords: ['schedule', 'cron', 'every day', 'every night', 'every hour', 'at 2am', 'daily', 'weekly', 'interval'], feature: 'Scheduled Triggers' },
+        { keywords: ['webhook', 'http trigger', 'api trigger'], feature: 'Webhook Triggers' },
+        { keywords: ['discord'], feature: 'Discord Integration' },
+        { keywords: ['twitter', 'tweet', 'x.com'], feature: 'Twitter/X Integration' },
+        { keywords: ['whatsapp', 'telegram', 'sms'], feature: 'Messaging Apps' },
+        { keywords: ['s3', 'aws', 'lambda', 'ec2'], feature: 'AWS Integration' },
+        { keywords: ['stripe', 'payment', 'invoice'], feature: 'Stripe/Payments' },
+    ];
+
+    const checkUnsupportedFeatures = (promptText) => {
+        const lower = promptText.toLowerCase();
+        for (const { keywords, feature } of UNSUPPORTED_FEATURES) {
+            if (keywords.some(k => lower.includes(k))) {
+                return feature;
+            }
+        }
+        return null;
+    };
+
     const handleRunPipeline = async () => {
         if (!user) { showToast('Log in to run.', 'error'); return; }
         if (nodes.length === 0) { showToast('Build a pipeline first', 'error'); return; }
         if (isRunning) { showToast('Pipeline is already running', 'info'); return; }
-        if (currentWorkflowId && !isDirty) { showToast('No changes since last save — edit your pipeline to run again', 'info'); return; }
+        if (currentWorkflowId && !isDirty) {
+            showToast('No changes since last save — edit your pipeline to run again', 'info');
+            return;
+        }
+
         setIsRunning(true);
 
-        // ── UPDATED GITHUB CHECK ──────────────────────────────────────────────────
         const hasGithubNodes = nodes.some(n => {
             const label = (n.data?.label || '').toLowerCase();
             const icon = n.data?.icon || '';
@@ -347,7 +380,6 @@ const WorkflowBuilder = () => {
             setIsRunning(false);
             return;
         }
-        // ───────────────────────────────────────────────────────────────────────────
 
         let workflowId = currentWorkflowId;
         if (!workflowId) {
@@ -383,7 +415,6 @@ const WorkflowBuilder = () => {
                     const result = msg.data;
                     setIsDirty(false);
                     localStorage.setItem('devflow_has_run', 'true');
-                    // Clear node statuses after 3s
                     setTimeout(() => {
                         setNodes(nds => nds.map(n => ({ ...n, data: { ...n.data, status: undefined } })));
                     }, 3000);
@@ -410,9 +441,15 @@ const WorkflowBuilder = () => {
         }
     };
 
-    // ── Generate via Multi-Model AI ─────────────────────────────
     const handleGenerate = async () => {
         if (!prompt.trim()) return;
+
+        const unsupported = checkUnsupportedFeatures(prompt);
+        if (unsupported) {
+            setUnsupportedFeature(unsupported);
+            return;
+        }
+
         setHasStarted(true);
         setIsGenerating(true);
         setIsRecipeOpen(false);
@@ -431,7 +468,12 @@ Rules: first node always trigger, max 8 nodes, labels 2-4 words.`;
                 const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-                    body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: prompt }], max_tokens: 1024, temperature: 0.7 })
+                    body: JSON.stringify({
+                        model: 'llama-3.3-70b-versatile',
+                        messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: prompt }],
+                        max_tokens: 1024,
+                        temperature: 0.7
+                    })
                 });
                 const data = await res.json();
                 raw = data.choices[0].message.content;
@@ -440,13 +482,18 @@ Rules: first node always trigger, max 8 nodes, labels 2-4 words.`;
                 const res = await fetch('https://api.openai.com/v1/chat/completions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-                    body: JSON.stringify({ model: 'gpt-4o', messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: prompt }], max_tokens: 1024, temperature: 0.7 })
+                    body: JSON.stringify({
+                        model: 'gpt-4o',
+                        messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: prompt }],
+                        max_tokens: 1024,
+                        temperature: 0.7
+                    })
                 });
                 const data = await res.json();
                 raw = data.choices[0].message.content;
             } else if (model === 'gemini') {
                 const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ contents: [{ parts: [{ text: systemPrompt + '\n\nUser: ' + prompt }] }] })
@@ -454,55 +501,74 @@ Rules: first node always trigger, max 8 nodes, labels 2-4 words.`;
                 const data = await res.json();
                 raw = data.candidates[0].content.parts[0].text;
             } else {
-                // claude fallback to groq
+                // claude → fallback to groq
                 const apiKey = import.meta.env.VITE_GROQ_API_KEY;
                 const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-                    body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: prompt }], max_tokens: 1024, temperature: 0.7 })
+                    body: JSON.stringify({
+                        model: 'llama-3.3-70b-versatile',
+                        messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: prompt }],
+                        max_tokens: 1024,
+                        temperature: 0.7
+                    })
                 });
                 const data = await res.json();
                 raw = data.choices[0].message.content;
             }
 
-            const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim());
+            const cleaned = raw.replace(/```json|```/g, '').trim();
+            const parsed = JSON.parse(cleaned);
+
             if (parsed.name) setTitle(parsed.name);
+
             setNodes([]); setEdges([]);
+
             const isMobile = window.innerWidth < 768;
             const spacedNodes = parsed.nodes.map((n, i) => ({
                 id: n.id,
                 type: 'custom',
                 position: { x: 50 + i * (isMobile ? 280 : 380), y: 150 },
-                data: { ...(n.data || n), model }, // store selected model inside node
+                data: { ...(n.data || n), model }, // pass selected model to node
             }));
+
             const formattedEdges = (parsed.edges || []).map(e => ({
-                id: `e${e.source}-${e.target}`, source: e.source, target: e.target,
-                animated: true, style: { stroke: '#333', strokeWidth: 2, strokeDasharray: '6,6' }
+                id: `e${e.source}-${e.target}`,
+                source: e.source,
+                target: e.target,
+                animated: true,
+                style: { stroke: '#333', strokeWidth: 2, strokeDasharray: '6,6' }
             }));
+
             spacedNodes.forEach((node, idx) => {
                 setTimeout(() => {
                     setNodes(nds => [...nds, node]);
-                    if (idx > 0 && formattedEdges[idx - 1]) setEdges(eds => [...eds, formattedEdges[idx - 1]]);
+                    if (idx > 0 && formattedEdges[idx - 1]) {
+                        setEdges(eds => [...eds, formattedEdges[idx - 1]]);
+                    }
                 }, idx * 150);
             });
+
             showToast(`Pipeline generated — ${spacedNodes.length} steps`, 'success');
             setIsGenerating(false);
             setPrompt('');
-            // push to history after animation settles
+
             setTimeout(() => pushHistory(spacedNodes, formattedEdges), spacedNodes.length * 150 + 100);
+
         } catch (err) {
+            console.error(err);
             setIsGenerating(false);
-            showToast('Generation failed — check API key', 'error');
+            showToast('Generation failed — check prompt or API key', 'error');
         }
     };
 
     return (
         <div className="h-[100dvh] flex flex-col w-full overflow-hidden bg-[#080808]">
             <style>{`
-                .no-scrollbar::-webkit-scrollbar{display:none;}
-                .no-scrollbar{-ms-overflow-style:none;scrollbar-width:none;}
-                @media(max-width:767px){.react-flow__controls{display:none!important;}}
-            `}</style>
+        .no-scrollbar::-webkit-scrollbar{display:none;}
+        .no-scrollbar{-ms-overflow-style:none;scrollbar-width:none;}
+        @media(max-width:767px){.react-flow__controls{display:none!important;}}
+      `}</style>
 
             <TopBar title={title}>
                 <div className="flex items-center gap-2">
@@ -518,7 +584,7 @@ Rules: first node always trigger, max 8 nodes, labels 2-4 words.`;
 
             <div className="flex-1 flex overflow-hidden relative">
 
-                {/* Recipe Drawer — LEFT */}
+                {/* Recipe Drawer */}
                 <AnimatePresence>
                     {isRecipeOpen && (
                         <>
@@ -547,7 +613,7 @@ Rules: first node always trigger, max 8 nodes, labels 2-4 words.`;
                     )}
                 </AnimatePresence>
 
-                {/* Suggestions Drawer — RIGHT */}
+                {/* Suggestions Drawer */}
                 <AnimatePresence>
                     {isSuggestionsOpen && (
                         <>
@@ -610,11 +676,13 @@ Rules: first node always trigger, max 8 nodes, labels 2-4 words.`;
                     )}
                 </AnimatePresence>
 
-                {/* Canvas */}
+                {/* Main Canvas */}
                 <div className="flex-1 relative overflow-hidden" style={{ width: selectedNode ? 'calc(100% - 320px)' : '100%', transition: 'width 0.3s ease' }}>
                     <ReactFlow
-                        nodes={nodes} edges={edges}
-                        onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
+                        nodes={nodes}
+                        edges={edges}
+                        onNodesChange={onNodesChange}
+                        onEdgesChange={onEdgesChange}
                         onConnect={onConnect}
                         onNodeClick={(_, node) => setSelectedNode(node)}
                         onPaneClick={() => setSelectedNode(null)}
@@ -631,7 +699,13 @@ Rules: first node always trigger, max 8 nodes, labels 2-4 words.`;
                         zoomOnPinch={!isCanvasLocked}
                     >
                         <Background color="#1A1A1A" gap={25} size={1} />
-                        <CustomCanvasControls isLocked={isCanvasLocked} setIsLocked={setIsCanvasLocked} onUndo={handleUndo} onRedo={handleRedo} hasNodes={nodes.length > 0} />
+                        <CustomCanvasControls
+                            isLocked={isCanvasLocked}
+                            setIsLocked={setIsCanvasLocked}
+                            onUndo={handleUndo}
+                            onRedo={handleRedo}
+                            hasNodes={nodes.length > 0}
+                        />
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none px-6">
                             <span className="font-mono font-extrabold uppercase text-center leading-none tracking-tighter text-[#111] opacity-50"
                                 style={{ fontSize: 'clamp(32px, 10vw, 120px)' }}>
@@ -642,7 +716,7 @@ Rules: first node always trigger, max 8 nodes, labels 2-4 words.`;
                 </div>
             </div>
 
-            {/* Prompt Bar */}
+            {/* Prompt Input Bar */}
             <div className={`fixed left-0 right-0 z-[50] px-4 md:px-8 flex justify-center pointer-events-none transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] ${hasStarted ? 'bottom-6 md:bottom-10 pb-[env(safe-area-inset-bottom,0px)]' : 'top-1/2 -translate-y-1/2'}`}>
                 <div className="w-full max-w-2xl pointer-events-auto">
                     <AnimatePresence>
@@ -658,10 +732,14 @@ Rules: first node always trigger, max 8 nodes, labels 2-4 words.`;
                             </motion.div>
                         )}
                     </AnimatePresence>
+
                     <UnifiedPromptBox
-                        prompt={prompt} setPrompt={setPrompt}
-                        model={model} setModel={setModel}
-                        isGenerating={isGenerating} handleGenerate={handleGenerate}
+                        prompt={prompt}
+                        setPrompt={setPrompt}
+                        model={model}
+                        setModel={setModel}
+                        isGenerating={isGenerating}
+                        handleGenerate={handleGenerate}
                         onToggleRecipes={() => setIsRecipeOpen(!isRecipeOpen)}
                         isRecipeOpen={isRecipeOpen}
                         onToggleSuggestions={() => setIsSuggestionsOpen(!isSuggestionsOpen)}
@@ -670,6 +748,57 @@ Rules: first node always trigger, max 8 nodes, labels 2-4 words.`;
                     />
                 </div>
             </div>
+
+            {/* Unsupported Feature Modal */}
+            <AnimatePresence>
+                {unsupportedFeature && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+                        style={{ background: 'rgba(8,8,8,0.85)', backdropFilter: 'blur(12px)' }}
+                        onClick={() => setUnsupportedFeature(null)}
+                    >
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="w-full max-w-md bg-[#0D0D0D] border border-[#222] rounded-2xl shadow-2xl overflow-hidden"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <div className="p-6 space-y-4">
+                                <div className="w-12 h-12 rounded-2xl bg-[#F59E0B]/10 border border-[#F59E0B]/20 flex items-center justify-center mx-auto">
+                                    <span className="text-2xl">🚧</span>
+                                </div>
+                                <div className="text-center space-y-2">
+                                    <h3 className="font-mono text-sm font-bold text-[#F1F5F9]">Not Integrated Yet</h3>
+                                    <p className="font-mono text-xs text-[#64748B] leading-relaxed">
+                                        <span className="text-[#F59E0B] font-semibold">{unsupportedFeature}</span> is on our roadmap but hasn't been integrated yet. We're working on it!
+                                    </p>
+                                    <p className="font-mono text-[10px] text-[#444]">
+                                        Try a workflow using GitHub, Slack, Notion, Linear, Jira, or email instead.
+                                    </p>
+                                </div>
+                                <div className="flex gap-3 pt-2">
+                                    <button
+                                        onClick={() => setUnsupportedFeature(null)}
+                                        className="flex-1 font-mono text-xs text-[#64748B] border border-[#222] py-2.5 rounded-xl hover:border-[#333] transition-all"
+                                    >
+                                        Got it
+                                    </button>
+                                    <button
+                                        onClick={() => { setUnsupportedFeature(null); /* you could also proceed anyway here if you want */ }}
+                                        className="flex-1 font-mono text-xs font-bold bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] py-2.5 rounded-xl transition-all"
+                                    >
+                                        Try Anyway
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

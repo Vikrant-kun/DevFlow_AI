@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Github, Slack, Trello, Hash, CheckCircle2, X, Upload, FileCode, GitCommit } from 'lucide-react';
+import { Github, Slack, Trello, Hash, CheckCircle2, X } from 'lucide-react';
 import TopBar from '../components/TopBar';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -29,12 +29,6 @@ const Integrations = () => {
     const [newRepoName, setNewRepoName] = useState('');
     const [newRepoPrivate, setNewRepoPrivate] = useState(false);
     const [isCreatingRepo, setIsCreatingRepo] = useState(false);
-
-    // ── FILE UPLOAD STATE ────────────────────────────────────────────────────
-    const [uploadFiles, setUploadFiles] = useState([]);
-    const [commitMessage, setCommitMessage] = useState('');
-    const [isCommitting, setIsCommitting] = useState(false);
-    const [isDragOver, setIsDragOver] = useState(false);
 
     // ── SLACK STATE ──────────────────────────────────────────────────────────
     const [slackWebhook, setSlackWebhook] = useState('');
@@ -164,46 +158,6 @@ const Integrations = () => {
             } else {
                 showToast("Repository linked successfully", "success");
             }
-        }
-    };
-
-    // ── HANDLERS ─────────────────────────────────────────────────────────────
-    const handleDrop = useCallback((e) => {
-        e.preventDefault();
-        setIsDragOver(false);
-        const dropped = Array.from(e.dataTransfer?.files || e.target?.files || []);
-        setUploadFiles(prev => [...prev, ...dropped]);
-    }, []);
-
-    const handleCommitFiles = async () => {
-        if (!selectedRepo || uploadFiles.length === 0) return;
-        setIsCommitting(true);
-        try {
-            const { data: { session } } = await supabase.auth.getSession();
-            for (const file of uploadFiles) {
-                const content = await file.text();
-                const res = await fetch(`${API_URL}/github/commit`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${session.access_token}`
-                    },
-                    body: JSON.stringify({
-                        repo_full_name: selectedRepo,
-                        path: file.name,
-                        content,
-                        message: commitMessage || `Add ${file.name} via DevFlow`
-                    })
-                });
-                if (!res.ok) throw new Error((await res.json()).detail);
-            }
-            showToast(`${uploadFiles.length} file(s) pushed to ${selectedRepo}`, 'success');
-            setUploadFiles([]);
-            setCommitMessage('');
-        } catch (err) {
-            showToast('Commit failed: ' + err.message, 'error');
-        } finally {
-            setIsCommitting(false);
         }
     };
 
@@ -427,84 +381,6 @@ const Integrations = () => {
                                                 {isLoadingRepos && <span className="text-[10px] font-mono text-[#64748B]">Loading repositories...</span>}
                                                 {!isLoadingRepos && repos.length === 0 && (
                                                     <span className="text-[10px] font-mono text-[#F59E0B]">No repos found. Create one above.</span>
-                                                )}
-
-                                                {/* ── FILE UPLOAD ZONE ───────────────────────────────────────────── */}
-                                                {selectedRepo && (
-                                                    <div className="mt-2 space-y-3">
-                                                        <div className="flex items-center justify-between">
-                                                            <span className="text-[10px] font-mono text-[#64748B] uppercase tracking-widest">Push Files</span>
-                                                            <span className="text-[10px] font-mono text-[#444]">{selectedRepo}</span>
-                                                        </div>
-                                                        {/* Drop Zone */}
-                                                        <div
-                                                            onDragOver={e => { e.preventDefault(); setIsDragOver(true); }}
-                                                            onDragLeave={() => setIsDragOver(false)}
-                                                            onDrop={handleDrop}
-                                                            onClick={() => document.getElementById('devflow-file-input').click()}
-                                                            className={`relative cursor-pointer border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center gap-3 transition-all duration-200 ${isDragOver
-                                                                ? 'border-[#6EE7B7]/60 bg-[#6EE7B7]/5'
-                                                                : 'border-[#222] hover:border-[#6EE7B7]/30 hover:bg-[#6EE7B7]/3 bg-[#0A0A0A]'
-                                                                }`}>
-                                                            <input
-                                                                id="devflow-file-input"
-                                                                type="file"
-                                                                multiple
-                                                                className="hidden"
-                                                                onChange={handleDrop}
-                                                            />
-                                                            <div className={`w-10 h-10 rounded-xl border flex items-center justify-center transition-all ${isDragOver ? 'border-[#6EE7B7]/40 bg-[#6EE7B7]/10' : 'border-[#222] bg-[#111]'
-                                                                }`}>
-                                                                <Upload className={`w-4 h-4 transition-colors ${isDragOver ? 'text-[#6EE7B7]' : 'text-[#444]'}`} />
-                                                            </div>
-                                                            <div className="text-center">
-                                                                <p className="font-mono text-xs text-[#64748B]">
-                                                                    {isDragOver ? 'Drop to add files' : 'Drag files or click to browse'}
-                                                                </p>
-                                                                <p className="font-mono text-[10px] text-[#333] mt-0.5">Any file type · Multiple allowed</p>
-                                                            </div>
-                                                        </div>
-
-                                                        {/* File List */}
-                                                        <AnimatePresence>
-                                                            {uploadFiles.length > 0 && (
-                                                                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
-                                                                    exit={{ opacity: 0, height: 0 }} className="space-y-2">
-                                                                    {uploadFiles.map((file, i) => (
-                                                                        <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-                                                                            className="flex items-center gap-3 bg-[#111] border border-[#1A1A1A] rounded-xl px-3 py-2.5">
-                                                                            <FileCode className="w-3.5 h-3.5 text-[#6EE7B7] shrink-0" />
-                                                                            <span className="font-mono text-xs text-[#F1F5F9] flex-1 truncate">{file.name}</span>
-                                                                            <span className="font-mono text-[10px] text-[#444] shrink-0">
-                                                                                {(file.size / 1024).toFixed(1)}kb
-                                                                            </span>
-                                                                            <button onClick={(e) => { e.stopPropagation(); setUploadFiles(prev => prev.filter((_, idx) => idx !== i)); }}
-                                                                                className="text-[#333] hover:text-[#F87171] transition-colors">
-                                                                                <X className="w-3.5 h-3.5" />
-                                                                            </button>
-                                                                        </motion.div>
-                                                                    ))}
-                                                                    {/* Commit message + push */}
-                                                                    <input
-                                                                        type="text"
-                                                                        value={commitMessage}
-                                                                        onChange={e => setCommitMessage(e.target.value)}
-                                                                        placeholder={`Add ${uploadFiles.length} file(s) via DevFlow`}
-                                                                        className="w-full bg-[#111] border border-[#222] rounded-xl px-3 py-2.5 font-mono text-xs text-[#F1F5F9] outline-none focus:border-[#6EE7B7]/40 transition-colors placeholder:text-[#333]"
-                                                                    />
-                                                                    <button
-                                                                        onClick={handleCommitFiles}
-                                                                        disabled={isCommitting}
-                                                                        className="w-full flex items-center justify-center gap-2 font-mono text-xs font-bold bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] py-2.5 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                                                                        {isCommitting
-                                                                            ? <div className="w-3.5 h-3.5 border-2 border-[#080808]/40 border-t-[#080808] rounded-full animate-spin" />
-                                                                            : <GitCommit className="w-3.5 h-3.5" />}
-                                                                        {isCommitting ? 'Pushing...' : `Push ${uploadFiles.length} file(s) to GitHub`}
-                                                                    </button>
-                                                                </motion.div>
-                                                            )}
-                                                        </AnimatePresence>
-                                                    </div>
                                                 )}
 
                                                 {/* Create Repo Modal */}
