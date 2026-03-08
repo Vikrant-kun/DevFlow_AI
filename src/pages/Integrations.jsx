@@ -42,6 +42,23 @@ const Integrations = () => {
     const [showSlackInput, setShowSlackInput] = useState(false);
     const [isSavingSlack, setIsSavingSlack] = useState(false);
 
+    // ── NOTION, LINEAR & JIRA STATE ──────────────────────────────────────────
+    const [notionToken, setNotionToken] = useState('');
+    const [isNotionConnected, setIsNotionConnected] = useState(false);
+    const [showNotionInput, setShowNotionInput] = useState(false);
+    const [isSavingNotion, setIsSavingNotion] = useState(false);
+
+    const [linearToken, setLinearToken] = useState('');
+    const [isLinearConnected, setIsLinearConnected] = useState(false);
+    const [showLinearInput, setShowLinearInput] = useState(false);
+    const [isSavingLinear, setIsSavingLinear] = useState(false);
+
+    const [jiraToken, setJiraToken] = useState('');
+    const [jiraDomain, setJiraDomain] = useState('');
+    const [isJiraConnected, setIsJiraConnected] = useState(false);
+    const [showJiraInput, setShowJiraInput] = useState(false);
+    const [isSavingJira, setIsSavingJira] = useState(false);
+
     useEffect(() => {
         const checkGithubConnection = async () => {
             const { data: { session } } = await supabase.auth.getSession();
@@ -108,6 +125,20 @@ const Integrations = () => {
                     setSlackWebhook(slackSettings.slack_webhook_url);
                     setIsSlackConnected(true);
                 }
+            }
+
+            // Load Notion, Linear & Jira
+            if (authUser) {
+                const { data: extraSettings } = await supabase
+                    .from('user_settings')
+                    .select('notion_token, linear_token, jira_token, jira_domain')
+                    .eq('user_id', authUser.id)
+                    .single();
+
+                if (extraSettings?.notion_token) { setNotionToken(extraSettings.notion_token); setIsNotionConnected(true); }
+                if (extraSettings?.linear_token) { setLinearToken(extraSettings.linear_token); setIsLinearConnected(true); }
+                if (extraSettings?.jira_token) { setJiraToken(extraSettings.jira_token); setIsJiraConnected(true); }
+                if (extraSettings?.jira_domain) setJiraDomain(extraSettings.jira_domain);
             }
         };
         checkGithubConnection();
@@ -210,13 +241,12 @@ const Integrations = () => {
         setIsSavingSlack(true);
         try {
             const { data: { session } } = await supabase.auth.getSession();
-            const res = await fetch(`${API_URL}/github/token`, { // Still hitting backend to register change if needed, otherwise just Supabase
+            await fetch(`${API_URL}/github/token`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
                 body: JSON.stringify({ slack_webhook_url: slackWebhook.trim() })
             });
 
-            // Save directly to Supabase
             const { error } = await supabase.from('user_settings').upsert({
                 user_id: user.id,
                 slack_webhook_url: slackWebhook.trim(),
@@ -235,11 +265,59 @@ const Integrations = () => {
         }
     };
 
+    const handleSaveNotion = async () => {
+        if (!notionToken.trim()) return;
+        setIsSavingNotion(true);
+        try {
+            const { error } = await supabase.from('user_settings').upsert({
+                user_id: user.id, notion_token: notionToken.trim(),
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'user_id' });
+            if (error) throw error;
+            setIsNotionConnected(true); setShowNotionInput(false);
+            showToast('Notion connected!', 'success');
+        } catch { showToast('Failed to save Notion token', 'error'); }
+        finally { setIsSavingNotion(false); }
+    };
+
+    const handleSaveLinear = async () => {
+        if (!linearToken.trim()) return;
+        setIsSavingLinear(true);
+        try {
+            const { error } = await supabase.from('user_settings').upsert({
+                user_id: user.id, linear_token: linearToken.trim(),
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'user_id' });
+            if (error) throw error;
+            setIsLinearConnected(true); setShowLinearInput(false);
+            showToast('Linear connected!', 'success');
+        } catch { showToast('Failed to save Linear token', 'error'); }
+        finally { setIsSavingLinear(false); }
+    };
+
+    const handleSaveJira = async () => {
+        if (!jiraToken.trim() || !jiraDomain.trim()) return;
+        setIsSavingJira(true);
+        try {
+            const { error } = await supabase.from('user_settings').upsert({
+                user_id: user.id,
+                jira_token: jiraToken.trim(),
+                jira_domain: jiraDomain.trim(),
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'user_id' });
+            if (error) throw error;
+            setIsJiraConnected(true); setShowJiraInput(false);
+            showToast('Jira connected!', 'success');
+        } catch { showToast('Failed to save Jira credentials', 'error'); }
+        finally { setIsSavingJira(false); }
+    };
+
     const integrations = [
         { id: 'github', name: 'GitHub', desc: 'Trigger workflows from PRs, merges, and issues.', icon: Github, connected: isGithubConnected },
         { id: 'slack', name: 'Slack', desc: 'Send notifications and alerts to channels.', icon: Hash, connected: isSlackConnected },
-        { id: 'jira', name: 'Jira', desc: 'Sync issues, epic status, and bug reports.', icon: Trello, connected: false },
-        { id: 'linear', name: 'Linear', desc: 'Link commits to issues and manage cycles.', icon: CheckCircle2, connected: false },
+        { id: 'notion', name: 'Notion', desc: 'Create pages and update databases automatically.', icon: CheckCircle2, connected: isNotionConnected },
+        { id: 'linear', name: 'Linear', desc: 'Create issues and manage cycles automatically.', icon: Trello, connected: isLinearConnected },
+        { id: 'jira', name: 'Jira', desc: 'Sync issues, epic status, and bug reports.', icon: Trello, connected: isJiraConnected },
     ];
 
     return (
@@ -284,7 +362,7 @@ const Integrations = () => {
                                                         <div className="absolute right-0 mt-2 w-48 bg-[#111] border border-[#222] rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 top-full">
                                                             <div className="p-1">
                                                                 <div className="px-4 py-2 text-xs text-[#64748B] border-b border-[#222] mb-1 truncate">
-                                                                    {integration.id === 'github' ? (user?.user_metadata?.user_name ? `@${user.user_metadata.user_name}` : 'GitHub User') : 'Slack Workspace'}
+                                                                    {integration.id === 'github' ? (user?.user_metadata?.user_name ? `@${user.user_metadata.user_name}` : 'GitHub User') : 'Connected Workspace'}
                                                                 </div>
                                                                 {integration.id === 'github' && (
                                                                     <a href={`https://github.com/${user?.user_metadata?.user_name || ''}`} target="_blank" rel="noreferrer" className="block w-full text-left px-4 py-2 text-sm text-[#F1F5F9] hover:bg-[#222] rounded-xl transition-colors">View on GitHub →</a>
@@ -309,6 +387,12 @@ const Integrations = () => {
                                                                 if (error) showToast('GitHub connect failed', 'error');
                                                             } else if (integration.id === 'slack') {
                                                                 setShowSlackInput(true);
+                                                            } else if (integration.id === 'notion') {
+                                                                setShowNotionInput(true);
+                                                            } else if (integration.id === 'linear') {
+                                                                setShowLinearInput(true);
+                                                            } else if (integration.id === 'jira') {
+                                                                setShowJiraInput(true);
                                                             } else {
                                                                 showToast(`${integration.name} integration coming soon`, 'info');
                                                             }
@@ -515,6 +599,107 @@ const Integrations = () => {
                                                                 className="flex-1 font-mono text-xs font-bold bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] py-2 rounded-xl disabled:opacity-40 transition-all flex items-center justify-center gap-2">
                                                                 {isSavingSlack ? <div className="w-3 h-3 border-2 border-[#080808]/40 border-t-[#080808] rounded-full animate-spin" /> : null}
                                                                 Save Webhook
+                                                            </button>
+                                                        </div>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+                                        )}
+
+                                        {/* ── NOTION CONNECTED BLOCK ────────────────────────────────────────── */}
+                                        {integration.id === 'notion' && (
+                                            <AnimatePresence>
+                                                {showNotionInput && (
+                                                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+                                                        exit={{ opacity: 0, height: 0 }} className="mt-4 space-y-3 bg-[#0D0D0D] border border-[#222] rounded-xl p-3">
+                                                        <div>
+                                                            <p className="font-mono text-[10px] text-[#64748B] uppercase tracking-widest mb-2">Integration Token</p>
+                                                            <input type="text" value={notionToken} onChange={e => setNotionToken(e.target.value)}
+                                                                placeholder="secret_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                                                                className="w-full bg-[#111] border border-[#222] rounded-xl px-3 py-2.5 font-mono text-xs text-[#F1F5F9] outline-none focus:border-[#6EE7B7]/40 placeholder:text-[#333]" />
+                                                            <p className="font-mono text-[10px] text-[#444] mt-1.5">
+                                                                Get from notion.so/my-integrations → New Integration
+                                                            </p>
+                                                        </div>
+                                                        <div className="flex gap-2">
+                                                            <button onClick={() => setShowNotionInput(false)}
+                                                                className="flex-1 font-mono text-xs text-[#64748B] border border-[#222] py-2 rounded-xl hover:border-[#333] transition-all">
+                                                                Cancel
+                                                            </button>
+                                                            <button onClick={handleSaveNotion} disabled={!notionToken.trim() || isSavingNotion}
+                                                                className="flex-1 font-mono text-xs font-bold bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] py-2 rounded-xl disabled:opacity-40 transition-all flex items-center justify-center gap-2">
+                                                                {isSavingNotion && <div className="w-3 h-3 border-2 border-[#080808]/40 border-t-[#080808] rounded-full animate-spin" />}
+                                                                Save Token
+                                                            </button>
+                                                        </div>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+                                        )}
+
+                                        {/* ── LINEAR CONNECTED BLOCK ────────────────────────────────────────── */}
+                                        {integration.id === 'linear' && (
+                                            <AnimatePresence>
+                                                {showLinearInput && (
+                                                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+                                                        exit={{ opacity: 0, height: 0 }} className="mt-4 space-y-3 bg-[#0D0D0D] border border-[#222] rounded-xl p-3">
+                                                        <div>
+                                                            <p className="font-mono text-[10px] text-[#64748B] uppercase tracking-widest mb-2">API Key</p>
+                                                            <input type="text" value={linearToken} onChange={e => setLinearToken(e.target.value)}
+                                                                placeholder="lin_api_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                                                                className="w-full bg-[#111] border border-[#222] rounded-xl px-3 py-2.5 font-mono text-xs text-[#F1F5F9] outline-none focus:border-[#6EE7B7]/40 placeholder:text-[#333]" />
+                                                            <p className="font-mono text-[10px] text-[#444] mt-1.5">
+                                                                Get from linear.app/settings/api → Personal API keys
+                                                            </p>
+                                                        </div>
+                                                        <div className="flex gap-2">
+                                                            <button onClick={() => setShowLinearInput(false)}
+                                                                className="flex-1 font-mono text-xs text-[#64748B] border border-[#222] py-2 rounded-xl hover:border-[#333] transition-all">
+                                                                Cancel
+                                                            </button>
+                                                            <button onClick={handleSaveLinear} disabled={!linearToken.trim() || isSavingLinear}
+                                                                className="flex-1 font-mono text-xs font-bold bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] py-2 rounded-xl disabled:opacity-40 transition-all flex items-center justify-center gap-2">
+                                                                {isSavingLinear && <div className="w-3 h-3 border-2 border-[#080808]/40 border-t-[#080808] rounded-full animate-spin" />}
+                                                                Save API Key
+                                                            </button>
+                                                        </div>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+                                        )}
+
+                                        {/* ── JIRA CONNECTED BLOCK ──────────────────────────────────────────── */}
+                                        {integration.id === 'jira' && (
+                                            <AnimatePresence>
+                                                {showJiraInput && (
+                                                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+                                                        exit={{ opacity: 0, height: 0 }} className="mt-4 space-y-3 bg-[#0D0D0D] border border-[#222] rounded-xl p-3">
+                                                        <div className="space-y-2">
+                                                            <div>
+                                                                <p className="font-mono text-[10px] text-[#64748B] uppercase tracking-widest mb-2">Jira Domain</p>
+                                                                <input type="text" value={jiraDomain} onChange={e => setJiraDomain(e.target.value)}
+                                                                    placeholder="yourcompany.atlassian.net"
+                                                                    className="w-full bg-[#111] border border-[#222] rounded-xl px-3 py-2.5 font-mono text-xs text-[#F1F5F9] outline-none focus:border-[#6EE7B7]/40 placeholder:text-[#333]" />
+                                                            </div>
+                                                            <div>
+                                                                <p className="font-mono text-[10px] text-[#64748B] uppercase tracking-widest mb-2">API Token</p>
+                                                                <input type="password" value={jiraToken} onChange={e => setJiraToken(e.target.value)}
+                                                                    placeholder="ATATxxxxxxxxxxxxxxxxxxxxxxxx"
+                                                                    className="w-full bg-[#111] border border-[#222] rounded-xl px-3 py-2.5 font-mono text-xs text-[#F1F5F9] outline-none focus:border-[#6EE7B7]/40 placeholder:text-[#333]" />
+                                                                <p className="font-mono text-[10px] text-[#444] mt-1.5">
+                                                                    Get from id.atlassian.com/manage-profile/security/api-tokens
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex gap-2">
+                                                            <button onClick={() => setShowJiraInput(false)}
+                                                                className="flex-1 font-mono text-xs text-[#64748B] border border-[#222] py-2 rounded-xl hover:border-[#333] transition-all">
+                                                                Cancel
+                                                            </button>
+                                                            <button onClick={handleSaveJira} disabled={!jiraToken.trim() || !jiraDomain.trim() || isSavingJira}
+                                                                className="flex-1 font-mono text-xs font-bold bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] py-2 rounded-xl disabled:opacity-40 transition-all flex items-center justify-center gap-2">
+                                                                {isSavingJira && <div className="w-3 h-3 border-2 border-[#080808]/40 border-t-[#080808] rounded-full animate-spin" />}
+                                                                Save Credentials
                                                             </button>
                                                         </div>
                                                     </motion.div>
