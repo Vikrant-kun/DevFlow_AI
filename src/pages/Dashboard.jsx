@@ -51,13 +51,12 @@ const Dashboard = () => {
     const { user } = useAuth();
     const [checklistDismissed, setChecklistDismissed] = useState(true);
 
-    // ── NEW STATE ────────────────────────────────────────────────────────────
+    // ── File commit / upload state ───────────────────────────────────────
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
     const [uploadFiles, setUploadFiles] = useState([]);
     const [commitMessage, setCommitMessage] = useState('');
     const [isCommitting, setIsCommitting] = useState(false);
     const [isDragOver, setIsDragOver] = useState(false);
-    // ─────────────────────────────────────────────────────────────────────────
 
     const [checklistItems, setChecklistItems] = useState([
         { id: 'create_account', label: 'create_account', done: true, route: null },
@@ -72,120 +71,177 @@ const Dashboard = () => {
 
         const checkStates = async () => {
             const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
             const { data: { session } } = await supabase.auth.getSession();
-            const oauthConnected = user?.app_metadata?.provider === 'github' ||
+
+            // Single settings fetch — covers token + selected repo
+            const { data: settings } = await supabase
+                .from('user_settings')
+                .select('github_token, selected_repo, selected_repo_full_name')
+                .eq('user_id', user.id)
+                .maybeSingle();
+
+            const oauthConnected =
+                user?.app_metadata?.provider === 'github' ||
                 user?.app_metadata?.providers?.includes('github');
 
-            // Also check if github_token exists in user_settings (for Google/email users who connected via Integrations)
-            const { data: settingsCheck } = await supabase
-                .from('user_settings')
-                .select('github_token, selected_repo_full_name, selected_repo')
-                .eq('user_id', user.id)
-                .single();
+            const hasStoredToken = !!settings?.github_token;
+            const connected = oauthConnected || hasStoredToken;
 
-            const isGithubConnected = oauthConnected || !!settingsCheck?.github_token;
-            setIsGithubConnected(isGithubConnected);
+            setIsGithubConnected(connected);
 
-            if (user && isGithubConnected) {
-                const { data: settings } = await supabase
-                    .from('user_settings')
-                    .select('selected_repo_full_name, selected_repo')
-                    .eq('user_id', user.id)
-                    .single();
+            // Restore selected repo
+            if (settings?.selected_repo_full_name || settings?.selected_repo) {
+                setSelectedRepo({
+                    name: settings.selected_repo || settings.selected_repo_full_name.split('/')[1],
+                    full_name: settings.selected_repo_full_name || settings.selected_repo
+                });
+            }
 
-                if (settings && (settings.selected_repo_full_name || settings.selected_repo)) {
-                    setSelectedRepo({
-                        name: settings.selected_repo || settings.selected_repo_full_name.split('/')[1],
-                        full_name: settings.selected_repo_full_name || settings.selected_repo
-                    });
-                }
-
+            // Load repositories if connected
+            if (connected) {
                 setIsLoadingRepos(true);
                 try {
-                    // Try provider_token first, fallback to backend API
-                    const token = session?.provider_token;
-                    if (token) {
-                        const res = await fetch('https://api.github.com/user/repos?sort=updated&per_page=20', {
-                            headers: { Authorization: `Bearer ${token}` }
+                    let reposData = null;
+
+                    // 1. Try direct GitHub API (best for GitHub OAuth login)
+                    if (session?.provider_token) {
+                        const res = await fetch('https://api.github.com/user/repos?sort=updated&per_page=30', {
+                            headers: { Authorization: `Bearer ${session.provider_token}` },
                         });
                         if (res.ok) {
-                            const reposData = await res.json();
-                            setRepos(reposData);
-                            setIsLoadingRepos(false);
-                            return;
+                            reposData = await res.json();
                         }
                     }
-                    // Fallback — use backend which has stored github_token
-                    const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/github/repos`, {
-                        headers: { Authorization: `Bearer ${session?.access_token}` }
-                    });
-                    if (res.ok) {
-                        const data = await res.json();
-                        setRepos(data.repos || []);
+
+                    // 2. Fallback to backend (for stored token / other providers)
+                    if (!reposData) {
+                        const res = await fetch(`${API_URL}/github/repos`, {
+                            headers: { Authorization: `Bearer ${session?.access_token}` },
+                        });
+                        if (res.ok) {
+                            const json = await res.json();
+                            reposData = json.repos || [];
+                        }
+                    }
+
+                    if (reposData) {
+                        setRepos(reposData);
                     }
                 } catch (err) {
-                    console.error("Failed to fetch repos", err);
+                    console.error("Failed to fetch repos:", err);
                 } finally {
                     setIsLoadingRepos(false);
                 }
             }
 
-            const hasWorkflow = localStorage.getItem('devflow_has_workflow') === 'true';
+            // Checklist progress
+            const { data: workflows } = await supabase
+                .from('workflows')
+                .select('id')
+                .eq('user_id', user.id)
+                .limit(1);
+
+            const hasWorkflow = !!workflows?.length;
             const hasRun = localStorage.getItem('devflow_has_run') === 'true';
 
             setChecklistItems([
                 { id: 'create_account', label: 'create_account', done: true, route: null },
-                { id: 'connect_github', label: 'connect_github', done: !!isGithubConnected, route: '/integrations' },
+                { id: 'connect_github', label: 'connect_github', done: connected, route: '/integrations' },
                 { id: 'create_workflow', label: 'create_first_workflow', done: hasWorkflow, route: '/workflows/new' },
-                { id: 'run_pipeline', label: 'run_first_pipeline', done: hasRun, route: null, locked: true }
+                { id: 'run_pipeline', label: 'run_first_pipeline', done: hasRun, route: null, locked: !hasWorkflow },
             ]);
 
-            if (user) {
-                const { data: workflowsData } = await supabase
-                    .from('workflows')
-                    .select('*')
-                    .eq('user_id', user.id)
-                    .order('created_at', { ascending: false });
+            // Load recent workflows + stats
+            const { data: workflowsData } = await supabase
+                .from('workflows')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false });
 
-                // Fetch real run stats
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                const { data: runsData } = await supabase
-                    .from('workflow_runs')
-                    .select('status, started_at, duration')
-                    .eq('user_id', user.id);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
 
-                if (runsData && workflowsData) {
-                    const todayRuns = runsData.filter(r => new Date(r.started_at) >= today);
-                    const successRuns = runsData.filter(r => r.status === 'success');
-                    const successRate = runsData.length > 0
-                        ? Math.round((successRuns.length / runsData.length) * 100)
-                        : 0;
+            const { data: runsData } = await supabase
+                .from('workflow_runs')
+                .select('status, started_at, duration')
+                .eq('user_id', user.id);
 
-                    // Calculate time saved (estimate 5min per successful run)
-                    const minutesSaved = successRuns.length * 5;
-                    const timeSaved = minutesSaved >= 60
-                        ? `${Math.floor(minutesSaved / 60)}h ${minutesSaved % 60}m`
-                        : `${minutesSaved}m`;
+            if (runsData && workflowsData) {
+                const todayRuns = runsData.filter(r => new Date(r.started_at) >= today);
+                const successRuns = runsData.filter(r => r.status === 'success');
+                const successRate = runsData.length > 0
+                    ? Math.round((successRuns.length / runsData.length) * 100)
+                    : 0;
 
-                    setStats([
-                        { label: 'Total Workflows', value: workflowsData.length.toString() },
-                        { label: 'Runs Today', value: todayRuns.length.toString() },
-                        { label: 'Success Rate', value: runsData.length > 0 ? `${successRate}%` : '—' },
-                        { label: 'Time Saved', value: timeSaved || '0m' }
-                    ]);
+                const minutesSaved = successRuns.length * 5;
+                const timeSaved = minutesSaved >= 60
+                    ? `${Math.floor(minutesSaved / 60)}h ${minutesSaved % 60}m`
+                    : `${minutesSaved}m`;
 
-                    const recent = workflowsData.slice(0, 4).map(w => ({
-                        id: w.id,
-                        name: w.name,
-                        status: w.status.charAt(0).toUpperCase() + w.status.slice(1),
-                        lastRun: w.updated_at ? new Date(w.updated_at).toLocaleDateString() : 'Never'
-                    }));
-                    setRecentWorkflows(recent);
-                }
+                setStats([
+                    { label: 'Total Workflows', value: workflowsData.length.toString() },
+                    { label: 'Runs Today', value: todayRuns.length.toString() },
+                    { label: 'Success Rate', value: runsData.length > 0 ? `${successRate}%` : '—' },
+                    { label: 'Time Saved', value: timeSaved || '0m' }
+                ]);
+
+                const recent = workflowsData.slice(0, 4).map(w => ({
+                    id: w.id,
+                    name: w.name,
+                    status: w.status.charAt(0).toUpperCase() + w.status.slice(1),
+                    lastRun: w.updated_at ? new Date(w.updated_at).toLocaleDateString() : 'Never'
+                }));
+                setRecentWorkflows(recent);
             }
         };
+
         checkStates();
+    }, []);
+
+    // Refresh dashboard after GitHub OAuth callback
+    useEffect(() => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.provider_token) {
+                const provider = session?.user?.app_metadata?.provider;
+                const providers = session?.user?.app_metadata?.providers || [];
+                if (provider === 'github' || providers.includes('github')) {
+                    // Save token
+                    try {
+                        await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/github/token`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${session.access_token}`
+                            },
+                            body: JSON.stringify({ token: session.provider_token })
+                        });
+                        await supabase.from('user_settings').upsert({
+                            user_id: session.user.id,
+                            github_token: session.provider_token,
+                            updated_at: new Date().toISOString()
+                        }, { onConflict: 'user_id' });
+                    } catch (err) {
+                        console.error('Token save failed', err);
+                    }
+                    // Reload repos
+                    setIsGithubConnected(true);
+                    setIsLoadingRepos(true);
+                    try {
+                        const res = await fetch('https://api.github.com/user/repos?sort=updated&per_page=30', {
+                            headers: { Authorization: `Bearer ${session.provider_token}` }
+                        });
+                        if (res.ok) setRepos(await res.json());
+                    } catch (err) {
+                        console.error('Repo reload failed', err);
+                    } finally {
+                        setIsLoadingRepos(false);
+                    }
+                }
+            }
+        });
+        return () => subscription.unsubscribe();
     }, []);
 
     const handleDismissChecklist = () => {
@@ -200,7 +256,7 @@ const Dashboard = () => {
         } else {
             const updated = checklistItems.map(i => i.id === item.id ? { ...i, done: true } : i);
             setChecklistItems(updated);
-            if (updated.every(i => i.done || i.locked === false)) {
+            if (updated.every(i => i.done || i.locked)) {
                 handleDismissChecklist();
                 showToast("You're all set. Welcome to DevFlow. 🚀", "success");
             }
@@ -230,7 +286,7 @@ const Dashboard = () => {
         }
     };
 
-    // ── NEW HANDLERS ─────────────────────────────────────────────────────────
+    // ── File upload / commit handlers ────────────────────────────────────
     const handleDrop = useCallback((e) => {
         e.preventDefault();
         setIsDragOver(false);
@@ -248,9 +304,14 @@ const Dashboard = () => {
                 const res = await fetch(`${API_URL}/github/commit`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-                    body: JSON.stringify({ repo_full_name: selectedRepo.full_name, path: file.name, content, message: commitMessage || `Add ${file.name} via DevFlow` })
+                    body: JSON.stringify({
+                        repo_full_name: selectedRepo.full_name,
+                        path: file.name,
+                        content,
+                        message: commitMessage || `Add ${file.name} via DevFlow`
+                    })
                 });
-                if (!res.ok) throw new Error((await res.json()).detail);
+                if (!res.ok) throw new Error((await res.json()).detail || 'Commit failed');
             }
             showToast(`${uploadFiles.length} file(s) pushed to ${selectedRepo.full_name}`, 'success');
             setUploadFiles([]);
@@ -288,7 +349,6 @@ const Dashboard = () => {
         setRecentWorkflows(prev => prev.filter(w => w.id !== workflow.id));
         showToast(`"${workflow.name}" deleted`, 'success');
     };
-    // ─────────────────────────────────────────────────────────────────────────
 
     return (
         <div className="flex h-[100dvh] bg-[#080808] overflow-hidden">
@@ -313,12 +373,11 @@ const Dashboard = () => {
                             </motion.div>
                         </motion.div>
 
-                        {/* ── REPLACED CHECKLIST ─────────────────────────────────── */}
+                        {/* Getting Started Checklist */}
                         <AnimatePresence>
                             {!checklistDismissed && (
                                 <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, height: 0 }} className="w-full">
                                     <div className="bg-[#0D0D0D] border border-[#1A1A1A] rounded-2xl overflow-hidden">
-                                        {/* Header */}
                                         <div className="flex items-center justify-between px-5 py-4 border-b border-[#1A1A1A]">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-7 h-7 rounded-lg bg-[#6EE7B7]/10 border border-[#6EE7B7]/20 flex items-center justify-center">
@@ -330,7 +389,6 @@ const Dashboard = () => {
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-3">
-                                                {/* Progress bar */}
                                                 <div className="hidden sm:flex items-center gap-2">
                                                     <div className="w-24 h-1.5 bg-[#1A1A1A] rounded-full overflow-hidden">
                                                         <motion.div className="h-full bg-[#6EE7B7] rounded-full"
@@ -347,7 +405,7 @@ const Dashboard = () => {
                                                 </button>
                                             </div>
                                         </div>
-                                        {/* Steps */}
+
                                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#1A1A1A]">
                                             {checklistItems.map((item, idx) => {
                                                 const stepLabels = {
@@ -363,8 +421,7 @@ const Dashboard = () => {
                                                             item.done ? 'cursor-default' :
                                                                 'cursor-pointer hover:bg-[#111]'
                                                             }`}>
-                                                        <div className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0 border transition-all ${item.done ? 'bg-[#6EE7B7]/15 border-[#6EE7B7]/40' : 'bg-[#111] border-[#333]'
-                                                            }`}>
+                                                        <div className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0 border transition-all ${item.done ? 'bg-[#6EE7B7]/15 border-[#6EE7B7]/40' : 'bg-[#111] border-[#333]'}`}>
                                                             {item.done
                                                                 ? <CheckCircle2 className="w-3 h-3 text-[#6EE7B7]" />
                                                                 : <span className="font-mono text-[9px] text-[#444]">{idx + 1}</span>
@@ -384,7 +441,7 @@ const Dashboard = () => {
                             )}
                         </AnimatePresence>
 
-                        {/* Stats Grid - Fixed for mobile (2x2) */}
+                        {/* Stats */}
                         <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
                             {stats.map((stat, i) => (
                                 <motion.div key={i} variants={itemVariants} className="bg-[#111] rounded-xl p-4 md:p-5 border-l-2 border-[#6EE7B7] hover:bg-[#151515] transition-colors">
@@ -394,15 +451,13 @@ const Dashboard = () => {
                             ))}
                         </motion.div>
 
-                        {/* Active Repository Card */}
+                        {/* Active Repository + File Push */}
                         <motion.div variants={containerVariants} initial="hidden" animate="show" className="pt-2 md:pt-4 relative" style={{ zIndex: 10 }}>
                             <div className="flex items-center justify-between mb-3 md:mb-4">
                                 <h3 className="text-[10px] md:text-sm font-mono text-[#64748B] lowercase tracking-wider">active_repository</h3>
                             </div>
 
-                            {/* ── REPLACED REPO CARD & FILE UPLOAD ────────────────── */}
-                            <div className="bg-[#111] border border-[#222] rounded-xl overflow-hidden">
-                                {/* Top row */}
+                            <div className="bg-[#111] border border-[#222] rounded-xl overflow-visible">
                                 <div className="p-4 md:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 md:gap-6">
                                     <div className="flex items-center gap-3 md:gap-4 w-full md:w-auto">
                                         <div className="w-10 h-10 md:w-12 md:h-12 bg-[#0D0D0D] border border-[#222] flex items-center justify-center shrink-0 rounded-xl">
@@ -424,33 +479,31 @@ const Dashboard = () => {
                                             )}
                                         </div>
                                     </div>
-                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto relative">
-                                        {selectedRepo ? (
+
+                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto relative" style={{ zIndex: 20 }}>
+                                        {isGithubConnected ? (
                                             <>
-                                                <Button variant="ghost" onClick={() => {
-                                                    if (!isGithubConnected) {
-                                                        setShowGithubConnectModal(true);
-                                                        return;
-                                                    }
-                                                    setShowRepoSelector(!showRepoSelector);
-                                                }} className="font-mono text-xs border border-[#222] text-[#F1F5F9] rounded-xl w-full sm:w-auto justify-center">
-                                                    Change Repo
+                                                <Button variant="ghost"
+                                                    onClick={() => setShowRepoSelector(!showRepoSelector)}
+                                                    className="font-mono text-xs border border-[#222] text-[#F1F5F9] rounded-xl w-full sm:w-auto justify-center">
+                                                    {selectedRepo ? 'Change Repo' : 'Select Repo →'}
                                                 </Button>
-                                                <Button variant="primary" className="gap-2 bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] border-none font-bold rounded-xl text-xs w-full sm:w-auto justify-center" onClick={() => navigate(`/workflows/new`)}>
-                                                    New Workflow →
-                                                </Button>
+                                                {selectedRepo && (
+                                                    <Button variant="primary"
+                                                        className="gap-2 bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] border-none font-bold rounded-xl text-xs w-full sm:w-auto justify-center"
+                                                        onClick={() => navigate('/workflows/new')}>
+                                                        New Workflow →
+                                                    </Button>
+                                                )}
                                             </>
                                         ) : (
-                                            <Button variant="primary" className="gap-2 bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] border-none font-bold rounded-xl w-full sm:w-auto justify-center text-xs" onClick={() => {
-                                                if (!isGithubConnected) {
-                                                    setShowGithubConnectModal(true);
-                                                    return;
-                                                }
-                                                setShowRepoSelector(!showRepoSelector);
-                                            }}>
-                                                Select Repository →
+                                            <Button variant="primary"
+                                                className="gap-2 bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] border-none font-bold rounded-xl w-full sm:w-auto justify-center text-xs"
+                                                onClick={() => setShowGithubConnectModal(true)}>
+                                                Connect GitHub →
                                             </Button>
                                         )}
+
                                         <AnimatePresence>
                                             {showRepoSelector && (
                                                 <motion.div
@@ -458,18 +511,9 @@ const Dashboard = () => {
                                                     animate={{ opacity: 1, height: 'auto', scale: 1 }}
                                                     exit={{ opacity: 0, height: 0, scale: 0.97 }}
                                                     transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                                                    className="absolute right-0 left-0 md:left-auto top-full mt-2 w-full md:w-72 bg-[#0D0D0D] border border-[#333] rounded-xl overflow-hidden shadow-2xl"
-                                                    style={{ zIndex: 9999 }}>
-                                                    {!isGithubConnected ? (
-                                                        <div className="p-3 text-center space-y-2">
-                                                            <p className="font-mono text-[11px] text-[#F59E0B]">GitHub not connected yet.</p>
-                                                            <button onClick={() => { setShowRepoSelector(false); setShowGithubConnectModal(true); }}
-                                                                className="w-full font-mono text-xs font-bold text-[#080808] py-2.5 rounded-xl transition-all"
-                                                                style={{ background: 'linear-gradient(135deg, #6EE7B7, #A78BFA)' }}>
-                                                                Connect GitHub →
-                                                            </button>
-                                                        </div>
-                                                    ) : isLoadingRepos ? (
+                                                    className="absolute right-0 left-0 md:left-auto top-full mt-2 w-full md:w-72 bg-[#0D0D0D] border border-[#333] rounded-xl overflow-hidden shadow-2xl z-[50]"
+                                                >
+                                                    {isLoadingRepos ? (
                                                         <div className="p-4 flex items-center gap-2">
                                                             <div className="w-3 h-3 border-2 border-[#333] border-t-[#6EE7B7] rounded-full animate-spin" />
                                                             <span className="font-mono text-[10px] text-[#64748B]">Loading repos...</span>
@@ -483,14 +527,16 @@ const Dashboard = () => {
                                                         <div className="p-2 max-h-56 overflow-y-auto space-y-0.5">
                                                             <p className="font-mono text-[9px] text-[#444] uppercase tracking-widest px-2 pb-1">Your repositories</p>
                                                             {repos.map(r => (
-                                                                <motion.button key={r.id}
+                                                                <motion.button
+                                                                    key={r.id}
                                                                     whileHover={{ x: 3 }}
                                                                     transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                                                                     onClick={() => handleRepoSelect({ target: { value: r.full_name } })}
                                                                     className={`w-full text-left px-3 py-2.5 rounded-lg font-mono text-xs transition-colors flex items-center gap-2 ${selectedRepo?.full_name === r.full_name
-                                                                            ? 'bg-[#6EE7B7]/10 text-[#6EE7B7] border border-[#6EE7B7]/20'
-                                                                            : 'text-[#94A3B8] hover:bg-[#1A1A1A] border border-transparent'
-                                                                        }`}>
+                                                                        ? 'bg-[#6EE7B7]/10 text-[#6EE7B7] border border-[#6EE7B7]/20'
+                                                                        : 'text-[#94A3B8] hover:bg-[#1A1A1A] border border-transparent'
+                                                                        }`}
+                                                                >
                                                                     <span className="text-[#444] shrink-0">/</span>
                                                                     <span className="truncate flex-1">{r.full_name || r.name}</span>
                                                                     {selectedRepo?.full_name === r.full_name && (
@@ -506,56 +552,74 @@ const Dashboard = () => {
                                     </div>
                                 </div>
 
-                                {/* File upload zone — only when repo connected */}
-                                {selectedRepo?.full_name && isGithubConnected && (
+                                {/* File upload / commit section */}
+                                {isGithubConnected && (
                                     <motion.div
                                         initial={{ opacity: 0, y: 8 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ delay: 0.2, duration: 0.3 }}
-                                        className="border-t border-[#1A1A1A] p-4 md:p-6 space-y-3">
-                                        <p className="font-mono text-[10px] text-[#64748B] uppercase tracking-widest">Push Files to Repo</p>
-                                        <div
-                                            onDragOver={e => { e.preventDefault(); setIsDragOver(true); }}
-                                            onDragLeave={e => { e.preventDefault(); setIsDragOver(false); }}
-                                            onDrop={e => { e.preventDefault(); handleDrop(e); }}
-                                            onClick={() => document.getElementById('dash-file-input').click()}
-                                            className={`cursor-pointer border-2 border-dashed rounded-xl p-5 flex flex-col items-center justify-center gap-2 transition-all ${isDragOver ? 'border-[#6EE7B7]/50 bg-[#6EE7B7]/5' : 'border-[#222] hover:border-[#6EE7B7]/25 bg-[#0A0A0A]'
-                                                }`}>
-                                            <input id="dash-file-input" type="file" multiple className="hidden" onChange={handleDrop} />
-                                            <Upload className={`w-4 h-4 transition-colors ${isDragOver ? 'text-[#6EE7B7]' : 'text-[#333]'}`} />
-                                            <p className="font-mono text-xs text-[#64748B]">{isDragOver ? 'Drop files to add' : 'Drag files or click to browse'}</p>
-                                        </div>
-                                        <AnimatePresence>
-                                            {uploadFiles.length > 0 && (
-                                                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="space-y-2">
-                                                    {uploadFiles.map((file, i) => (
-                                                        <motion.div key={i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
-                                                            className="flex items-center gap-3 bg-[#0D0D0D] border border-[#1A1A1A] rounded-xl px-3 py-2">
-                                                            <FileCode className="w-3.5 h-3.5 text-[#6EE7B7] shrink-0" />
-                                                            <span className="font-mono text-xs text-[#F1F5F9] flex-1 truncate">{file.name}</span>
-                                                            <span className="font-mono text-[10px] text-[#444]">{(file.size / 1024).toFixed(1)}kb</span>
-                                                            <button onClick={() => setUploadFiles(p => p.filter((_, idx) => idx !== i))} className="text-[#333] hover:text-[#F87171] transition-colors">
-                                                                <X className="w-3.5 h-3.5" />
+                                        className="border-t border-[#1A1A1A] p-4 md:p-6 space-y-3"
+                                    >
+                                        {!selectedRepo?.full_name && (
+                                            <div className="bg-[#0A0A0A] border border-dashed border-[#222] rounded-xl p-4 text-center">
+                                                <p className="font-mono text-xs text-[#64748B]">Select a repository above to push files</p>
+                                            </div>
+                                        )}
+                                        {selectedRepo?.full_name && (
+                                            <>
+                                                <p className="font-mono text-[10px] text-[#64748B] uppercase tracking-widest">Push Files to Repo</p>
+                                                <div
+                                                    onDragOver={e => { e.preventDefault(); setIsDragOver(true); }}
+                                                    onDragLeave={e => { e.preventDefault(); setIsDragOver(false); }}
+                                                    onDrop={handleDrop}
+                                                    onClick={() => document.getElementById('dash-file-input').click()}
+                                                    className={`cursor-pointer border-2 border-dashed rounded-xl p-5 flex flex-col items-center justify-center gap-2 transition-all ${isDragOver ? 'border-[#6EE7B7]/50 bg-[#6EE7B7]/5' : 'border-[#222] hover:border-[#6EE7B7]/25 bg-[#0A0A0A]'}`}
+                                                >
+                                                    <input id="dash-file-input" type="file" multiple className="hidden" onChange={handleDrop} />
+                                                    <Upload className={`w-4 h-4 transition-colors ${isDragOver ? 'text-[#6EE7B7]' : 'text-[#333]'}`} />
+                                                    <p className="font-mono text-xs text-[#64748B]">{isDragOver ? 'Drop files to add' : 'Drag files or click to browse'}</p>
+                                                </div>
+
+                                                <AnimatePresence>
+                                                    {uploadFiles.length > 0 && (
+                                                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="space-y-2">
+                                                            {uploadFiles.map((file, i) => (
+                                                                <motion.div key={i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+                                                                    className="flex items-center gap-3 bg-[#0D0D0D] border border-[#1A1A1A] rounded-xl px-3 py-2">
+                                                                    <FileCode className="w-3.5 h-3.5 text-[#6EE7B7] shrink-0" />
+                                                                    <span className="font-mono text-xs text-[#F1F5F9] flex-1 truncate">{file.name}</span>
+                                                                    <span className="font-mono text-[10px] text-[#444]">{(file.size / 1024).toFixed(1)}kb</span>
+                                                                    <button onClick={() => setUploadFiles(p => p.filter((_, idx) => idx !== i))} className="text-[#333] hover:text-[#F87171] transition-colors">
+                                                                        <X className="w-3.5 h-3.5" />
+                                                                    </button>
+                                                                </motion.div>
+                                                            ))}
+                                                            <input
+                                                                type="text"
+                                                                value={commitMessage}
+                                                                onChange={e => setCommitMessage(e.target.value)}
+                                                                placeholder={`Add ${uploadFiles.length} file(s) via DevFlow`}
+                                                                className="w-full bg-[#0D0D0D] border border-[#1A1A1A] rounded-xl px-3 py-2 font-mono text-xs text-[#F1F5F9] outline-none focus:border-[#6EE7B7]/40 placeholder:text-[#333]"
+                                                            />
+                                                            <button
+                                                                onClick={handleCommitFiles}
+                                                                disabled={isCommitting}
+                                                                className="w-full flex items-center justify-center gap-2 font-mono text-xs font-bold bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] py-2.5 rounded-xl disabled:opacity-50 transition-all"
+                                                            >
+                                                                {isCommitting ? <div className="w-3.5 h-3.5 border-2 border-[#080808]/40 border-t-[#080808] rounded-full animate-spin" /> : <GitCommit className="w-3.5 h-3.5" />}
+                                                                {isCommitting ? 'Pushing...' : `Push ${uploadFiles.length} file(s) → ${selectedRepo.full_name}`}
                                                             </button>
                                                         </motion.div>
-                                                    ))}
-                                                    <input type="text" value={commitMessage} onChange={e => setCommitMessage(e.target.value)}
-                                                        placeholder={`Add ${uploadFiles.length} file(s) via DevFlow`}
-                                                        className="w-full bg-[#0D0D0D] border border-[#1A1A1A] rounded-xl px-3 py-2 font-mono text-xs text-[#F1F5F9] outline-none focus:border-[#6EE7B7]/40 placeholder:text-[#333]" />
-                                                    <button onClick={handleCommitFiles} disabled={isCommitting}
-                                                        className="w-full flex items-center justify-center gap-2 font-mono text-xs font-bold bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] py-2.5 rounded-xl disabled:opacity-50 transition-all">
-                                                        {isCommitting ? <div className="w-3.5 h-3.5 border-2 border-[#080808]/40 border-t-[#080808] rounded-full animate-spin" /> : <GitCommit className="w-3.5 h-3.5" />}
-                                                        {isCommitting ? 'Pushing...' : `Push ${uploadFiles.length} file(s) → ${selectedRepo.full_name}`}
-                                                    </button>
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
+                                                    )}
+                                                </AnimatePresence>
+                                            </>
+                                        )}
                                     </motion.div>
                                 )}
                             </div>
                         </motion.div>
 
-                        {/* Quick Start Section */}
+                        {/* Quick Start */}
                         <motion.div variants={containerVariants} initial="hidden" animate="show" className="pt-6 md:pt-8 mt-2 border-t border-[#1A1A1A]">
                             <div className="flex items-center justify-between mb-3 md:mb-4">
                                 <h3 className="text-[10px] md:text-sm font-mono text-[#6EE7B7] lowercase tracking-widest">quick_start</h3>
@@ -584,6 +648,7 @@ const Dashboard = () => {
                             <div className="flex items-center justify-between mb-3 md:mb-4">
                                 <h3 className="text-[10px] md:text-sm font-mono text-[#64748B] lowercase tracking-wider">recent workflows</h3>
                             </div>
+
                             {recentWorkflows.length > 0 ? (
                                 <div className="w-full overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
                                     <div className="min-w-[600px]">
@@ -663,20 +728,19 @@ const Dashboard = () => {
                         exit={{ opacity: 0 }}
                         className="fixed inset-0 z-[200] flex items-center justify-center p-4"
                         style={{ background: 'rgba(8,8,8,0.88)', backdropFilter: 'blur(16px)' }}
-                        onClick={() => setShowGithubConnectModal(false)}>
+                        onClick={() => setShowGithubConnectModal(false)}
+                    >
                         <motion.div
                             initial={{ opacity: 0, scale: 0.94, y: 16 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.94, y: 8 }}
                             transition={{ type: 'spring', stiffness: 400, damping: 28 }}
                             className="w-full max-w-sm bg-[#0D0D0D] border border-[#222] rounded-2xl shadow-2xl overflow-hidden"
-                            onClick={e => e.stopPropagation()}>
-
-                            {/* Top accent bar */}
+                            onClick={e => e.stopPropagation()}
+                        >
                             <div className="h-[2px] w-full" style={{ background: 'linear-gradient(90deg, #6EE7B7, #A78BFA)' }} />
 
                             <div className="p-7 space-y-5">
-                                {/* Icon */}
                                 <div className="flex items-center justify-center">
                                     <div className="w-14 h-14 rounded-2xl bg-[#111] border border-[#222] flex items-center justify-center shadow-inner">
                                         <svg className="w-7 h-7 text-[#F1F5F9]" viewBox="0 0 24 24" fill="currentColor">
@@ -685,17 +749,13 @@ const Dashboard = () => {
                                     </div>
                                 </div>
 
-                                {/* Text */}
                                 <div className="text-center space-y-2">
-                                    <h3 className="font-mono text-sm font-bold text-[#F1F5F9]">
-                                        Link your GitHub account
-                                    </h3>
+                                    <h3 className="font-mono text-sm font-bold text-[#F1F5F9]">Link your GitHub account</h3>
                                     <p className="font-mono text-[11px] text-[#64748B] leading-relaxed">
                                         To select a repository, DevFlow needs access to your GitHub. This lets you commit files, create issues, and trigger pipelines directly from your repos.
                                     </p>
                                 </div>
 
-                                {/* What you get */}
                                 <div className="bg-[#111] border border-[#1A1A1A] rounded-xl p-4 space-y-2.5">
                                     {[
                                         { icon: '📁', text: 'Browse and select your repositories' },
@@ -709,11 +769,11 @@ const Dashboard = () => {
                                     ))}
                                 </div>
 
-                                {/* Buttons */}
                                 <div className="flex gap-3 pt-1">
                                     <button
                                         onClick={() => setShowGithubConnectModal(false)}
-                                        className="flex-1 font-mono text-xs text-[#64748B] border border-[#222] py-2.5 rounded-xl hover:border-[#333] hover:text-[#94A3B8] transition-all">
+                                        className="flex-1 font-mono text-xs text-[#64748B] border border-[#222] py-2.5 rounded-xl hover:border-[#333] hover:text-[#94A3B8] transition-all"
+                                    >
                                         Later
                                     </button>
                                     <button
@@ -729,7 +789,8 @@ const Dashboard = () => {
                                             if (error) showToast('GitHub connect failed', 'error');
                                         }}
                                         className="flex-1 font-mono text-xs font-bold text-[#080808] py-2.5 rounded-xl transition-all"
-                                        style={{ background: 'linear-gradient(135deg, #6EE7B7, #A78BFA)' }}>
+                                        style={{ background: 'linear-gradient(135deg, #6EE7B7, #A78BFA)' }}
+                                    >
                                         Connect GitHub
                                     </button>
                                 </div>

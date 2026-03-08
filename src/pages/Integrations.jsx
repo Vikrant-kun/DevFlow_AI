@@ -53,6 +53,43 @@ const Integrations = () => {
     const [showJiraInput, setShowJiraInput] = useState(false);
     const [isSavingJira, setIsSavingJira] = useState(false);
 
+    // Catch GitHub OAuth callback and save provider_token immediately
+    useEffect(() => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                const providerToken = session?.provider_token;
+                const provider = session?.user?.app_metadata?.provider;
+                const providers = session?.user?.app_metadata?.providers || [];
+                const isGithub = provider === 'github' || providers.includes('github');
+
+                if (providerToken && isGithub) {
+                    try {
+                        // Save token to backend
+                        await fetch(`${API_URL}/github/token`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${session.access_token}`
+                            },
+                            body: JSON.stringify({ token: providerToken })
+                        });
+                        // Also save directly to user_settings as backup
+                        await supabase.from('user_settings').upsert({
+                            user_id: session.user.id,
+                            github_token: providerToken,
+                            updated_at: new Date().toISOString()
+                        }, { onConflict: 'user_id' });
+                        setIsGithubConnected(true);
+                        showToast('GitHub connected!', 'success');
+                    } catch (err) {
+                        console.error('Failed to save GitHub token on callback', err);
+                    }
+                }
+            }
+        });
+        return () => subscription.unsubscribe();
+    }, []);
+
     useEffect(() => {
         const checkGithubConnection = async () => {
             const { data: { session } } = await supabase.auth.getSession();
@@ -396,8 +433,8 @@ const Integrations = () => {
                                                                 transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                                                                 onClick={() => handleRepoSelect(r.full_name)}
                                                                 className={`w-full text-left px-3 py-2.5 rounded-lg font-mono text-xs transition-colors flex items-center gap-2 ${selectedRepo === r.full_name
-                                                                        ? 'bg-[#6EE7B7]/10 text-[#6EE7B7] border border-[#6EE7B7]/20'
-                                                                        : 'text-[#94A3B8] hover:bg-[#1A1A1A] border border-transparent'
+                                                                    ? 'bg-[#6EE7B7]/10 text-[#6EE7B7] border border-[#6EE7B7]/20'
+                                                                    : 'text-[#94A3B8] hover:bg-[#1A1A1A] border border-transparent'
                                                                     }`}>
                                                                 <span className="text-[#444] shrink-0">/</span>
                                                                 <span className="truncate flex-1">{r.full_name || r.name}</span>
