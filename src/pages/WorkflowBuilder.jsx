@@ -550,11 +550,57 @@ IMPORTANT: When generating github/fix/commit nodes, use REAL file paths from the
             setNodes([]); setEdges([]);
 
             const isMobile = window.innerWidth < 768;
-            const spacedNodes = parsed.nodes.map((n, i) => ({
+            // Build tree layout — detect branching nodes
+            const edges = parsed.edges || [];
+            const nodeSpacingX = isMobile ? 260 : 340;
+            const nodeSpacingY = isMobile ? 180 : 220;
+
+            // Find how many children each node has
+            const childrenMap = {};
+            const parentMap = {};
+            edges.forEach(e => {
+                if (!childrenMap[e.source]) childrenMap[e.source] = [];
+                childrenMap[e.source].push(e.target);
+                if (!parentMap[e.target]) parentMap[e.target] = [];
+                parentMap[e.target].push(e.source);
+            });
+
+            // Assign depth (y) and branch (x) positions
+            const positions = {};
+            const depthCount = {};
+
+            const assignPosition = (nodeId, depth, branchIndex, totalSiblings) => {
+                if (positions[nodeId]) return;
+                const xOffset = totalSiblings > 1
+                    ? (branchIndex - (totalSiblings - 1) / 2) * nodeSpacingX
+                    : 0;
+                const baseX = (positions[parentMap[nodeId]?.[0]]?.x ?? 400) + xOffset;
+                positions[nodeId] = {
+                    x: baseX,
+                    y: 80 + depth * nodeSpacingY
+                };
+                const children = childrenMap[nodeId] || [];
+                children.forEach((childId, idx) => {
+                    assignPosition(childId, depth + 1, idx, children.length);
+                });
+            };
+
+            // Find root nodes (no parents)
+            const rootNodes = parsed.nodes.filter(n => !parentMap[n.id]);
+            rootNodes.forEach((n, idx) => assignPosition(n.id, 0, idx, rootNodes.length));
+
+            // Fallback for disconnected nodes
+            parsed.nodes.forEach((n, i) => {
+                if (!positions[n.id]) {
+                    positions[n.id] = { x: 50 + i * nodeSpacingX, y: 80 };
+                }
+            });
+
+            const spacedNodes = parsed.nodes.map((n) => ({
                 id: n.id,
                 type: 'custom',
-                position: { x: 50 + i * (isMobile ? 280 : 380), y: 150 },
-                data: { ...(n.data || n), model }, // pass selected model to node
+                position: positions[n.id],
+                data: { ...(n.data || n), model },
             }));
 
             const formattedEdges = (parsed.edges || []).map(e => ({
