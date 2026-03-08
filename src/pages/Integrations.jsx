@@ -19,6 +19,9 @@ const Integrations = () => {
     const { user } = useAuth();
     const { showToast } = useToast();
     const [isGithubConnected, setIsGithubConnected] = useState(false);
+    const [showGithubInput, setShowGithubInput] = useState(false);
+    const [githubPAT, setGithubPAT] = useState('');
+    const [isSavingGithub, setIsSavingGithub] = useState(false);
     const [repos, setRepos] = useState([]);
     const [selectedRepo, setSelectedRepo] = useState(null);
     const [isLoadingRepos, setIsLoadingRepos] = useState(false);
@@ -239,6 +242,51 @@ const Integrations = () => {
         }
     };
 
+    const handleSaveGithubPAT = async () => {
+        if (!githubPAT.trim()) return;
+        setIsSavingGithub(true);
+        try {
+            // Verify token works first
+            const testRes = await fetch('https://api.github.com/user', {
+                headers: { Authorization: `Bearer ${githubPAT.trim()}` }
+            });
+            if (!testRes.ok) throw new Error('Invalid token — GitHub rejected it');
+
+            // Save to backend
+            const { data: { session } } = await supabase.auth.getSession();
+            await fetch(`${API_URL}/github/token`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+                body: JSON.stringify({ token: githubPAT.trim() })
+            });
+
+            // Save directly to user_settings as backup
+            const { error } = await supabase.from('user_settings').upsert({
+                user_id: user.id,
+                github_token: githubPAT.trim(),
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'user_id' });
+            if (error) throw error;
+
+            setIsGithubConnected(true);
+            setShowGithubInput(false);
+            setGithubPAT('');
+            showToast('GitHub connected!', 'success');
+
+            // Load repos immediately
+            setIsLoadingRepos(true);
+            const res = await fetch('https://api.github.com/user/repos?sort=updated&per_page=30', {
+                headers: { Authorization: `Bearer ${githubPAT.trim()}` }
+            });
+            if (res.ok) setRepos(await res.json());
+        } catch (err) {
+            showToast(err.message || 'Failed to save GitHub token', 'error');
+        } finally {
+            setIsSavingGithub(false);
+            setIsLoadingRepos(false);
+        }
+    };
+
     const handleSaveSlack = async () => {
         if (!slackWebhook.trim()) return;
         setIsSavingSlack(true);
@@ -383,11 +431,7 @@ const Integrations = () => {
                                                     <button
                                                         onClick={async () => {
                                                             if (integration.id === 'github') {
-                                                                const { error } = await supabase.auth.signInWithOAuth({
-                                                                    provider: 'github',
-                                                                    options: { scopes: 'repo read:user', redirectTo: window.location.href }
-                                                                });
-                                                                if (error) showToast('GitHub connect failed', 'error');
+                                                                setShowGithubInput(true);
                                                             } else if (integration.id === 'slack') {
                                                                 setShowSlackInput(true);
                                                             } else if (integration.id === 'notion') {
@@ -505,6 +549,39 @@ const Integrations = () => {
                                                         </motion.div>
                                                     )}
                                                 </AnimatePresence>
+                                            </div>
+                                        )}
+
+                                        {showGithubInput && (
+                                            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                                                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+                                                    className="bg-[#111] border border-[#222] rounded-2xl p-6 w-full max-w-md">
+                                                    <h3 className="text-base font-mono font-semibold text-[#F1F5F9] mb-1">Connect GitHub</h3>
+                                                    <p className="text-[#64748B] text-xs font-mono mb-4">
+                                                        Create a Personal Access Token at{' '}
+                                                        <a href="https://github.com/settings/tokens/new?scopes=repo,read:user" target="_blank" rel="noreferrer"
+                                                            className="text-[#6EE7B7] hover:underline">github.com/settings/tokens</a>
+                                                        {' '}with <span className="text-[#F1F5F9]">repo</span> and <span className="text-[#F1F5F9]">read:user</span> scopes.
+                                                    </p>
+                                                    <input
+                                                        type="password"
+                                                        value={githubPAT}
+                                                        onChange={e => setGithubPAT(e.target.value)}
+                                                        onKeyDown={e => e.key === 'Enter' && handleSaveGithubPAT()}
+                                                        placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                                                        className="w-full bg-[#0D0D0D] border border-[#333] rounded-xl px-4 py-3 text-sm font-mono text-[#F1F5F9] placeholder-[#444] focus:outline-none focus:border-[#6EE7B7] mb-4"
+                                                    />
+                                                    <div className="flex gap-3">
+                                                        <button onClick={() => { setShowGithubInput(false); setGithubPAT(''); }}
+                                                            className="flex-1 px-4 py-2 text-sm font-mono text-[#64748B] border border-[#222] rounded-xl hover:border-[#444] transition-colors">
+                                                            Cancel
+                                                        </button>
+                                                        <button onClick={handleSaveGithubPAT} disabled={isSavingGithub || !githubPAT.trim()}
+                                                            className="flex-1 px-4 py-2 text-sm font-mono text-[#080808] bg-[#6EE7B7] hover:bg-[#34D399] rounded-xl font-bold transition-colors disabled:opacity-50">
+                                                            {isSavingGithub ? 'Verifying...' : 'Connect'}
+                                                        </button>
+                                                    </div>
+                                                </motion.div>
                                             </div>
                                         )}
 

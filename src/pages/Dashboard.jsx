@@ -103,31 +103,25 @@ const Dashboard = () => {
             if (connected) {
                 setIsLoadingRepos(true);
                 try {
-                    let reposData = null;
+                    // Always get a fresh session right before using it
+                    const { data: { session: freshSession } } = await supabase.auth.getSession();
 
-                    // 1. Try direct GitHub API (best for GitHub OAuth login)
-                    if (session?.provider_token) {
-                        const res = await fetch('https://api.github.com/user/repos?sort=updated&per_page=30', {
-                            headers: { Authorization: `Bearer ${session.provider_token}` },
+                    // Try stored github_token directly via backend (most reliable for all auth types)
+                    const backendRes = await fetch(`${API_URL}/github/repos`, {
+                        headers: { Authorization: `Bearer ${freshSession?.access_token}` },
+                    });
+
+                    if (backendRes.ok) {
+                        const json = await backendRes.json();
+                        setRepos(json.repos || []);
+                    } else if (freshSession?.provider_token) {
+                        // Fallback: direct GitHub API with provider_token
+                        const ghRes = await fetch('https://api.github.com/user/repos?sort=updated&per_page=30', {
+                            headers: { Authorization: `Bearer ${freshSession.provider_token}` },
                         });
-                        if (res.ok) {
-                            reposData = await res.json();
-                        }
-                    }
-
-                    // 2. Fallback to backend (for stored token / other providers)
-                    if (!reposData) {
-                        const res = await fetch(`${API_URL}/github/repos`, {
-                            headers: { Authorization: `Bearer ${session?.access_token}` },
-                        });
-                        if (res.ok) {
-                            const json = await res.json();
-                            reposData = json.repos || [];
-                        }
-                    }
-
-                    if (reposData) {
-                        setRepos(reposData);
+                        if (ghRes.ok) setRepos(await ghRes.json());
+                    } else {
+                        console.warn('Repos fetch failed — no valid token available');
                     }
                 } catch (err) {
                     console.error("Failed to fetch repos:", err);
