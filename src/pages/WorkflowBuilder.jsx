@@ -384,7 +384,8 @@ const WorkflowBuilder = () => {
         });
 
         const { data: { user: authUser } } = await supabase.auth.getUser();
-        const githubConnected = authUser?.app_metadata?.provider === 'github' || authUser?.app_metadata?.providers?.includes('github');
+        const { data: wfSettings } = await supabase.from('user_settings').select('github_token').eq('user_id', authUser.id).single();
+        const githubConnected = authUser?.app_metadata?.provider === 'github' || authUser?.app_metadata?.providers?.includes('github') || !!wfSettings?.github_token;
 
         if (hasGithubNodes && !githubConnected) {
             showToast('This pipeline has GitHub nodes — connect GitHub in Integrations first', 'error');

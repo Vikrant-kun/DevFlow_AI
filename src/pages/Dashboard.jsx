@@ -72,9 +72,18 @@ const Dashboard = () => {
         const checkStates = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             const { data: { session } } = await supabase.auth.getSession();
-            const isGithubConnected = user?.app_metadata?.provider === 'github' ||
+            const oauthConnected = user?.app_metadata?.provider === 'github' ||
                 user?.app_metadata?.providers?.includes('github');
-            setIsGithubConnected(!!isGithubConnected);
+
+            // Also check if github_token exists in user_settings (for Google/email users who connected via Integrations)
+            const { data: settingsCheck } = await supabase
+                .from('user_settings')
+                .select('github_token, selected_repo_full_name, selected_repo')
+                .eq('user_id', user.id)
+                .single();
+
+            const isGithubConnected = oauthConnected || !!settingsCheck?.github_token;
+            setIsGithubConnected(isGithubConnected);
 
             if (user && isGithubConnected) {
                 const { data: settings } = await supabase

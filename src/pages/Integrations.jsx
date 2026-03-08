@@ -58,8 +58,17 @@ const Integrations = () => {
             const { data: { session } } = await supabase.auth.getSession();
             const { data: { user: authUser } } = await supabase.auth.getUser();
 
-            const connected = authUser?.app_metadata?.provider === 'github' ||
+            const oauthConnected = authUser?.app_metadata?.provider === 'github' ||
                 authUser?.app_metadata?.providers?.includes('github');
+
+            // Also check if github_token exists in user_settings (for Google/email users who connected via Integrations)
+            const { data: settingsCheck } = await supabase
+                .from('user_settings')
+                .select('github_token, selected_repo_full_name, selected_repo')
+                .eq('user_id', authUser.id)
+                .single();
+
+            const connected = oauthConnected || !!settingsCheck?.github_token;
             setIsGithubConnected(!!connected);
 
             if (connected && session) {
