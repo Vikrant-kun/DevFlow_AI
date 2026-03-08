@@ -199,6 +199,7 @@ const WorkflowBuilder = () => {
     const [currentWorkflowId, setCurrentWorkflowId] = useState(null);
     const [isCanvasLocked, setIsCanvasLocked] = useState(false);
     const [lastPrompt, setLastPrompt] = useState('');
+    const [isRunning, setIsRunning] = useState(false);
 
     const historyRef = useRef([]);
     const historyIndexRef = useRef(-1);
@@ -323,6 +324,8 @@ const WorkflowBuilder = () => {
     const handleRunPipeline = async () => {
         if (!user) { showToast('Log in to run.', 'error'); return; }
         if (nodes.length === 0) { showToast('Build a pipeline first', 'error'); return; }
+        if (isRunning) { showToast('Pipeline is already running', 'info'); return; }
+        setIsRunning(true);
 
         let workflowId = currentWorkflowId;
         if (!workflowId) {
@@ -355,6 +358,8 @@ const WorkflowBuilder = () => {
             }
         } catch (err) {
             showToast('Failed to run: ' + err.message, 'error');
+        } finally {
+            setIsRunning(false);
         }
     };
 
@@ -424,8 +429,9 @@ Rules: first node always trigger, max 8 nodes, labels 2-4 words.`;
                     <button onClick={handleSaveDraft} className="flex items-center gap-1.5 font-mono text-[10px] md:text-xs text-[#64748B] hover:text-[#F1F5F9] border border-[#222] px-2.5 md:px-3 py-1.5 transition-colors rounded-xl bg-[#111]">
                         <Save className="w-3.5 h-3.5" /><span className="hidden sm:inline">Save</span>
                     </button>
-                    <button onClick={handleRunPipeline} className="flex items-center gap-1.5 font-mono text-[10px] md:text-xs font-bold bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] px-3.5 md:px-4 py-1.5 transition-colors rounded-xl">
-                        <Play className="w-3.5 h-3.5 fill-current" /><span className="hidden sm:inline">Run</span>
+                    <button onClick={handleRunPipeline} disabled={isRunning} className="flex items-center gap-1.5 font-mono text-[10px] md:text-xs font-bold bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] px-3.5 md:px-4 py-1.5 transition-colors rounded-xl disabled:opacity-60 disabled:cursor-not-allowed">
+                        {isRunning ? <div className="w-3.5 h-3.5 border-2 border-[#080808]/40 border-t-[#080808] rounded-full animate-spin" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+                        <span className="hidden sm:inline">{isRunning ? 'Running...' : 'Run'}</span>
                     </button>
                 </div>
             </TopBar>

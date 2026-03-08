@@ -153,7 +153,19 @@ const Integrations = () => {
                                                     <span className="flex items-center gap-2 text-xs font-mono text-[#64748B]">
                                                         <span className="w-2 h-2 rounded-full bg-[#333]"></span> disconnected
                                                     </span>
-                                                    <button className="text-xs font-mono text-[#080808] bg-[#6EE7B7] hover:bg-[#34D399] px-4 py-2 transition-colors rounded-xl">
+                                                    <button
+                                                        onClick={async () => {
+                                                            if (integration.id === 'github') {
+                                                                const { error } = await supabase.auth.signInWithOAuth({
+                                                                    provider: 'github',
+                                                                    options: { scopes: 'repo read:user', redirectTo: window.location.href }
+                                                                });
+                                                                if (error) showToast('GitHub connect failed', 'error');
+                                                            } else {
+                                                                showToast(`${integration.name} integration coming soon`, 'info');
+                                                            }
+                                                        }}
+                                                        className="text-xs font-mono text-[#080808] bg-[#6EE7B7] hover:bg-[#34D399] px-4 py-2 transition-colors rounded-xl">
                                                         Connect
                                                     </button>
                                                 </>
