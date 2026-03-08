@@ -94,8 +94,22 @@ const Integrations = () => {
 
                 setIsLoadingRepos(true);
                 try {
+                    // Try provider_token first, fallback to backend API
+                    const token = session?.provider_token;
+                    if (token) {
+                        const res = await fetch('https://api.github.com/user/repos?sort=updated&per_page=20', {
+                            headers: { Authorization: `Bearer ${token}` }
+                        });
+                        if (res.ok) {
+                            const reposData = await res.json();
+                            setRepos(reposData);
+                            setIsLoadingRepos(false);
+                            return;
+                        }
+                    }
+                    // Fallback — use backend which has stored github_token
                     const res = await fetch(`${API_URL}/github/repos`, {
-                        headers: { 'Authorization': `Bearer ${session.access_token}` }
+                        headers: { 'Authorization': `Bearer ${session?.access_token}` }
                     });
                     if (res.ok) {
                         const data = await res.json();

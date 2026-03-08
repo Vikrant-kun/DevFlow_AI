@@ -90,22 +90,33 @@ const Dashboard = () => {
                     });
                 }
 
-                const token = session?.provider_token;
-                if (token) {
-                    setIsLoadingRepos(true);
-                    try {
+                setIsLoadingRepos(true);
+                try {
+                    // Try provider_token first, fallback to backend API
+                    const token = session?.provider_token;
+                    if (token) {
                         const res = await fetch('https://api.github.com/user/repos?sort=updated&per_page=20', {
                             headers: { Authorization: `Bearer ${token}` }
                         });
                         if (res.ok) {
                             const reposData = await res.json();
                             setRepos(reposData);
+                            setIsLoadingRepos(false);
+                            return;
                         }
-                    } catch (err) {
-                        console.error("Failed to fetch repos", err);
-                    } finally {
-                        setIsLoadingRepos(false);
                     }
+                    // Fallback — use backend which has stored github_token
+                    const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/github/repos`, {
+                        headers: { Authorization: `Bearer ${session?.access_token}` }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        setRepos(data.repos || []);
+                    }
+                } catch (err) {
+                    console.error("Failed to fetch repos", err);
+                } finally {
+                    setIsLoadingRepos(false);
                 }
             }
 
@@ -450,8 +461,8 @@ const Dashboard = () => {
                                                                             transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                                                                             onClick={() => handleRepoSelect({ target: { value: r.full_name } })}
                                                                             className={`w-full text-left px-3 py-2.5 rounded-xl font-mono text-xs transition-colors flex items-center gap-2 ${selectedRepo?.full_name === r.full_name
-                                                                                    ? 'bg-[#6EE7B7]/10 text-[#6EE7B7] border border-[#6EE7B7]/20'
-                                                                                    : 'text-[#F1F5F9] hover:bg-[#1A1A1A] border border-transparent'
+                                                                                ? 'bg-[#6EE7B7]/10 text-[#6EE7B7] border border-[#6EE7B7]/20'
+                                                                                : 'text-[#F1F5F9] hover:bg-[#1A1A1A] border border-transparent'
                                                                                 }`}>
                                                                             <span className="text-[#444]">/</span>
                                                                             <span className="truncate">{r.full_name || r.name}</span>
@@ -471,13 +482,17 @@ const Dashboard = () => {
                                 </div>
 
                                 {/* File upload zone — only when repo connected */}
-                                {selectedRepo && (
-                                    <div className="border-t border-[#1A1A1A] p-4 md:p-6 space-y-3">
+                                {selectedRepo && isGithubConnected && (
+                                    <motion.div
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        transition={{ delay: 0.3, duration: 0.3 }}
+                                        className="border-t border-[#1A1A1A] p-4 md:p-6 space-y-3">
                                         <p className="font-mono text-[10px] text-[#64748B] uppercase tracking-widest">Push Files to Repo</p>
                                         <div
                                             onDragOver={e => { e.preventDefault(); setIsDragOver(true); }}
-                                            onDragLeave={() => setIsDragOver(false)}
-                                            onDrop={handleDrop}
+                                            onDragLeave={e => { e.preventDefault(); setIsDragOver(false); }}
+                                            onDrop={e => { e.preventDefault(); handleDrop(e); }}
                                             onClick={() => document.getElementById('dash-file-input').click()}
                                             className={`cursor-pointer border-2 border-dashed rounded-xl p-5 flex flex-col items-center justify-center gap-2 transition-all ${isDragOver ? 'border-[#6EE7B7]/50 bg-[#6EE7B7]/5' : 'border-[#222] hover:border-[#6EE7B7]/25 bg-[#0A0A0A]'
                                                 }`}>
@@ -510,7 +525,7 @@ const Dashboard = () => {
                                                 </motion.div>
                                             )}
                                         </AnimatePresence>
-                                    </div>
+                                    </motion.div>
                                 )}
                             </div>
                         </motion.div>
