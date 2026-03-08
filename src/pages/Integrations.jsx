@@ -8,12 +8,11 @@ import { useToast } from '../contexts/ToastContext';
 
 const containerVariants = {
     hidden: { opacity: 0 },
-    show: { opacity: 1, transition: { staggerChildren: 0.1 } }
+    show: { opacity: 1, transition: { staggerChildren: 0.06, delayChildren: 0.05 } }
 };
-
 const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0 }
+    hidden: { opacity: 0, y: 10 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } }
 };
 
 const Integrations = () => {
@@ -307,8 +306,8 @@ const Integrations = () => {
                                                             onDrop={handleDrop}
                                                             onClick={() => document.getElementById('devflow-file-input').click()}
                                                             className={`relative cursor-pointer border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center gap-3 transition-all duration-200 ${isDragOver
-                                                                    ? 'border-[#6EE7B7]/60 bg-[#6EE7B7]/5'
-                                                                    : 'border-[#222] hover:border-[#6EE7B7]/30 hover:bg-[#6EE7B7]/3 bg-[#0A0A0A]'
+                                                                ? 'border-[#6EE7B7]/60 bg-[#6EE7B7]/5'
+                                                                : 'border-[#222] hover:border-[#6EE7B7]/30 hover:bg-[#6EE7B7]/3 bg-[#0A0A0A]'
                                                                 }`}>
                                                             <input
                                                                 id="devflow-file-input"
