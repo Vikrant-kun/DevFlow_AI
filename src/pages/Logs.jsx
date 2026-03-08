@@ -35,12 +35,13 @@ const timeAgo = (dateStr) => {
     return `${Math.floor(h / 24)}d ago`;
 };
 
+// ── FIXED SYMMETRICAL BADGE ───────────────────────────────────────────────────
 const StatusBadge = ({ status }) => {
     const cfg = getStatusConfig(status);
     return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-mono text-[10px] font-semibold"
+        <span className="inline-flex items-center justify-center w-20 shrink-0 gap-1.5 px-2 py-1 rounded-lg font-mono text-[10px] font-semibold"
             style={{ color: cfg.color, background: cfg.bg, border: `1px solid ${cfg.border}` }}>
-            <cfg.Icon className={`w-3 h-3 ${status?.toLowerCase() === 'running' ? 'animate-pulse' : ''}`} />
+            <cfg.Icon className={`w-3 h-3 shrink-0 ${status?.toLowerCase() === 'running' ? 'animate-pulse' : ''}`} />
             {cfg.label}
         </span>
     );
@@ -275,6 +276,9 @@ const Logs = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
 
+    // ── PERFECT GRID LAYOUT SPACING ──
+    const gridLayout = "48px minmax(180px, 2.5fr) 100px 1fr 1fr 1.5fr 80px";
+
     useEffect(() => {
         const h = (e) => { if (filterRef.current && !filterRef.current.contains(e.target)) setFilterOpen(false); };
         document.addEventListener('mousedown', h);
@@ -296,7 +300,7 @@ const Logs = () => {
 
                 if (res.ok) {
                     const data = await res.json();
-                    setLogsData(data);
+                    setLogsData(data.runs || data);
                 } else {
                     // Fallback to Supabase direct
                     const { data, error } = await supabase
@@ -402,9 +406,10 @@ const Logs = () => {
                     {/* Table */}
                     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.14 }}
                         className="bg-[#0D0D0D] border border-[#1A1A1A] rounded-2xl overflow-hidden">
-                        {/* Table header */}
+
+                        {/* Table header with updated Grid Layout */}
                         <div className="hidden md:grid border-b border-[#1A1A1A] px-4 py-3 bg-[#111]"
-                            style={{ gridTemplateColumns: '40px 2fr 110px 1.2fr 90px 100px 80px' }}>
+                            style={{ gridTemplateColumns: gridLayout }}>
                             {['', 'Workflow', 'Status', 'Started', 'Duration', 'Trigger', ''].map((h, i) => (
                                 <div key={i} className="font-mono text-[9px] font-semibold tracking-widest uppercase text-[#3A3A4A]">{h}</div>
                             ))}
@@ -430,21 +435,23 @@ const Logs = () => {
                                             className={`group cursor-pointer transition-colors ${expandedRow === log.id ? 'bg-[#111]' : 'hover:bg-[#111]/60'}`}
                                             onClick={() => setExpandedRow(expandedRow === log.id ? null : log.id)}>
 
-                                            {/* Desktop row */}
+                                            {/* Desktop row with updated Grid Layout */}
                                             <div className="hidden md:grid items-center px-4 py-3.5"
-                                                style={{ gridTemplateColumns: '40px 2fr 110px 1.2fr 90px 100px 80px' }}>
-                                                <ChevronRight className={`w-4 h-4 text-[#333] group-hover:text-[#555] transition-all duration-200 ${expandedRow === log.id ? 'rotate-90 !text-[#6EE7B7]' : ''}`} />
+                                                style={{ gridTemplateColumns: gridLayout }}>
+                                                <div className="flex justify-center w-full">
+                                                    <ChevronRight className={`w-4 h-4 text-[#333] group-hover:text-[#555] transition-all duration-200 ${expandedRow === log.id ? 'rotate-90 !text-[#6EE7B7]' : ''}`} />
+                                                </div>
                                                 <div className="font-mono text-xs font-semibold text-[#E2E8F0] truncate pr-4">{log.workflow_name || 'Unknown Workflow'}</div>
                                                 <StatusBadge status={log.status} />
                                                 <div className="font-mono text-xs text-[#64748B]">{timeAgo(log.started_at)}</div>
                                                 <div className="font-mono text-xs text-[#64748B]">{log.duration || '—'}</div>
-                                                <div className="font-mono text-xs text-[#64748B] flex items-center gap-1.5">
-                                                    <span className="w-4 h-4 rounded-full bg-[#1A1A1A] border border-[#222] flex items-center justify-center text-[8px]">🤖</span>
+                                                <div className="font-mono text-xs text-[#64748B] flex items-center gap-1.5 truncate pr-2">
+                                                    <span className="w-4 h-4 rounded-full bg-[#1A1A1A] border border-[#222] flex items-center justify-center shrink-0 text-[8px]">🤖</span>
                                                     <span className="truncate">{log.triggered_by || 'manual'}</span>
                                                 </div>
                                                 <button
                                                     onClick={e => { e.stopPropagation(); setReplayRun(log); }}
-                                                    className="flex items-center gap-1 font-mono text-[10px] text-[#6EE7B7] opacity-0 group-hover:opacity-100 hover:underline transition-opacity">
+                                                    className="flex items-center justify-end gap-1 font-mono text-[10px] text-[#6EE7B7] opacity-0 group-hover:opacity-100 hover:underline transition-opacity w-full">
                                                     <RotateCcw className="w-3 h-3" /> Replay
                                                 </button>
                                             </div>
