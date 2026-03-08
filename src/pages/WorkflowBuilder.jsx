@@ -337,7 +337,6 @@ const WorkflowBuilder = () => {
             setCurrentWorkflowId(data.id);
             localStorage.setItem('devflow_has_workflow', 'true');
             setIsDirty(false);
-            showToast('Workflow saved', 'success');
             return data.id;
         } catch (err) {
             showToast('Failed to save: ' + err.message, 'error');
