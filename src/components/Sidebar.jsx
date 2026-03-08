@@ -17,7 +17,6 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../lib/utils';
-import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
 const Sidebar = () => {
@@ -29,6 +28,7 @@ const Sidebar = () => {
     const auth = useAuth() || {};
     const navigate = useNavigate();
     const dropdownRef = useRef(null);
+    const hoverTimeout = useRef(null);
 
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -43,7 +43,8 @@ const Sidebar = () => {
     if (auth.loading || !auth.user) return null;
     const { user } = auth;
 
-    const handleLogout = async () => await supabase.auth.signOut();
+    const { handleLogout } = auth;
+
     const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || '';
     const initial = userName.charAt(0).toUpperCase() || 'U';
 
@@ -105,7 +106,7 @@ const Sidebar = () => {
                         onClick={onLinkClick}
                         className={({ isActive }) =>
                             cn(
-                                'flex items-center h-11 px-4 mx-2 mb-1 rounded-lg relative transition-all duration-150 group',
+                                'flex items-center h-11 px-4 mx-2 mb-1 rounded-lg relative transition-all duration-200 ease-out group',
                                 isActive ? 'bg-[#161616] text-[#F1F5F9]' : 'text-[#64748B] hover:bg-[#111] hover:text-[#F1F5F9]',
                                 item.isPremium && !isActive && 'opacity-80 hover:opacity-100'
                             )
@@ -119,7 +120,7 @@ const Sidebar = () => {
                                 <div className="relative shrink-0">
                                     <item.icon
                                         className={cn(
-                                            'h-4 w-4 transition-colors',
+                                            'h-4 w-4 transition-colors duration-200',
                                             isActive ? 'text-[#6EE7B7]' : 'text-[#64748B] group-hover:text-[#F1F5F9]'
                                         )}
                                     />
@@ -382,10 +383,15 @@ const Sidebar = () => {
                     width: isExpanded ? '200px' : '56px',
                     transition: 'width 200ms cubic-bezier(0.4, 0, 0.2, 1)',
                 }}
-                onMouseEnter={() => setIsExpanded(true)}
+                onMouseEnter={() => {
+                    clearTimeout(hoverTimeout.current);
+                    setIsExpanded(true);
+                }}
                 onMouseLeave={() => {
-                    setIsExpanded(false);
-                    setDropdownOpen(false);
+                    hoverTimeout.current = setTimeout(() => {
+                        setIsExpanded(false);
+                        setDropdownOpen(false);
+                    }, 150);
                 }}
             >
                 <div className="h-14 flex items-center px-3 shrink-0 border-b border-[#1A1A1A]">

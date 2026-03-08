@@ -70,3 +70,16 @@ a {
 .perspective-1000 {
   perspective: 1000px;
 }
+
+/* Prevent flash on route change — GPU-accelerated nav links */
+html,
+body,
+#root {
+  background: #080808;
+}
+
+nav a {
+  will-change: background-color, color;
+  transform: translateZ(0);
+  /* force GPU layer */
+}

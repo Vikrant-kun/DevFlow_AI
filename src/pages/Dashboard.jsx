@@ -41,15 +41,11 @@ const Dashboard = () => {
         { label: "Success Rate", value: "—" },
         { label: "Time Saved", value: "0h" }
     ]);
-    const [selectedRepo, setSelectedRepo] = useState(null);
-    const [repos, setRepos] = useState([]);
-    const [isLoadingRepos, setIsLoadingRepos] = useState(false);
-    const [isGithubConnected, setIsGithubConnected] = useState(false);
-    const [showRepoSelector, setShowRepoSelector] = useState(false);
-    const [showGithubConnectModal, setShowGithubConnectModal] = useState(false);
     const { showToast } = useToast();
-    const { user } = useAuth();
+    const { user, isGithubConnected, repos, selectedRepo, setSelectedRepo, githubLoading, fetchRepos } = useAuth();
+    const [showRepoSelector, setShowRepoSelector] = useState(false);
     const [checklistDismissed, setChecklistDismissed] = useState(true);
+
 
     // ── File commit / upload state ───────────────────────────────────────
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -69,66 +65,8 @@ const Dashboard = () => {
         const isDismissed = localStorage.getItem('devflow_checklist_dismissed') === 'true';
         setChecklistDismissed(isDismissed);
 
-        const checkStates = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
+        const loadData = async () => {
             if (!user) return;
-
-            const { data: { session } } = await supabase.auth.getSession();
-
-            // Single settings fetch — covers token + selected repo
-            const { data: settings } = await supabase
-                .from('user_settings')
-                .select('github_token, selected_repo, selected_repo_full_name')
-                .eq('user_id', user.id)
-                .maybeSingle();
-
-            const oauthConnected =
-                user?.app_metadata?.provider === 'github' ||
-                user?.app_metadata?.providers?.includes('github');
-
-            const hasStoredToken = !!settings?.github_token;
-            const connected = oauthConnected || hasStoredToken;
-
-            setIsGithubConnected(connected);
-
-            // Restore selected repo
-            if (settings?.selected_repo_full_name || settings?.selected_repo) {
-                setSelectedRepo({
-                    name: settings.selected_repo || settings.selected_repo_full_name.split('/')[1],
-                    full_name: settings.selected_repo_full_name || settings.selected_repo
-                });
-            }
-
-            // Load repositories if connected
-            if (connected) {
-                setIsLoadingRepos(true);
-                try {
-                    // Always get a fresh session right before using it
-                    const { data: { session: freshSession } } = await supabase.auth.getSession();
-
-                    // Try stored github_token directly via backend (most reliable for all auth types)
-                    const backendRes = await fetch(`${API_URL}/github/repos`, {
-                        headers: { Authorization: `Bearer ${freshSession?.access_token}` },
-                    });
-
-                    if (backendRes.ok) {
-                        const json = await backendRes.json();
-                        setRepos(json.repos || []);
-                    } else if (freshSession?.provider_token) {
-                        // Fallback: direct GitHub API with provider_token
-                        const ghRes = await fetch('https://api.github.com/user/repos?sort=updated&per_page=30', {
-                            headers: { Authorization: `Bearer ${freshSession.provider_token}` },
-                        });
-                        if (ghRes.ok) setRepos(await ghRes.json());
-                    } else {
-                        console.warn('Repos fetch failed — no valid token available');
-                    }
-                } catch (err) {
-                    console.error("Failed to fetch repos:", err);
-                } finally {
-                    setIsLoadingRepos(false);
-                }
-            }
 
             // Checklist progress
             const { data: workflows } = await supabase
@@ -142,7 +80,7 @@ const Dashboard = () => {
 
             setChecklistItems([
                 { id: 'create_account', label: 'create_account', done: true, route: null },
-                { id: 'connect_github', label: 'connect_github', done: connected, route: '/integrations' },
+                { id: 'connect_github', label: 'connect_github', done: isGithubConnected, route: '/integrations' },
                 { id: 'create_workflow', label: 'create_first_workflow', done: hasWorkflow, route: '/workflows/new' },
                 { id: 'run_pipeline', label: 'run_first_pipeline', done: hasRun, route: null, locked: !hasWorkflow },
             ]);
@@ -191,52 +129,13 @@ const Dashboard = () => {
             }
         };
 
-        checkStates();
-    }, []);
+        loadData();
 
-    // Refresh dashboard after GitHub OAuth callback
-    useEffect(() => {
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.provider_token) {
-                const provider = session?.user?.app_metadata?.provider;
-                const providers = session?.user?.app_metadata?.providers || [];
-                if (provider === 'github' || providers.includes('github')) {
-                    // Save token
-                    try {
-                        await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/github/token`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${session.access_token}`
-                            },
-                            body: JSON.stringify({ token: session.provider_token })
-                        });
-                        await supabase.from('user_settings').upsert({
-                            user_id: session.user.id,
-                            github_token: session.provider_token,
-                            updated_at: new Date().toISOString()
-                        }, { onConflict: 'user_id' });
-                    } catch (err) {
-                        console.error('Token save failed', err);
-                    }
-                    // Reload repos
-                    setIsGithubConnected(true);
-                    setIsLoadingRepos(true);
-                    try {
-                        const res = await fetch('https://api.github.com/user/repos?sort=updated&per_page=30', {
-                            headers: { Authorization: `Bearer ${session.provider_token}` }
-                        });
-                        if (res.ok) setRepos(await res.json());
-                    } catch (err) {
-                        console.error('Repo reload failed', err);
-                    } finally {
-                        setIsLoadingRepos(false);
-                    }
-                }
-            }
-        });
-        return () => subscription.unsubscribe();
-    }, []);
+        // If connected but no repos yet, trigger a fetch
+        if (isGithubConnected && repos.length === 0) {
+            fetchRepos();
+        }
+    }, [user, isGithubConnected]);
 
     const handleDismissChecklist = () => {
         localStorage.setItem('devflow_checklist_dismissed', 'true');
@@ -257,28 +156,6 @@ const Dashboard = () => {
         }
     };
 
-    const handleRepoSelect = async (e) => {
-        const repoFullName = e.target.value;
-        const repo = repos.find(r => r.full_name === repoFullName);
-        if (!repo) return;
-
-        setSelectedRepo({ name: repo.name, full_name: repo.full_name });
-        setShowRepoSelector(false);
-
-        if (user) {
-            const { error } = await supabase
-                .from('user_settings')
-                .upsert({
-                    user_id: user.id,
-                    selected_repo: repo.name,
-                    selected_repo_full_name: repo.full_name,
-                    updated_at: new Date().toISOString()
-                }, { onConflict: 'user_id' });
-
-            if (error) showToast("Failed to save repository", "error");
-            else showToast("Repository updated", "success");
-        }
-    };
 
     // ── File upload / commit handlers ────────────────────────────────────
     const handleDrop = useCallback((e) => {
@@ -458,7 +335,12 @@ const Dashboard = () => {
                                             <Github className="w-5 h-5 md:w-6 md:h-6 text-[#F1F5F9]" />
                                         </div>
                                         <div className="min-w-0 flex-1">
-                                            {selectedRepo ? (
+                                            {githubLoading ? (
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-3 h-3 border-2 border-[#333] border-t-[#6EE7B7] rounded-full animate-spin" />
+                                                    <span className="font-mono text-xs text-[#64748B]">Connecting GitHub...</span>
+                                                </div>
+                                            ) : selectedRepo ? (
                                                 <>
                                                     <h3 className="text-sm md:text-base font-mono font-semibold text-[#F1F5F9] mb-0.5 truncate">{selectedRepo.full_name}</h3>
                                                     <span className="flex items-center gap-2 text-[10px] font-mono text-[#6EE7B7]">
@@ -493,7 +375,7 @@ const Dashboard = () => {
                                         ) : (
                                             <Button variant="primary"
                                                 className="gap-2 bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] border-none font-bold rounded-xl w-full sm:w-auto justify-center text-xs"
-                                                onClick={() => setShowGithubConnectModal(true)}>
+                                                onClick={() => navigate('/integrations')}>
                                                 Connect GitHub →
                                             </Button>
                                         )}
@@ -507,7 +389,7 @@ const Dashboard = () => {
                                                     transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                                                     className="absolute right-0 left-0 md:left-auto top-full mt-2 w-full md:w-72 bg-[#0D0D0D] border border-[#333] rounded-xl overflow-hidden shadow-2xl z-[50]"
                                                 >
-                                                    {isLoadingRepos ? (
+                                                    {githubLoading ? (
                                                         <div className="p-4 flex items-center gap-2">
                                                             <div className="w-3 h-3 border-2 border-[#333] border-t-[#6EE7B7] rounded-full animate-spin" />
                                                             <span className="font-mono text-[10px] text-[#64748B]">Loading repos...</span>
@@ -525,7 +407,16 @@ const Dashboard = () => {
                                                                     key={r.id}
                                                                     whileHover={{ x: 3 }}
                                                                     transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                                                                    onClick={() => handleRepoSelect({ target: { value: r.full_name } })}
+                                                                    onClick={() => {
+                                                                        setSelectedRepo({ name: r.name, full_name: r.full_name });
+                                                                        setShowRepoSelector(false);
+                                                                        supabase.from('user_settings').upsert({
+                                                                            user_id: user?.id,
+                                                                            selected_repo: r.name,
+                                                                            selected_repo_full_name: r.full_name,
+                                                                            updated_at: new Date().toISOString()
+                                                                        }, { onConflict: 'user_id' });
+                                                                    }}
                                                                     className={`w-full text-left px-3 py-2.5 rounded-lg font-mono text-xs transition-colors flex items-center gap-2 ${selectedRepo?.full_name === r.full_name
                                                                         ? 'bg-[#6EE7B7]/10 text-[#6EE7B7] border border-[#6EE7B7]/20'
                                                                         : 'text-[#94A3B8] hover:bg-[#1A1A1A] border border-transparent'
@@ -547,7 +438,7 @@ const Dashboard = () => {
                                 </div>
 
                                 {/* File upload / commit section */}
-                                {isGithubConnected && (
+                                {isGithubConnected && !githubLoading && (
                                     <motion.div
                                         initial={{ opacity: 0, y: 8 }}
                                         animate={{ opacity: 1, y: 0 }}
@@ -712,91 +603,6 @@ const Dashboard = () => {
                     </div>
                 </main>
             </div>
-
-            {/* GitHub Connect Modal */}
-            <AnimatePresence>
-                {showGithubConnectModal && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[200] flex items-center justify-center p-4"
-                        style={{ background: 'rgba(8,8,8,0.88)', backdropFilter: 'blur(16px)' }}
-                        onClick={() => setShowGithubConnectModal(false)}
-                    >
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.94, y: 16 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.94, y: 8 }}
-                            transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-                            className="w-full max-w-sm bg-[#0D0D0D] border border-[#222] rounded-2xl shadow-2xl overflow-hidden"
-                            onClick={e => e.stopPropagation()}
-                        >
-                            <div className="h-[2px] w-full" style={{ background: 'linear-gradient(90deg, #6EE7B7, #A78BFA)' }} />
-
-                            <div className="p-7 space-y-5">
-                                <div className="flex items-center justify-center">
-                                    <div className="w-14 h-14 rounded-2xl bg-[#111] border border-[#222] flex items-center justify-center shadow-inner">
-                                        <svg className="w-7 h-7 text-[#F1F5F9]" viewBox="0 0 24 24" fill="currentColor">
-                                            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
-                                        </svg>
-                                    </div>
-                                </div>
-
-                                <div className="text-center space-y-2">
-                                    <h3 className="font-mono text-sm font-bold text-[#F1F5F9]">Link your GitHub account</h3>
-                                    <p className="font-mono text-[11px] text-[#64748B] leading-relaxed">
-                                        To select a repository, DevFlow needs access to your GitHub. This lets you commit files, create issues, and trigger pipelines directly from your repos.
-                                    </p>
-                                </div>
-
-                                <div className="bg-[#111] border border-[#1A1A1A] rounded-xl p-4 space-y-2.5">
-                                    {[
-                                        { icon: '📁', text: 'Browse and select your repositories' },
-                                        { icon: '⚡', text: 'Trigger pipelines on push & PR events' },
-                                        { icon: '🔒', text: 'Read/write access — revoke anytime' },
-                                    ].map(({ icon, text }) => (
-                                        <div key={text} className="flex items-center gap-3">
-                                            <span className="text-sm">{icon}</span>
-                                            <span className="font-mono text-[10px] text-[#94A3B8]">{text}</span>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                <div className="flex gap-3 pt-1">
-                                    <button
-                                        onClick={() => setShowGithubConnectModal(false)}
-                                        className="flex-1 font-mono text-xs text-[#64748B] border border-[#222] py-2.5 rounded-xl hover:border-[#333] hover:text-[#94A3B8] transition-all"
-                                    >
-                                        Later
-                                    </button>
-                                    <button
-                                        onClick={async () => {
-                                            setShowGithubConnectModal(false);
-                                            const { error } = await supabase.auth.signInWithOAuth({
-                                                provider: 'github',
-                                                options: {
-                                                    scopes: 'repo read:user',
-                                                    redirectTo: window.location.href
-                                                }
-                                            });
-                                            if (error) showToast('GitHub connect failed', 'error');
-                                        }}
-                                        className="flex-1 font-mono text-xs font-bold text-[#080808] py-2.5 rounded-xl transition-all"
-                                        style={{ background: 'linear-gradient(135deg, #6EE7B7, #A78BFA)' }}
-                                    >
-                                        Connect GitHub
-                                    </button>
-                                </div>
-
-                                <p className="font-mono text-[9px] text-[#333] text-center">
-                                    You can also connect from Settings → Integrations
-                                </p>
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
         </div>
     );
 };

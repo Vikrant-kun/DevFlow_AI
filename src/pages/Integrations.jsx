@@ -16,15 +16,11 @@ const itemVariants = {
 };
 
 const Integrations = () => {
-    const { user } = useAuth();
+    const { user, isGithubConnected, repos, selectedRepo, setSelectedRepo, githubLoading, connectGithubPat, fetchRepos } = useAuth();
     const { showToast } = useToast();
-    const [isGithubConnected, setIsGithubConnected] = useState(false);
     const [showGithubInput, setShowGithubInput] = useState(false);
     const [githubPAT, setGithubPAT] = useState('');
     const [isSavingGithub, setIsSavingGithub] = useState(false);
-    const [repos, setRepos] = useState([]);
-    const [selectedRepo, setSelectedRepo] = useState(null);
-    const [isLoadingRepos, setIsLoadingRepos] = useState(false);
 
     // ── API & CREATE REPO STATE ──────────────────────────────────────────────
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -56,122 +52,10 @@ const Integrations = () => {
     const [showJiraInput, setShowJiraInput] = useState(false);
     const [isSavingJira, setIsSavingJira] = useState(false);
 
-    // Catch GitHub OAuth callback and save provider_token immediately
+    // Load Slack webhook, Notion, Linear & Jira
     useEffect(() => {
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-                const providerToken = session?.provider_token;
-                const provider = session?.user?.app_metadata?.provider;
-                const providers = session?.user?.app_metadata?.providers || [];
-                const isGithub = provider === 'github' || providers.includes('github');
-
-                if (providerToken && isGithub) {
-                    try {
-                        // Save token to backend
-                        await fetch(`${API_URL}/github/token`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${session.access_token}`
-                            },
-                            body: JSON.stringify({ token: providerToken })
-                        });
-                        // Also save directly to user_settings as backup
-                        await supabase.from('user_settings').upsert({
-                            user_id: session.user.id,
-                            github_token: providerToken,
-                            updated_at: new Date().toISOString()
-                        }, { onConflict: 'user_id' });
-                        setIsGithubConnected(true);
-                        showToast('GitHub connected!', 'success');
-                    } catch (err) {
-                        console.error('Failed to save GitHub token on callback', err);
-                    }
-                }
-            }
-        });
-        return () => subscription.unsubscribe();
-    }, []);
-
-    useEffect(() => {
-        const checkGithubConnection = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
+        const loadOtherIntegrations = async () => {
             const { data: { user: authUser } } = await supabase.auth.getUser();
-
-            const oauthConnected = authUser?.app_metadata?.provider === 'github' ||
-                authUser?.app_metadata?.providers?.includes('github');
-
-            // Also check if github_token exists in user_settings (for Google/email users who connected via Integrations)
-            const { data: settingsCheck } = await supabase
-                .from('user_settings')
-                .select('github_token, selected_repo_full_name, selected_repo')
-                .eq('user_id', authUser.id)
-                .single();
-
-            const connected = oauthConnected || !!settingsCheck?.github_token;
-            setIsGithubConnected(!!connected);
-
-            if (connected && session) {
-                // Save provider_token to backend if available
-                const providerToken = session?.provider_token;
-                if (providerToken) {
-                    try {
-                        await fetch(`${API_URL}/github/token`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${session.access_token}`
-                            },
-                            body: JSON.stringify({ token: providerToken })
-                        });
-                    } catch (err) {
-                        console.error('Failed to save GitHub token', err);
-                    }
-                }
-
-                // Load repos from backend
-                if (authUser) {
-                    const { data: settings } = await supabase
-                        .from('user_settings')
-                        .select('selected_repo_full_name, selected_repo')
-                        .eq('user_id', authUser.id)
-                        .single();
-                    if (settings?.selected_repo_full_name || settings?.selected_repo) {
-                        setSelectedRepo(settings.selected_repo_full_name || settings.selected_repo);
-                    }
-                }
-
-                setIsLoadingRepos(true);
-                try {
-                    // Try provider_token first, fallback to backend API
-                    const token = session?.provider_token;
-                    if (token) {
-                        const res = await fetch('https://api.github.com/user/repos?sort=updated&per_page=20', {
-                            headers: { Authorization: `Bearer ${token}` }
-                        });
-                        if (res.ok) {
-                            const reposData = await res.json();
-                            setRepos(reposData);
-                            setIsLoadingRepos(false);
-                            return;
-                        }
-                    }
-                    // Fallback — use backend which has stored github_token
-                    const res = await fetch(`${API_URL}/github/repos`, {
-                        headers: { 'Authorization': `Bearer ${session?.access_token}` }
-                    });
-                    if (res.ok) {
-                        const data = await res.json();
-                        setRepos(data.repos || []);
-                    }
-                } catch (err) {
-                    console.error('Failed to fetch repos', err);
-                } finally {
-                    setIsLoadingRepos(false);
-                }
-            }
-
-            // Load Slack webhook
             if (authUser) {
                 const { data: slackSettings } = await supabase
                     .from('user_settings')
@@ -182,10 +66,7 @@ const Integrations = () => {
                     setSlackWebhook(slackSettings.slack_webhook_url);
                     setIsSlackConnected(true);
                 }
-            }
 
-            // Load Notion, Linear & Jira
-            if (authUser) {
                 const { data: extraSettings } = await supabase
                     .from('user_settings')
                     .select('notion_token, linear_token, jira_token, jira_domain')
@@ -198,15 +79,16 @@ const Integrations = () => {
                 if (extraSettings?.jira_domain) setJiraDomain(extraSettings.jira_domain);
             }
         };
-        checkGithubConnection();
+        loadOtherIntegrations();
     }, []);
 
     const handleRepoSelect = async (fullName) => {
-        setSelectedRepo(fullName);
+        const repoObj = { name: fullName.split('/')[1], full_name: fullName };
+        setSelectedRepo(repoObj);
         const { data: { session } } = await supabase.auth.getSession();
         await supabase.from('user_settings').upsert({
             user_id: session.user.id,
-            selected_repo: fullName.split('/')[1],
+            selected_repo: repoObj.name,
             selected_repo_full_name: fullName,
             updated_at: new Date().toISOString()
         }, { onConflict: 'user_id' });
@@ -230,8 +112,9 @@ const Integrations = () => {
             if (!res.ok) throw new Error((await res.json()).detail);
 
             const data = await res.json();
-            setRepos(prev => [data.repo, ...prev]);
-            setSelectedRepo(data.repo.full_name);
+            // Refresh repos list from context
+            await fetchRepos();
+            setSelectedRepo({ name: data.repo.name, full_name: data.repo.full_name });
             setShowCreateRepo(false);
             setNewRepoName('');
             showToast(`Repo "${data.repo.name}" created!`, 'success');
@@ -244,46 +127,13 @@ const Integrations = () => {
 
     const handleSaveGithubPAT = async () => {
         if (!githubPAT.trim()) return;
-        setIsSavingGithub(true);
         try {
-            // Verify token works first
-            const testRes = await fetch('https://api.github.com/user', {
-                headers: { Authorization: `Bearer ${githubPAT.trim()}` }
-            });
-            if (!testRes.ok) throw new Error('Invalid token — GitHub rejected it');
-
-            // Save to backend
-            const { data: { session } } = await supabase.auth.getSession();
-            await fetch(`${API_URL}/github/token`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-                body: JSON.stringify({ token: githubPAT.trim() })
-            });
-
-            // Save directly to user_settings as backup
-            const { error } = await supabase.from('user_settings').upsert({
-                user_id: user.id,
-                github_token: githubPAT.trim(),
-                updated_at: new Date().toISOString()
-            }, { onConflict: 'user_id' });
-            if (error) throw error;
-
-            setIsGithubConnected(true);
+            await connectGithubPat(githubPAT.trim());
             setShowGithubInput(false);
             setGithubPAT('');
             showToast('GitHub connected!', 'success');
-
-            // Load repos immediately
-            setIsLoadingRepos(true);
-            const res = await fetch('https://api.github.com/user/repos?sort=updated&per_page=30', {
-                headers: { Authorization: `Bearer ${githubPAT.trim()}` }
-            });
-            if (res.ok) setRepos(await res.json());
         } catch (err) {
             showToast(err.message || 'Failed to save GitHub token', 'error');
-        } finally {
-            setIsSavingGithub(false);
-            setIsLoadingRepos(false);
         }
     };
 
@@ -462,7 +312,7 @@ const Integrations = () => {
                                                         + New Repo
                                                     </button>
                                                 </div>
-                                                {isLoadingRepos ? (
+                                                {githubLoading ? (
                                                     <div className="flex items-center gap-2 py-2">
                                                         <div className="w-3 h-3 border-2 border-[#333] border-t-[#6EE7B7] rounded-full animate-spin" />
                                                         <span className="font-mono text-[10px] text-[#64748B]">Loading repos...</span>
@@ -476,13 +326,13 @@ const Integrations = () => {
                                                                 whileHover={{ x: 3 }}
                                                                 transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                                                                 onClick={() => handleRepoSelect(r.full_name)}
-                                                                className={`w-full text-left px-3 py-2.5 rounded-lg font-mono text-xs transition-colors flex items-center gap-2 ${selectedRepo === r.full_name
+                                                                className={`w-full text-left px-3 py-2.5 rounded-lg font-mono text-xs transition-colors flex items-center gap-2 ${selectedRepo?.full_name === r.full_name
                                                                     ? 'bg-[#6EE7B7]/10 text-[#6EE7B7] border border-[#6EE7B7]/20'
                                                                     : 'text-[#94A3B8] hover:bg-[#1A1A1A] border border-transparent'
                                                                     }`}>
                                                                 <span className="text-[#444] shrink-0">/</span>
                                                                 <span className="truncate flex-1">{r.full_name || r.name}</span>
-                                                                {selectedRepo === r.full_name && <span className="text-[#6EE7B7] shrink-0 text-[10px]">✓ active</span>}
+                                                                {selectedRepo?.full_name === r.full_name && <span className="text-[#6EE7B7] shrink-0 text-[10px]">✓ active</span>}
                                                             </motion.button>
                                                         ))}
                                                     </div>
@@ -567,7 +417,7 @@ const Integrations = () => {
                                                         type="password"
                                                         value={githubPAT}
                                                         onChange={e => setGithubPAT(e.target.value)}
-                                                        onKeyDown={e => e.key === 'Enter' && handleSaveGithubPAT()}
+                                                        onKeyDown={e => e.key === 'Enter' && !isSavingGithub && githubPAT.trim() && handleSaveGithubPAT()}
                                                         placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
                                                         className="w-full bg-[#0D0D0D] border border-[#333] rounded-xl px-4 py-3 text-sm font-mono text-[#F1F5F9] placeholder-[#444] focus:outline-none focus:border-[#6EE7B7] mb-4"
                                                     />
@@ -576,7 +426,21 @@ const Integrations = () => {
                                                             className="flex-1 px-4 py-2 text-sm font-mono text-[#64748B] border border-[#222] rounded-xl hover:border-[#444] transition-colors">
                                                             Cancel
                                                         </button>
-                                                        <button onClick={handleSaveGithubPAT} disabled={isSavingGithub || !githubPAT.trim()}
+                                                        <button
+                                                            onClick={async () => {
+                                                                setIsSavingGithub(true);
+                                                                try {
+                                                                    await connectGithubPat(githubPAT);
+                                                                    setShowGithubInput(false);
+                                                                    setGithubPAT('');
+                                                                    showToast('GitHub connected!', 'success');
+                                                                } catch (err) {
+                                                                    showToast(err.message || 'Invalid PAT', 'error');
+                                                                } finally {
+                                                                    setIsSavingGithub(false);
+                                                                }
+                                                            }}
+                                                            disabled={isSavingGithub || !githubPAT.trim()}
                                                             className="flex-1 px-4 py-2 text-sm font-mono text-[#080808] bg-[#6EE7B7] hover:bg-[#34D399] rounded-xl font-bold transition-colors disabled:opacity-50">
                                                             {isSavingGithub ? 'Verifying...' : 'Connect'}
                                                         </button>
