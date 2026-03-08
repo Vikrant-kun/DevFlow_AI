@@ -31,7 +31,7 @@ export const AuthProvider = ({ children }) => {
             setUser(session?.user ?? null);
             setLoading(false);
 
-            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+            if (event === 'SIGNED_IN') {
                 if (session?.user) checkGithubConnection(session);
             } else if (event === 'SIGNED_OUT') {
                 setIsGithubConnected(false);
@@ -55,11 +55,7 @@ export const AuthProvider = ({ children }) => {
                 .eq('user_id', currentSession.user.id)
                 .maybeSingle();
 
-            const oauthConnected =
-                currentSession.user?.app_metadata?.provider === 'github' ||
-                currentSession.user?.app_metadata?.providers?.includes('github');
-
-            const connected = oauthConnected || !!settings?.github_token;
+            const connected = !!settings?.github_token;
 
             setIsGithubConnected(connected);
 

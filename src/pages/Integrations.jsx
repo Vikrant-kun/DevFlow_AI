@@ -61,7 +61,7 @@ const Integrations = () => {
                     .from('user_settings')
                     .select('slack_webhook_url')
                     .eq('user_id', authUser.id)
-                    .single();
+                    .maybeSingle();
                 if (slackSettings?.slack_webhook_url) {
                     setSlackWebhook(slackSettings.slack_webhook_url);
                     setIsSlackConnected(true);
@@ -71,7 +71,7 @@ const Integrations = () => {
                     .from('user_settings')
                     .select('notion_token, linear_token, jira_token, jira_domain')
                     .eq('user_id', authUser.id)
-                    .single();
+                    .maybeSingle();
 
                 if (extraSettings?.notion_token) { setNotionToken(extraSettings.notion_token); setIsNotionConnected(true); }
                 if (extraSettings?.linear_token) { setLinearToken(extraSettings.linear_token); setIsLinearConnected(true); }
@@ -301,106 +301,8 @@ const Integrations = () => {
                                             )}
                                         </div>
 
-                                        {/* ── GITHUB CONNECTED BLOCK ────────────────────────────────────────── */}
-                                        {integration.connected && integration.id === 'github' && (
-                                            <div className="mt-4 flex flex-col gap-3 bg-[#0D0D0D] p-3 border border-[#222] rounded-xl">
-                                                <div className="flex items-center justify-between mt-1">
-                                                    <p className="font-mono text-[9px] text-[#444] uppercase tracking-widest">Active Repository</p>
-                                                    <button
-                                                        onClick={() => setShowCreateRepo(true)}
-                                                        className="text-[10px] font-mono text-[#6EE7B7] hover:underline flex items-center gap-1">
-                                                        + New Repo
-                                                    </button>
-                                                </div>
-                                                {githubLoading ? (
-                                                    <div className="flex items-center gap-2 py-2">
-                                                        <div className="w-3 h-3 border-2 border-[#333] border-t-[#6EE7B7] rounded-full animate-spin" />
-                                                        <span className="font-mono text-[10px] text-[#64748B]">Loading repos...</span>
-                                                    </div>
-                                                ) : (
-                                                    <div className="max-h-44 overflow-y-auto space-y-0.5 bg-[#0A0A0A] border border-[#1A1A1A] rounded-xl p-1.5">
-                                                        {repos.length === 0 ? (
-                                                            <p className="font-mono text-[10px] text-[#444] p-2 text-center">No repos found — try reconnecting GitHub.</p>
-                                                        ) : repos.map(r => (
-                                                            <motion.button key={r.id}
-                                                                whileHover={{ x: 3 }}
-                                                                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                                                                onClick={() => handleRepoSelect(r.full_name)}
-                                                                className={`w-full text-left px-3 py-2.5 rounded-lg font-mono text-xs transition-colors flex items-center gap-2 ${selectedRepo?.full_name === r.full_name
-                                                                    ? 'bg-[#6EE7B7]/10 text-[#6EE7B7] border border-[#6EE7B7]/20'
-                                                                    : 'text-[#94A3B8] hover:bg-[#1A1A1A] border border-transparent'
-                                                                    }`}>
-                                                                <span className="text-[#444] shrink-0">/</span>
-                                                                <span className="truncate flex-1">{r.full_name || r.name}</span>
-                                                                {selectedRepo?.full_name === r.full_name && <span className="text-[#6EE7B7] shrink-0 text-[10px]">✓ active</span>}
-                                                            </motion.button>
-                                                        ))}
-                                                    </div>
-                                                )}
 
-                                                {/* Create Repo Modal */}
-                                                <AnimatePresence>
-                                                    {showCreateRepo && (
-                                                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                                                            className="fixed inset-0 z-[200] flex items-center justify-center p-4"
-                                                            style={{ background: 'rgba(8,8,8,0.85)', backdropFilter: 'blur(12px)' }}
-                                                            onClick={() => setShowCreateRepo(false)}>
-                                                            <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                                                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                                                exit={{ opacity: 0, scale: 0.95 }}
-                                                                className="w-full max-w-md bg-[#0D0D0D] border border-[#222] rounded-2xl shadow-[0_0_50px_rgba(0,0,0,1)] overflow-hidden"
-                                                                onClick={e => e.stopPropagation()}>
-                                                                <div className="flex items-center justify-between px-6 py-4 border-b border-[#1A1A1A]">
-                                                                    <div className="flex items-center gap-3">
-                                                                        <Github className="w-5 h-5 text-[#6EE7B7]" />
-                                                                        <h3 className="font-mono text-sm font-bold text-[#F1F5F9]">Create Repository</h3>
-                                                                    </div>
-                                                                    <button onClick={() => setShowCreateRepo(false)} className="text-[#64748B] hover:text-[#F1F5F9] bg-[#111] p-1.5 rounded-full transition-colors">
-                                                                        <X className="w-4 h-4" />
-                                                                    </button>
-                                                                </div>
-                                                                <div className="p-6 space-y-4">
-                                                                    <div>
-                                                                        <label className="font-mono text-[10px] text-[#64748B] uppercase tracking-wider mb-2 block">Repository Name</label>
-                                                                        <input
-                                                                            type="text"
-                                                                            value={newRepoName}
-                                                                            onChange={e => setNewRepoName(e.target.value.replace(/\s+/g, '-').toLowerCase())}
-                                                                            placeholder="my-awesome-project"
-                                                                            className="w-full bg-[#111] border border-[#222] rounded-xl px-4 py-2.5 font-mono text-xs text-[#F1F5F9] outline-none focus:border-[#6EE7B7]/40 transition-colors placeholder:text-[#444]"
-                                                                        />
-                                                                    </div>
-                                                                    <div className="flex items-center justify-between bg-[#111] border border-[#222] rounded-xl px-4 py-3">
-                                                                        <div>
-                                                                            <p className="font-mono text-xs text-[#F1F5F9]">Private repository</p>
-                                                                            <p className="font-mono text-[10px] text-[#64748B] mt-0.5">Only you can see this repo</p>
-                                                                        </div>
-                                                                        <button
-                                                                            onClick={() => setNewRepoPrivate(!newRepoPrivate)}
-                                                                            className={`w-10 h-5 rounded-full transition-colors relative ${newRepoPrivate ? 'bg-[#6EE7B7]' : 'bg-[#333]'}`}>
-                                                                            <div className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-all ${newRepoPrivate ? 'left-5' : 'left-0.5'}`} />
-                                                                        </button>
-                                                                    </div>
-                                                                </div>
-                                                                <div className="px-6 pb-6 flex gap-3">
-                                                                    <button onClick={() => setShowCreateRepo(false)}
-                                                                        className="flex-1 font-mono text-xs text-[#64748B] border border-[#222] py-2.5 rounded-xl hover:border-[#333] hover:text-[#F1F5F9] transition-all bg-[#111]">
-                                                                        Cancel
-                                                                    </button>
-                                                                    <button onClick={handleCreateRepo} disabled={!newRepoName.trim() || isCreatingRepo}
-                                                                        className="flex-1 font-mono text-xs font-bold bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] py-2.5 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-                                                                        {isCreatingRepo
-                                                                            ? <div className="w-3.5 h-3.5 border-2 border-[#080808]/40 border-t-[#080808] rounded-full animate-spin" />
-                                                                            : <Github className="w-3.5 h-3.5" />}
-                                                                        {isCreatingRepo ? 'Creating...' : 'Create Repo'}
-                                                                    </button>
-                                                                </div>
-                                                            </motion.div>
-                                                        </motion.div>
-                                                    )}
-                                                </AnimatePresence>
-                                            </div>
-                                        )}
+
 
                                         {showGithubInput && (
                                             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">

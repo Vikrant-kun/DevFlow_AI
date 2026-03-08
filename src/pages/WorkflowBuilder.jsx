@@ -207,6 +207,7 @@ const WorkflowBuilder = () => {
     const [isRunning, setIsRunning] = useState(false);
     const [isDirty, setIsDirty] = useState(false);
     const [unsupportedFeature, setUnsupportedFeature] = useState(null);
+    const [showRerunModal, setShowRerunModal] = useState(false);
 
     const historyRef = useRef([]);
     const historyIndexRef = useRef(-1);
@@ -365,12 +366,26 @@ const WorkflowBuilder = () => {
         return null;
     };
 
-    const handleRunPipeline = async () => {
+    const handleRunPipeline = async (force = false) => {
         if (!user) { showToast('Log in to run.', 'error'); return; }
         if (nodes.length === 0) { showToast('Build a pipeline first', 'error'); return; }
         if (isRunning) { showToast('Pipeline is already running', 'info'); return; }
-        if (currentWorkflowId && !isDirty) {
-            showToast('No changes since last save — edit your pipeline to run again', 'info');
+        if (!force && currentWorkflowId && !isDirty) {
+            setShowRerunModal(true);
+            return;
+        }
+
+        // Validate notification nodes have email/webhook
+        const notifNodes = nodes.filter(n => n.data?.type === 'notification' || n.type === 'notification');
+        const missingContact = notifNodes.find(n => !n.data?.email && !n.data?.slack_webhook && !n.data?.description?.includes('@'));
+        if (missingContact) {
+            showToast(`"${missingContact.data?.label || 'Notification'}" node needs an email or webhook — open it in the config panel.`, 'error');
+            // Highlight the node
+            setNodes(nds => nds.map(n => n.id === missingContact.id
+                ? { ...n, data: { ...n.data, status: 'failed' } }
+                : n
+            ));
+            setTimeout(() => setNodes(nds => nds.map(n => ({ ...n, data: { ...n.data, status: undefined } }))), 3000);
             return;
         }
 
@@ -488,41 +503,19 @@ Rules: first node always trigger, max 8 nodes, labels 2-4 words.`;
                 });
                 const data = await res.json();
                 raw = data.choices[0].message.content;
-            } else if (model === 'gpt4') {
-                const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-                if (!apiKey) throw new Error('OpenAI API key not configured. Add VITE_OPENAI_API_KEY to your environment.');
-                const res = await fetch('https://api.openai.com/v1/chat/completions', {
+            } else if (model === 'gpt4' || model === 'gemini') {
+                const modelName = model === 'gpt4' ? 'GPT-4o' : 'Gemini';
+                showToast(`${modelName} requires billing — coming soon! Using Groq instead.`, 'info');
+                const apiKey = import.meta.env.VITE_GROQ_API_KEY;
+                const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-                    body: JSON.stringify({
-                        model: 'gpt-4o',
-                        messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: prompt }],
-                        max_tokens: 1024,
-                        temperature: 0.7
-                    })
+                    body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: prompt }], max_tokens: 1024, temperature: 0.7 })
                 });
-                if (!res.ok) {
-                    const err = await res.json();
-                    throw new Error(`OpenAI error: ${err.error?.message || res.status}`);
-                }
                 const data = await res.json();
                 raw = data.choices[0].message.content;
-            } else if (model === 'gemini') {
-                const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-                if (!apiKey) throw new Error('Gemini API key not configured. Add VITE_GEMINI_API_KEY to your environment.');
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: systemPrompt + '\n\nUser: ' + prompt }] }] })
-                });
-                if (!res.ok) {
-                    const err = await res.json();
-                    throw new Error(`Gemini error: ${err.error?.message || res.status}`);
-                }
-                const data = await res.json();
-                raw = data.candidates?.[0]?.content?.parts?.[0]?.text;
-                if (!raw) throw new Error('Gemini returned empty response');
             }
+
 
             const cleaned = raw.replace(/```json|```/g, '').trim();
             const parsed = JSON.parse(cleaned);
@@ -540,7 +533,7 @@ Rules: first node always trigger, max 8 nodes, labels 2-4 words.`;
             }));
 
             const formattedEdges = (parsed.edges || []).map(e => ({
-                id: `e${e.source}-${e.target}`,
+                id: `e${e.source}-${e.target}-${Math.random().toString(36).slice(2, 7)}`,
                 source: e.source,
                 target: e.target,
                 animated: true,
@@ -558,7 +551,7 @@ Rules: first node always trigger, max 8 nodes, labels 2-4 words.`;
 
             showToast(`Pipeline generated — ${spacedNodes.length} steps`, 'success');
             setIsGenerating(false);
-            setPrompt('');
+
 
             setTimeout(() => pushHistory(spacedNodes, formattedEdges), spacedNodes.length * 150 + 100);
 
@@ -907,6 +900,36 @@ Rules: first node always trigger, max 8 nodes, labels 2-4 words.`;
                                         Try Anyway
                                     </button>
                                 </div>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Re-run confirm modal */}
+            <AnimatePresence>
+                {showRerunModal && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[300] flex items-center justify-center p-4"
+                        style={{ background: 'rgba(8,8,8,0.85)', backdropFilter: 'blur(12px)' }}>
+                        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+                            className="bg-[#111] border border-[#222] rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="w-8 h-8 rounded-lg bg-[#6EE7B7]/10 border border-[#6EE7B7]/20 flex items-center justify-center">
+                                    <Play className="w-4 h-4 text-[#6EE7B7]" />
+                                </div>
+                                <h3 className="font-mono text-sm font-bold text-[#F1F5F9]">Run same pipeline?</h3>
+                            </div>
+                            <p className="font-mono text-xs text-[#64748B] mb-5">This pipeline hasn't changed since the last run. Run it again anyway?</p>
+                            <div className="flex gap-3">
+                                <button onClick={() => setShowRerunModal(false)}
+                                    className="flex-1 font-mono text-xs text-[#64748B] border border-[#222] py-2.5 rounded-xl hover:border-[#444] transition-colors">
+                                    Cancel
+                                </button>
+                                <button onClick={() => { setShowRerunModal(false); handleRunPipeline(true); }}
+                                    className="flex-1 font-mono text-xs font-bold bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] py-2.5 rounded-xl transition-colors">
+                                    Run Anyway
+                                </button>
                             </div>
                         </motion.div>
                     </motion.div>
