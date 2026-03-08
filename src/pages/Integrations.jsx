@@ -36,6 +36,12 @@ const Integrations = () => {
     const [isCommitting, setIsCommitting] = useState(false);
     const [isDragOver, setIsDragOver] = useState(false);
 
+    // ── SLACK STATE ──────────────────────────────────────────────────────────
+    const [slackWebhook, setSlackWebhook] = useState('');
+    const [isSlackConnected, setIsSlackConnected] = useState(false);
+    const [showSlackInput, setShowSlackInput] = useState(false);
+    const [isSavingSlack, setIsSavingSlack] = useState(false);
+
     useEffect(() => {
         const checkGithubConnection = async () => {
             const { data: { session } } = await supabase.auth.getSession();
@@ -88,6 +94,19 @@ const Integrations = () => {
                     console.error('Failed to fetch repos', err);
                 } finally {
                     setIsLoadingRepos(false);
+                }
+            }
+
+            // Load Slack webhook
+            if (authUser) {
+                const { data: slackSettings } = await supabase
+                    .from('user_settings')
+                    .select('slack_webhook_url')
+                    .eq('user_id', authUser.id)
+                    .single();
+                if (slackSettings?.slack_webhook_url) {
+                    setSlackWebhook(slackSettings.slack_webhook_url);
+                    setIsSlackConnected(true);
                 }
             }
         };
@@ -186,9 +205,39 @@ const Integrations = () => {
         }
     };
 
+    const handleSaveSlack = async () => {
+        if (!slackWebhook.trim()) return;
+        setIsSavingSlack(true);
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const res = await fetch(`${API_URL}/github/token`, { // Still hitting backend to register change if needed, otherwise just Supabase
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+                body: JSON.stringify({ slack_webhook_url: slackWebhook.trim() })
+            });
+
+            // Save directly to Supabase
+            const { error } = await supabase.from('user_settings').upsert({
+                user_id: user.id,
+                slack_webhook_url: slackWebhook.trim(),
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'user_id' });
+
+            if (error) throw error;
+
+            setIsSlackConnected(true);
+            setShowSlackInput(false);
+            showToast('Slack connected!', 'success');
+        } catch (err) {
+            showToast('Failed to save Slack webhook', 'error');
+        } finally {
+            setIsSavingSlack(false);
+        }
+    };
+
     const integrations = [
         { id: 'github', name: 'GitHub', desc: 'Trigger workflows from PRs, merges, and issues.', icon: Github, connected: isGithubConnected },
-        { id: 'slack', name: 'Slack', desc: 'Send notifications and alerts to channels.', icon: Hash, connected: false },
+        { id: 'slack', name: 'Slack', desc: 'Send notifications and alerts to channels.', icon: Hash, connected: isSlackConnected },
         { id: 'jira', name: 'Jira', desc: 'Sync issues, epic status, and bug reports.', icon: Trello, connected: false },
         { id: 'linear', name: 'Linear', desc: 'Link commits to issues and manage cycles.', icon: CheckCircle2, connected: false },
     ];
@@ -235,9 +284,11 @@ const Integrations = () => {
                                                         <div className="absolute right-0 mt-2 w-48 bg-[#111] border border-[#222] rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 top-full">
                                                             <div className="p-1">
                                                                 <div className="px-4 py-2 text-xs text-[#64748B] border-b border-[#222] mb-1 truncate">
-                                                                    {user?.user_metadata?.user_name ? `@${user.user_metadata.user_name}` : 'GitHub User'}
+                                                                    {integration.id === 'github' ? (user?.user_metadata?.user_name ? `@${user.user_metadata.user_name}` : 'GitHub User') : 'Slack Workspace'}
                                                                 </div>
-                                                                <a href={`https://github.com/${user?.user_metadata?.user_name || ''}`} target="_blank" rel="noreferrer" className="block w-full text-left px-4 py-2 text-sm text-[#F1F5F9] hover:bg-[#222] rounded-xl transition-colors">View on GitHub →</a>
+                                                                {integration.id === 'github' && (
+                                                                    <a href={`https://github.com/${user?.user_metadata?.user_name || ''}`} target="_blank" rel="noreferrer" className="block w-full text-left px-4 py-2 text-sm text-[#F1F5F9] hover:bg-[#222] rounded-xl transition-colors">View on GitHub →</a>
+                                                                )}
                                                                 <button onClick={() => showToast("Disconnect coming soon", "info")} className="w-full text-left px-4 py-2 text-sm text-[#ef4444] hover:bg-[#222] rounded-xl transition-colors">Disconnect</button>
                                                             </div>
                                                         </div>
@@ -256,6 +307,8 @@ const Integrations = () => {
                                                                     options: { scopes: 'repo read:user', redirectTo: window.location.href }
                                                                 });
                                                                 if (error) showToast('GitHub connect failed', 'error');
+                                                            } else if (integration.id === 'slack') {
+                                                                setShowSlackInput(true);
                                                             } else {
                                                                 showToast(`${integration.name} integration coming soon`, 'info');
                                                             }
@@ -432,6 +485,41 @@ const Integrations = () => {
                                                     )}
                                                 </AnimatePresence>
                                             </div>
+                                        )}
+
+                                        {/* ── SLACK CONNECTED BLOCK ─────────────────────────────────────────── */}
+                                        {integration.id === 'slack' && (
+                                            <AnimatePresence>
+                                                {showSlackInput && (
+                                                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+                                                        exit={{ opacity: 0, height: 0 }} className="mt-4 space-y-3 bg-[#0D0D0D] border border-[#222] rounded-xl p-3">
+                                                        <div>
+                                                            <p className="font-mono text-[10px] text-[#64748B] uppercase tracking-widest mb-2">Webhook URL</p>
+                                                            <input
+                                                                type="text"
+                                                                value={slackWebhook}
+                                                                onChange={e => setSlackWebhook(e.target.value)}
+                                                                placeholder="https://hooks.slack.com/services/..."
+                                                                className="w-full bg-[#111] border border-[#222] rounded-xl px-3 py-2.5 font-mono text-xs text-[#F1F5F9] outline-none focus:border-[#6EE7B7]/40 placeholder:text-[#333]"
+                                                            />
+                                                            <p className="font-mono text-[10px] text-[#444] mt-1.5">
+                                                                Get this from Slack → Apps → Incoming Webhooks
+                                                            </p>
+                                                        </div>
+                                                        <div className="flex gap-2">
+                                                            <button onClick={() => setShowSlackInput(false)}
+                                                                className="flex-1 font-mono text-xs text-[#64748B] border border-[#222] py-2 rounded-xl hover:border-[#333] transition-all">
+                                                                Cancel
+                                                            </button>
+                                                            <button onClick={handleSaveSlack} disabled={!slackWebhook.trim() || isSavingSlack}
+                                                                className="flex-1 font-mono text-xs font-bold bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] py-2 rounded-xl disabled:opacity-40 transition-all flex items-center justify-center gap-2">
+                                                                {isSavingSlack ? <div className="w-3 h-3 border-2 border-[#080808]/40 border-t-[#080808] rounded-full animate-spin" /> : null}
+                                                                Save Webhook
+                                                            </button>
+                                                        </div>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
                                         )}
                                     </div>
                                 </motion.div>
