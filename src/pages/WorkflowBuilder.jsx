@@ -28,11 +28,12 @@ const SUGGESTIONS = [
     { label: 'Daily backups', prompt: 'Every night at 2am, backup the database and upload it to S3.' },
 ];
 
+// ── UPDATED AGENTS ARRAY ──────────────────────────────────────────────────────
 const AGENTS = [
     { id: 'groq', name: 'Groq', desc: 'Llama 3.3 70B', icon: '⚡️' },
-    { id: 'claude', name: 'Claude', desc: 'Sonnet 3.5', icon: '🧠' },
-    { id: 'gemini', name: 'Gemini', desc: 'Gemini 2.0 Pro', icon: '✨' },
-    { id: 'gpt4', name: 'GPT-4o', desc: 'OpenAI', icon: '🤖' }
+    { id: 'gpt4', name: 'GPT-4o', desc: 'OpenAI', icon: '🤖' },
+    { id: 'gemini', name: 'Gemini', desc: 'Flash 2.0', icon: '✨' },
+    { id: 'claude', name: 'Claude', desc: 'via Groq', icon: '🧠' },
 ];
 
 const NODE_LEGEND = [
@@ -323,57 +324,94 @@ const WorkflowBuilder = () => {
         }
     };
 
-    // ── Run → FastAPI backend (saves full snapshot for replay)
+    // ── Run → FastAPI backend + Check GitHub connection ─────────
     const handleRunPipeline = async () => {
         if (!user) { showToast('Log in to run.', 'error'); return; }
         if (nodes.length === 0) { showToast('Build a pipeline first', 'error'); return; }
         if (isRunning) { showToast('Pipeline is already running', 'info'); return; }
-        if (currentWorkflowId && !isDirty) {
-            showToast('No changes since last save — edit your pipeline to run again', 'info');
+        if (currentWorkflowId && !isDirty) { showToast('No changes since last save — edit your pipeline to run again', 'info'); return; }
+        setIsRunning(true);
+
+        // ── UPDATED GITHUB CHECK ──────────────────────────────────────────────────
+        const hasGithubNodes = nodes.some(n => {
+            const label = (n.data?.label || '').toLowerCase();
+            const icon = n.data?.icon || '';
+            return icon === 'git-branch' || ['github', 'commit', 'push', 'pr', 'branch'].some(k => label.includes(k));
+        });
+
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        const githubConnected = authUser?.app_metadata?.provider === 'github' || authUser?.app_metadata?.providers?.includes('github');
+
+        if (hasGithubNodes && !githubConnected) {
+            showToast('This pipeline has GitHub nodes — connect GitHub in Integrations first', 'error');
+            setIsRunning(false);
             return;
         }
-        setIsRunning(true);
+        // ───────────────────────────────────────────────────────────────────────────
 
         let workflowId = currentWorkflowId;
         if (!workflowId) {
             workflowId = await handleSaveDraft();
-            if (!workflowId) return;
+            if (!workflowId) { setIsRunning(false); return; }
         }
 
         try {
-            const token = await getToken();
-            showToast('Running pipeline...', 'info');
+            const wsUrl = API_URL.replace('https://', 'wss://').replace('http://', 'ws://');
+            const socket = new WebSocket(`${wsUrl}/ws/run/${user.id}`);
 
-            const res = await fetch(`${API_URL}/workflows/run`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({
+            socket.onopen = () => {
+                showToast('Pipeline started...', 'info');
+                socket.send(JSON.stringify({
                     workflow_id: workflowId,
                     workflow_name: title,
+                    nodes, edges,
                     snapshot: { title, nodes, edges, prompt: lastPrompt }
-                })
-            });
+                }));
+            };
 
-            if (!res.ok) throw new Error(`${res.status}`);
-            const result = await res.json();
-            localStorage.setItem('devflow_has_run', 'true');
+            socket.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                if (msg.type === 'node_update') {
+                    const log = msg.data;
+                    setNodes(nds => nds.map(n => n.id === log.node_id
+                        ? { ...n, data: { ...n.data, status: log.status } }
+                        : n
+                    ));
+                    if (log.status === 'success') showToast(`✓ ${log.node_label}`, 'success');
+                    if (log.status === 'failed') showToast(`✗ ${log.node_label}: ${log.message}`, 'error');
+                } else if (msg.type === 'complete') {
+                    const result = msg.data;
+                    setIsDirty(false);
+                    localStorage.setItem('devflow_has_run', 'true');
+                    // Clear node statuses after 3s
+                    setTimeout(() => {
+                        setNodes(nds => nds.map(n => ({ ...n, data: { ...n.data, status: undefined } })));
+                    }, 3000);
+                    showToast(`Pipeline ${result.status} — ${result.duration}`, result.status === 'success' ? 'success' : 'error');
+                    setIsRunning(false);
+                } else if (msg.type === 'error') {
+                    showToast('Pipeline error: ' + msg.message, 'error');
+                    setIsRunning(false);
+                }
+            };
 
-            if (result.status === 'success') {
-                showToast(`Pipeline executed — ${result.duration}`, 'success');
-                setIsDirty(false);
-            } else {
-                showToast('Pipeline failed — check Logs for details', 'error');
-            }
+            socket.onerror = () => {
+                showToast('WebSocket error — falling back to HTTP', 'error');
+                setIsRunning(false);
+            };
+
+            socket.onclose = () => {
+                if (isRunning) setIsRunning(false);
+            };
+
         } catch (err) {
             showToast('Failed to run: ' + err.message, 'error');
-        } finally {
             setIsRunning(false);
         }
     };
 
-    // ── Generate via Groq
+    // ── Generate via Multi-Model AI ─────────────────────────────
     const handleGenerate = async () => {
-        const apiKey = import.meta.env.VITE_GROQ_API_KEY;
         if (!prompt.trim()) return;
         setHasStarted(true);
         setIsGenerating(true);
@@ -381,27 +419,61 @@ const WorkflowBuilder = () => {
         setIsSuggestionsOpen(false);
         setSelectedNode(null);
         setLastPrompt(prompt);
-        try {
-            const systemPrompt = `You are a workflow automation expert. Convert the user's description into a structured pipeline. Return ONLY valid JSON, no markdown:
+
+        const systemPrompt = `You are a workflow automation expert. Convert the user's description into a structured pipeline. Return ONLY valid JSON, no markdown:
 {"name":"Short workflow name","nodes":[{"id":"1","type":"trigger|action|ai|notification","label":"Short Name","description":"What this step does","icon":"git-branch|zap|sparkles|bell|code|database|mail"}],"edges":[{"source":"1","target":"2"}]}
 Rules: first node always trigger, max 8 nodes, labels 2-4 words.`;
 
-            const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-                body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: prompt }], max_tokens: 1024, temperature: 0.7 })
-            });
-            const data = await res.json();
-            const raw = data.choices[0].message.content.replace(/```json|```/g, '').trim();
-            const parsed = JSON.parse(raw);
-            if (parsed.name) setTitle(parsed.name);
+        try {
+            let raw;
+            if (model === 'groq') {
+                const apiKey = import.meta.env.VITE_GROQ_API_KEY;
+                const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                    body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: prompt }], max_tokens: 1024, temperature: 0.7 })
+                });
+                const data = await res.json();
+                raw = data.choices[0].message.content;
+            } else if (model === 'gpt4') {
+                const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+                const res = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                    body: JSON.stringify({ model: 'gpt-4o', messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: prompt }], max_tokens: 1024, temperature: 0.7 })
+                });
+                const data = await res.json();
+                raw = data.choices[0].message.content;
+            } else if (model === 'gemini') {
+                const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: systemPrompt + '\n\nUser: ' + prompt }] }] })
+                });
+                const data = await res.json();
+                raw = data.candidates[0].content.parts[0].text;
+            } else {
+                // claude fallback to groq
+                const apiKey = import.meta.env.VITE_GROQ_API_KEY;
+                const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                    body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: prompt }], max_tokens: 1024, temperature: 0.7 })
+                });
+                const data = await res.json();
+                raw = data.choices[0].message.content;
+            }
 
+            const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim());
+            if (parsed.name) setTitle(parsed.name);
             setNodes([]); setEdges([]);
             const isMobile = window.innerWidth < 768;
             const spacedNodes = parsed.nodes.map((n, i) => ({
-                id: n.id, type: 'custom',
+                id: n.id,
+                type: 'custom',
                 position: { x: 50 + i * (isMobile ? 280 : 380), y: 150 },
-                data: n.data || n,
+                data: { ...(n.data || n), model }, // store selected model inside node
             }));
             const formattedEdges = (parsed.edges || []).map(e => ({
                 id: `e${e.source}-${e.target}`, source: e.source, target: e.target,
@@ -420,7 +492,7 @@ Rules: first node always trigger, max 8 nodes, labels 2-4 words.`;
             setTimeout(() => pushHistory(spacedNodes, formattedEdges), spacedNodes.length * 150 + 100);
         } catch (err) {
             setIsGenerating(false);
-            showToast('Generation failed', 'error');
+            showToast('Generation failed — check API key', 'error');
         }
     };
 
