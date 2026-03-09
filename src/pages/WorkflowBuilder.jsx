@@ -42,6 +42,45 @@ import { templateNodesData } from '../lib/templateNodes';
 const nodeTypes = { custom: CustomNode };
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
+const NODE_TYPES_CONFIG = [
+    {
+        type: 'trigger',
+        label: 'Trigger',
+        desc: 'Starts the pipeline',
+        icon: 'zap',
+        color: '#6EE7B7',
+        defaultLabel: 'Start Trigger',
+        defaultDesc: 'Pipeline entry point'
+    },
+    {
+        type: 'ai',
+        label: 'AI Step',
+        desc: 'Run AI analysis or generation',
+        icon: 'sparkles',
+        color: '#F1F5F9',
+        defaultLabel: 'AI Analysis',
+        defaultDesc: 'Analyze and process with AI'
+    },
+    {
+        type: 'action',
+        label: 'Action',
+        desc: 'GitHub, commit, push, fix',
+        icon: 'git-branch',
+        color: '#64748B',
+        defaultLabel: 'Run Action',
+        defaultDesc: 'Execute an action step'
+    },
+    {
+        type: 'notification',
+        label: 'Notify',
+        desc: 'Send email or alert',
+        icon: 'mail',
+        color: '#F59E0B',
+        defaultLabel: 'Send Notification',
+        defaultDesc: 'Notify via email or Slack'
+    },
+];
+
 const RECIPES = [
     {
         title: 'PR Changelog',
@@ -91,6 +130,104 @@ const CONDITION_OPTIONS = [
     { value: 'errors_found', label: '🔴 If Errors Found', color: '#F87171' },
     { value: 'no_errors', label: '🟢 If No Errors', color: '#6EE7B7' },
 ];
+
+// ── ADD NODE PANEL ───────────────────────────────────────────────────────────
+const AddNodePanel = ({ setNodes, setIsDirty, showToast }) => {
+    const [open, setOpen] = useState(false);
+    const ref = useRef(null);
+    const { getViewport } = useReactFlow();
+
+    useEffect(() => {
+        const handler = (e) => {
+            if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
+    const handleAdd = (cfg) => {
+        const viewport = getViewport();
+        // Place node near center of current canvas view
+        const x = (-viewport.x + window.innerWidth / 2) / viewport.zoom - 140;
+        const y = (-viewport.y + window.innerHeight / 2) / viewport.zoom - 50;
+
+        const id = `node-${Date.now()}`;
+        const newNode = {
+            id,
+            type: 'custom',
+            position: { x, y },
+            data: {
+                type: cfg.type,
+                label: cfg.defaultLabel,
+                description: cfg.defaultDesc,
+                icon: cfg.icon,
+                model: 'groq',
+            },
+        };
+
+        setNodes((nds) => [...nds, newNode]);
+        setIsDirty(true);
+        showToast(`${cfg.label} node added — connect it to the pipeline`, 'success');
+        setOpen(false);
+    };
+
+    return (
+        <Panel position="bottom-right" className="mb-[100px] mr-4">
+            <div ref={ref} className="relative flex flex-col items-end gap-2">
+                <AnimatePresence>
+                    {open && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                            transition={{ duration: 0.15, ease: 'easeOut' }}
+                            className="bg-[#0D0D0D] border border-[#222] rounded-xl shadow-2xl overflow-hidden w-[200px]"
+                        >
+                            <div className="px-3 py-2 border-b border-[#1A1A1A]">
+                                <p className="font-mono text-[9px] text-[#444] uppercase tracking-widest">Add Node</p>
+                            </div>
+                            <div className="p-1">
+                                {NODE_TYPES_CONFIG.map((cfg) => (
+                                    <button
+                                        key={cfg.type}
+                                        onClick={() => handleAdd(cfg)}
+                                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-[#111] transition-colors text-left group"
+                                    >
+                                        <div
+                                            className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                                            style={{ background: `${cfg.color}15`, border: `1px solid ${cfg.color}30` }}
+                                        >
+                                            <div className="w-2 h-2 rounded-full" style={{ background: cfg.color }} />
+                                        </div>
+                                        <div className="flex flex-col leading-none">
+                                            <span className="font-mono text-xs text-[#F1F5F9] group-hover:text-white font-semibold">
+                                                {cfg.label}
+                                            </span>
+                                            <span className="font-mono text-[9px] text-[#444] mt-0.5">
+                                                {cfg.desc}
+                                            </span>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                <button
+                    onClick={() => setOpen(!open)}
+                    className={`w-10 h-10 rounded-xl border shadow-xl flex items-center justify-center transition-all duration-200 ${open
+                            ? 'bg-[#6EE7B7] border-[#6EE7B7] text-[#080808] rotate-45'
+                            : 'bg-[#111] border-[#222] text-[#64748B] hover:border-[#6EE7B7] hover:text-[#6EE7B7]'
+                        }`}
+                    title="Add node"
+                >
+                    <Plus className="w-4 h-4" />
+                </button>
+            </div>
+        </Panel>
+    );
+};
 
 // ── CUSTOM CANVAS CONTROLS ───────────────────────────────────────────────────
 const CustomCanvasControls = ({ isLocked, setIsLocked, onUndo, onRedo, hasNodes }) => {
@@ -189,7 +326,6 @@ const RepoBranchPanel = ({ user }) => {
 
     useEffect(() => {
         if (!user) return;
-
         const load = async () => {
             try {
                 const { data: settings } = await supabase
@@ -197,16 +333,13 @@ const RepoBranchPanel = ({ user }) => {
                     .select('selected_repo_full_name')
                     .eq('user_id', user.id)
                     .maybeSingle();
-
                 if (!settings?.selected_repo_full_name) return;
-
                 setRepo(settings.selected_repo_full_name);
                 await fetchBranches();
             } catch (e) {
                 console.error('RepoBranchPanel load error:', e);
             }
         };
-
         load();
     }, [user]);
 
@@ -217,15 +350,11 @@ const RepoBranchPanel = ({ user }) => {
             const res = await fetch(`${API_URL}/github/branches`, {
                 headers: { Authorization: `Bearer ${session?.access_token}` },
             });
-
             if (!res.ok) throw new Error('Failed to fetch branches');
-
             const data = await res.json();
             setRepo(data.repo);
             setBranches(data.branches || []);
             setDefaultBranch(data.default_branch);
-
-            // Auto-select default if nothing selected yet
             if (!selectedBranch && data.default_branch) {
                 setSelectedBranch(data.default_branch);
             }
@@ -255,7 +384,6 @@ const RepoBranchPanel = ({ user }) => {
         <Panel position="top-left" className="ml-3 mt-3 z-10">
             <div ref={panelRef} className="relative">
                 <div className="flex items-center bg-[#0D0D0D] border border-[#222] rounded-xl overflow-hidden shadow-xl">
-                    {/* Repo section */}
                     <div className="flex items-center gap-2 px-3 py-2 border-r border-[#1A1A1A]">
                         <Github className="w-3.5 h-3.5 text-[#64748B] shrink-0" />
                         <div className="flex flex-col leading-none">
@@ -264,7 +392,6 @@ const RepoBranchPanel = ({ user }) => {
                         </div>
                     </div>
 
-                    {/* Branch selector */}
                     <button
                         onClick={() => setShowBranches(!showBranches)}
                         className="flex items-center gap-2 px-3 py-2 hover:bg-[#111] transition-colors group"
@@ -277,12 +404,10 @@ const RepoBranchPanel = ({ user }) => {
                             </span>
                         </div>
                         <ChevronDown
-                            className={`w-3 h-3 text-[#444] transition-transform duration-200 ${showBranches ? 'rotate-180' : ''
-                                }`}
+                            className={`w-3 h-3 text-[#444] transition-transform duration-200 ${showBranches ? 'rotate-180' : ''}`}
                         />
                     </button>
 
-                    {/* Refresh */}
                     <button
                         onClick={fetchBranches}
                         disabled={loading}
@@ -310,7 +435,6 @@ const RepoBranchPanel = ({ user }) => {
                                     {branches.length} branches
                                 </span>
                             </div>
-
                             <div className="max-h-48 overflow-y-auto p-1">
                                 {loading ? (
                                     <div className="flex items-center gap-2 px-3 py-3">
@@ -326,7 +450,6 @@ const RepoBranchPanel = ({ user }) => {
                                             onClick={() => {
                                                 setSelectedBranch(branch.name);
                                                 setShowBranches(false);
-                                                // You can also persist this choice to supabase if needed
                                             }}
                                             className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors text-left ${selectedBranch === branch.name
                                                     ? 'bg-[#6EE7B7]/10 border border-[#6EE7B7]/20'
@@ -602,7 +725,6 @@ const WorkflowBuilder = () => {
     useEffect(() => {
         if (nodes.length === 0 && edges.length === 0) return;
         setIsDirty(true);
-
         const snapshot = { nodes, edges };
         const history = historyRef.current;
         historyRef.current = history.slice(0, historyIndexRef.current + 1);
@@ -643,7 +765,6 @@ const WorkflowBuilder = () => {
             setNodes([]);
             setEdges([]);
             setHasStarted(true);
-
             snap.nodes?.forEach((node, idx) => {
                 setTimeout(() => {
                     setNodes((nds) => [...nds, node]);
@@ -654,7 +775,6 @@ const WorkflowBuilder = () => {
                         ]);
                 }, idx * 150);
             });
-
             showToast('Snapshot loaded from run history', 'success');
             window.history.replaceState({}, '');
         }
@@ -669,7 +789,6 @@ const WorkflowBuilder = () => {
             setNodes([]);
             setEdges([]);
             setHasStarted(true);
-
             tpl.nodes.forEach((node, idx) => {
                 setTimeout(() => {
                     setNodes((nds) => [...nds, node]);
@@ -840,6 +959,7 @@ const WorkflowBuilder = () => {
             .select('github_token')
             .eq('user_id', authUser.id)
             .single();
+
         const githubConnected =
             authUser?.app_metadata?.provider === 'github' ||
             authUser?.app_metadata?.providers?.includes('github') ||
@@ -866,12 +986,10 @@ const WorkflowBuilder = () => {
 
             socket.onopen = () => {
                 showToast('Pipeline started...', 'info');
-
                 const edgesWithCondition = edges.map((e) => ({
                     ...e,
                     condition: e.data?.condition || 'always',
                 }));
-
                 socket.send(
                     JSON.stringify({
                         workflow_id: workflowId,
@@ -950,9 +1068,11 @@ const WorkflowBuilder = () => {
                 .select('selected_repo_full_name')
                 .eq('user_id', user.id)
                 .single();
+
             const selectedRepo = settingsData?.selected_repo_full_name
                 ? { full_name: settingsData.selected_repo_full_name }
                 : null;
+
             if (selectedRepo?.full_name) {
                 const treeRes = await fetch(`${API_URL}/github/tree`, {
                     headers: { Authorization: `Bearer ${session.access_token}` },
@@ -993,7 +1113,6 @@ IMPORTANT: For edges leading to email/notification nodes — if the email is for
                 const data = await res.json();
                 raw = data.choices[0].message.content;
             } else {
-                // fallback to groq for gpt4 / gemini
                 showToast(`${model.toUpperCase()} not available — using Groq instead`, 'info');
                 const apiKey = import.meta.env.VITE_GROQ_API_KEY;
                 const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -1024,6 +1143,7 @@ IMPORTANT: For edges leading to email/notification nodes — if the email is for
 
             const childrenMap = {};
             const parentMap = {};
+
             (parsed.edges || []).forEach((e) => {
                 if (!childrenMap[e.source]) childrenMap[e.source] = [];
                 childrenMap[e.source].push(e.target);
@@ -1037,12 +1157,9 @@ IMPORTANT: For edges leading to email/notification nodes — if the email is for
                 if (positions[nodeId]) return;
                 const parentId = parentMap[nodeId]?.[0];
                 const parentPos = positions[parentId];
-
-                const yOffset =
-                    totalSiblings > 1 ? (branchIndex - (totalSiblings - 1) / 2) * nodeSpacingY : 0;
+                const yOffset = totalSiblings > 1 ? (branchIndex - (totalSiblings - 1) / 2) * nodeSpacingY : 0;
                 const baseY = parentPos ? parentPos.y + yOffset : 200 + yOffset;
                 const x = 60 + depth * nodeSpacingX;
-
                 positions[nodeId] = { x, y: baseY };
 
                 const children = childrenMap[nodeId] || [];
@@ -1498,6 +1615,14 @@ IMPORTANT: For edges leading to email/notification nodes — if the email is for
                             hasNodes={nodes.length > 0}
                         />
                         <RepoBranchPanel user={user} />
+
+                        {/* ── ADD NODE BUTTON ── */}
+                        <AddNodePanel
+                            setNodes={setNodes}
+                            setIsDirty={setIsDirty}
+                            showToast={showToast}
+                        />
+
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none px-6">
                             <span
                                 className="font-mono font-extrabold uppercase text-center leading-none tracking-tighter text-[#111] opacity-50"
