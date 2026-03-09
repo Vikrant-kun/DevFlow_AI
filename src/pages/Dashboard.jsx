@@ -45,6 +45,9 @@ const Dashboard = () => {
     const { user, isGithubConnected, repos, selectedRepo, saveSelectedRepo, githubLoading, fetchRepos } = useAuth();
     const [showRepoSelector, setShowRepoSelector] = useState(false);
     const [checklistDismissed, setChecklistDismissed] = useState(true);
+    const [patBannerDismissed, setPatBannerDismissed] = useState(
+        () => localStorage.getItem('devflow_pat_banner_dismissed') === 'true'
+    );
 
 
     // ── File commit / upload state ───────────────────────────────────────
@@ -308,6 +311,87 @@ const Dashboard = () => {
                                             })}
                                         </div>
                                     </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
+                        {/* GitHub PAT Banner — shown to GitHub OAuth users who haven't connected a PAT */}
+                        <AnimatePresence>
+                            {!isGithubConnected && !patBannerDismissed && (
+                                <motion.div
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+                                    onClick={() => {
+                                        localStorage.setItem('devflow_pat_banner_dismissed', 'true');
+                                        setPatBannerDismissed(true);
+                                    }}
+                                >
+                                    <motion.div
+                                        initial={{ opacity: 0, scale: 0.92, y: 16 }}
+                                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                                        exit={{ opacity: 0, scale: 0.92, y: 16 }}
+                                        transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+                                        onClick={e => e.stopPropagation()}
+                                        className="relative w-full max-w-md bg-[#0D0D0D] border border-[#222] rounded-2xl overflow-hidden shadow-2xl"
+                                    >
+                                        {/* top mint accent line */}
+                                        <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-[#6EE7B7] to-transparent" />
+
+                                        <div className="p-6">
+                                            {/* close */}
+                                            <button
+                                                onClick={() => {
+                                                    localStorage.setItem('devflow_pat_banner_dismissed', 'true');
+                                                    setPatBannerDismissed(true);
+                                                }}
+                                                className="absolute top-4 right-4 text-[#444] hover:text-[#F1F5F9] transition-colors"
+                                            >
+                                                <X className="w-4 h-4" />
+                                            </button>
+
+                                            {/* icon */}
+                                            <div className="w-12 h-12 rounded-xl bg-[#6EE7B7]/10 border border-[#6EE7B7]/20 flex items-center justify-center mb-4">
+                                                <Github className="w-6 h-6 text-[#6EE7B7]" />
+                                            </div>
+
+                                            {/* text */}
+                                            <h3 className="font-mono text-base font-bold text-[#F1F5F9] mb-1">
+                                                One more step
+                                            </h3>
+                                            <p className="font-mono text-xs text-[#64748B] leading-relaxed mb-1">
+                                                You're signed in with GitHub — but DevFlow needs a{' '}
+                                                <span className="text-[#F1F5F9]">Personal Access Token</span> to read and write your repos.
+                                            </p>
+                                            <p className="font-mono text-[10px] text-[#444] mb-5">
+                                                OAuth login proves your identity. A PAT gives DevFlow permission to commit, push, and scan your code.
+                                            </p>
+
+                                            {/* actions */}
+                                            <div className="flex gap-3">
+                                                <button
+                                                    onClick={() => {
+                                                        localStorage.setItem('devflow_pat_banner_dismissed', 'true');
+                                                        setPatBannerDismissed(true);
+                                                    }}
+                                                    className="flex-1 font-mono text-xs text-[#64748B] border border-[#222] py-2.5 rounded-xl hover:border-[#333] transition-colors"
+                                                >
+                                                    Later
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        localStorage.setItem('devflow_pat_banner_dismissed', 'true');
+                                                        setPatBannerDismissed(true);
+                                                        navigate('/integrations');
+                                                    }}
+                                                    className="flex-1 font-mono text-xs font-bold bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] py-2.5 rounded-xl transition-colors"
+                                                >
+                                                    Connect PAT →
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </motion.div>
                                 </motion.div>
                             )}
                         </AnimatePresence>
