@@ -10,6 +10,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { motion, AnimatePresence } from 'framer-motion';
+import Joyride, { STATUS } from 'react-joyride';
 import {
     Play,
     X,
@@ -30,6 +31,7 @@ import {
     ChevronDown,
     RefreshCw,
     Github,
+    HelpCircle,
 } from 'lucide-react';
 import CustomNode from '../components/CustomNode';
 import TopBar from '../components/TopBar';
@@ -42,66 +44,152 @@ import { templateNodesData } from '../lib/templateNodes';
 const nodeTypes = { custom: CustomNode };
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-const NODE_TYPES_CONFIG = [
+// ── TOUR STEPS ────────────────────────────────────────────────────────────────
+const TOUR_STEPS = [
     {
-        type: 'trigger',
-        label: 'Trigger',
-        desc: 'Starts the pipeline',
-        icon: 'zap',
-        color: '#6EE7B7',
-        defaultLabel: 'Start Trigger',
-        defaultDesc: 'Pipeline entry point'
+        target: '.tour-prompt',
+        title: '💬 Describe your workflow',
+        content: 'Type what you want to automate in plain English. DevFlow AI builds the pipeline for you.',
+        placement: 'top',
+        disableBeacon: true,
     },
     {
-        type: 'ai',
-        label: 'AI Step',
-        desc: 'Run AI analysis or generation',
-        icon: 'sparkles',
-        color: '#F1F5F9',
-        defaultLabel: 'AI Analysis',
-        defaultDesc: 'Analyze and process with AI'
+        target: '.tour-agent',
+        title: '🤖 Choose your AI model',
+        content: 'Select which AI powers pipeline generation — Groq is fastest, GPT-4o and Gemini also available.',
+        placement: 'top',
     },
     {
-        type: 'action',
-        label: 'Action',
-        desc: 'GitHub, commit, push, fix',
-        icon: 'git-branch',
-        color: '#64748B',
-        defaultLabel: 'Run Action',
-        defaultDesc: 'Execute an action step'
+        target: '.tour-recipes',
+        title: '📖 Recipe Library',
+        content: 'Browse pre-built workflow templates. Click any recipe to auto-fill the prompt.',
+        placement: 'top',
     },
     {
-        type: 'notification',
-        label: 'Notify',
-        desc: 'Send email or alert',
-        icon: 'mail',
-        color: '#F59E0B',
-        defaultLabel: 'Send Notification',
-        defaultDesc: 'Notify via email or Slack'
+        target: '.tour-suggestions',
+        title: '💡 Suggestions',
+        content: 'Not sure what to build? Get quick prompt ideas for common automation patterns.',
+        placement: 'top',
+    },
+    {
+        target: '.tour-run',
+        title: '▶️ Run your pipeline',
+        content: 'Once your pipeline is built, hit Run to execute it live against your GitHub repo.',
+        placement: 'bottom',
+    },
+    {
+        target: '.tour-save',
+        title: '💾 Save your work',
+        content: 'Save your pipeline as a draft. Auto-save also kicks in after 1.5s of inactivity.',
+        placement: 'bottom',
+    },
+    {
+        target: '.tour-repo',
+        title: '🔗 Active repo & branch',
+        content: 'Shows which GitHub repo and branch your pipeline will run against. Click branch to switch.',
+        placement: 'bottom',
+    },
+    {
+        target: '.tour-add-node',
+        title: '➕ Add nodes manually',
+        content: 'Click + to add any node type — Trigger, AI, Action, or Notify — and connect them manually.',
+        placement: 'left',
+    },
+    {
+        target: '.tour-controls',
+        title: '🎮 Canvas controls',
+        content: 'Undo, redo, zoom in/out, fit view, and lock the canvas to prevent accidental edits.',
+        placement: 'right',
+    },
+    {
+        target: '.tour-legend',
+        title: '🎨 Node legend',
+        content: 'Green = Trigger, Grey = Action, Purple = AI, Amber = Notify. Click any edge to set conditions.',
+        placement: 'left',
     },
 ];
 
+// ── TOUR STYLES ───────────────────────────────────────────────────────────────
+const joyrideStyles = {
+    options: {
+        arrowColor: '#111',
+        backgroundColor: '#111',
+        overlayColor: 'rgba(0,0,0,0.72)',
+        primaryColor: '#6EE7B7',
+        textColor: '#F1F5F9',
+        zIndex: 10000,
+    },
+    tooltip: {
+        backgroundColor: '#111',
+        borderRadius: '16px',
+        border: '1px solid #222',
+        boxShadow: '0 25px 50px rgba(0,0,0,0.8)',
+        padding: '0',
+        fontFamily: 'monospace',
+    },
+    tooltipContainer: { padding: '20px', textAlign: 'left' },
+    tooltipTitle: {
+        color: '#F1F5F9',
+        fontSize: '13px',
+        fontWeight: '700',
+        marginBottom: '8px',
+        fontFamily: 'monospace',
+    },
+    tooltipContent: {
+        color: '#94A3B8',
+        fontSize: '11px',
+        lineHeight: '1.6',
+        fontFamily: 'monospace',
+        padding: '0',
+    },
+    tooltipFooter: {
+        padding: '12px 20px',
+        borderTop: '1px solid #1A1A1A',
+        marginTop: '4px',
+        gap: '8px',
+    },
+    buttonNext: {
+        backgroundColor: '#6EE7B7',
+        color: '#080808',
+        borderRadius: '10px',
+        fontSize: '11px',
+        fontWeight: '700',
+        fontFamily: 'monospace',
+        padding: '8px 16px',
+        border: 'none',
+    },
+    buttonBack: {
+        color: '#64748B',
+        fontSize: '11px',
+        fontFamily: 'monospace',
+        marginRight: '4px',
+        background: 'transparent',
+        border: '1px solid #222',
+        borderRadius: '10px',
+        padding: '8px 16px',
+    },
+    buttonSkip: {
+        color: '#444',
+        fontSize: '10px',
+        fontFamily: 'monospace',
+        background: 'transparent',
+        border: 'none',
+    },
+    spotlight: { borderRadius: '12px' },
+};
+
+const NODE_TYPES_CONFIG = [
+    { type: 'trigger', label: 'Trigger', desc: 'Starts the pipeline', icon: 'zap', color: '#6EE7B7', defaultLabel: 'Start Trigger', defaultDesc: 'Pipeline entry point' },
+    { type: 'ai', label: 'AI Step', desc: 'Run AI analysis or generation', icon: 'sparkles', color: '#F1F5F9', defaultLabel: 'AI Analysis', defaultDesc: 'Analyze and process with AI' },
+    { type: 'action', label: 'Action', desc: 'GitHub, commit, push, fix', icon: 'git-branch', color: '#64748B', defaultLabel: 'Run Action', defaultDesc: 'Execute an action step' },
+    { type: 'notification', label: 'Notify', desc: 'Send email or alert', icon: 'mail', color: '#F59E0B', defaultLabel: 'Send Notification', defaultDesc: 'Notify via email or Slack' },
+];
+
 const RECIPES = [
-    {
-        title: 'PR Changelog',
-        desc: 'When a PR is merged to main, generate a changelog using AI and post it to Slack.',
-        tag: 'GitHub + AI + Slack',
-    },
-    {
-        title: 'Vercel Log Analysis',
-        desc: 'If a Vercel deploy fails, analyze logs with AI and email the fix to the team.',
-        tag: 'Vercel + AI + Email',
-    },
-    {
-        title: 'Secret Scanner',
-        desc: 'Scan new commits for leaked secrets; if found, notify #security and lock the branch.',
-        tag: 'GitHub + Security',
-    },
-    {
-        title: 'Stale Issue Labeler',
-        desc: "Find GitHub issues with no activity for 14 days and label them as 'stale' automatically.",
-        tag: 'GitHub + Automation',
-    },
+    { title: 'PR Changelog', desc: 'When a PR is merged to main, generate a changelog using AI and post it to Slack.', tag: 'GitHub + AI + Slack' },
+    { title: 'Vercel Log Analysis', desc: 'If a Vercel deploy fails, analyze logs with AI and email the fix to the team.', tag: 'Vercel + AI + Email' },
+    { title: 'Secret Scanner', desc: 'Scan new commits for leaked secrets; if found, notify #security and lock the branch.', tag: 'GitHub + Security' },
+    { title: 'Stale Issue Labeler', desc: "Find GitHub issues with no activity for 14 days and label them as 'stale' automatically.", tag: 'GitHub + Automation' },
 ];
 
 const SUGGESTIONS = [
@@ -131,7 +219,7 @@ const CONDITION_OPTIONS = [
     { value: 'no_errors', label: '🟢 If No Errors', color: '#6EE7B7' },
 ];
 
-// ── ADD NODE PANEL ───────────────────────────────────────────────────────────
+// ── ADD NODE PANEL ────────────────────────────────────────────────────────────
 const AddNodePanel = ({ setNodes, setIsDirty, showToast }) => {
     const [open, setOpen] = useState(false);
     const ref = useRef(null);
@@ -147,24 +235,15 @@ const AddNodePanel = ({ setNodes, setIsDirty, showToast }) => {
 
     const handleAdd = (cfg) => {
         const viewport = getViewport();
-        // Place node near center of current canvas view
         const x = (-viewport.x + window.innerWidth / 2) / viewport.zoom - 140;
         const y = (-viewport.y + window.innerHeight / 2) / viewport.zoom - 50;
-
         const id = `node-${Date.now()}`;
         const newNode = {
             id,
             type: 'custom',
             position: { x, y },
-            data: {
-                type: cfg.type,
-                label: cfg.defaultLabel,
-                description: cfg.defaultDesc,
-                icon: cfg.icon,
-                model: 'groq',
-            },
+            data: { type: cfg.type, label: cfg.defaultLabel, description: cfg.defaultDesc, icon: cfg.icon, model: 'groq' },
         };
-
         setNodes((nds) => [...nds, newNode]);
         setIsDirty(true);
         showToast(`${cfg.label} node added — connect it to the pipeline`, 'success');
@@ -172,7 +251,7 @@ const AddNodePanel = ({ setNodes, setIsDirty, showToast }) => {
     };
 
     return (
-        <Panel position="bottom-right" className="mb-[100px] mr-4">
+        <Panel position="bottom-right" className="mb-[100px] mr-4 tour-add-node">
             <div ref={ref} className="relative flex flex-col items-end gap-2">
                 <AnimatePresence>
                     {open && (
@@ -203,9 +282,7 @@ const AddNodePanel = ({ setNodes, setIsDirty, showToast }) => {
                                             <span className="font-mono text-xs text-[#F1F5F9] group-hover:text-white font-semibold">
                                                 {cfg.label}
                                             </span>
-                                            <span className="font-mono text-[9px] text-[#444] mt-0.5">
-                                                {cfg.desc}
-                                            </span>
+                                            <span className="font-mono text-[9px] text-[#444] mt-0.5">{cfg.desc}</span>
                                         </div>
                                     </button>
                                 ))}
@@ -213,7 +290,6 @@ const AddNodePanel = ({ setNodes, setIsDirty, showToast }) => {
                         </motion.div>
                     )}
                 </AnimatePresence>
-
                 <button
                     onClick={() => setOpen(!open)}
                     className={`w-10 h-10 rounded-xl border shadow-xl flex items-center justify-center transition-all duration-200 ${open
@@ -229,65 +305,36 @@ const AddNodePanel = ({ setNodes, setIsDirty, showToast }) => {
     );
 };
 
-// ── CUSTOM CANVAS CONTROLS ───────────────────────────────────────────────────
+// ── CUSTOM CANVAS CONTROLS ────────────────────────────────────────────────────
 const CustomCanvasControls = ({ isLocked, setIsLocked, onUndo, onRedo, hasNodes }) => {
     const { zoomIn, zoomOut, fitView } = useReactFlow();
+
     return (
         <>
-            <Panel
-                position="bottom-left"
-                className="hidden md:flex flex-col bg-[#111] border border-[#222] rounded-xl shadow-xl overflow-hidden mb-[100px] ml-4"
-            >
-                <button
-                    onClick={onUndo}
-                    className="p-2 border-b border-[#222] text-[#64748B] hover:text-[#F1F5F9] hover:bg-[#1A1A1A] transition-colors"
-                    title="Undo"
-                >
+            <Panel position="bottom-left" className="hidden md:flex flex-col bg-[#111] border border-[#222] rounded-xl shadow-xl overflow-hidden mb-[100px] ml-4 tour-controls">
+                <button onClick={onUndo} className="p-2 border-b border-[#222] text-[#64748B] hover:text-[#F1F5F9] hover:bg-[#1A1A1A] transition-colors" title="Undo">
                     <Undo2 className="w-4 h-4" />
                 </button>
-                <button
-                    onClick={onRedo}
-                    className="p-2 border-b border-[#222] text-[#64748B] hover:text-[#F1F5F9] hover:bg-[#1A1A1A] transition-colors"
-                    title="Redo"
-                >
+                <button onClick={onRedo} className="p-2 border-b border-[#222] text-[#64748B] hover:text-[#F1F5F9] hover:bg-[#1A1A1A] transition-colors" title="Redo">
                     <Redo2 className="w-4 h-4" />
                 </button>
-                <button
-                    onClick={() => zoomIn({ duration: 300 })}
-                    className="p-2 border-b border-[#222] text-[#64748B] hover:text-[#F1F5F9] hover:bg-[#1A1A1A] transition-colors"
-                    title="Zoom In"
-                >
+                <button onClick={() => zoomIn({ duration: 300 })} className="p-2 border-b border-[#222] text-[#64748B] hover:text-[#F1F5F9] hover:bg-[#1A1A1A] transition-colors" title="Zoom In">
                     <Plus className="w-4 h-4" />
                 </button>
-                <button
-                    onClick={() => zoomOut({ duration: 300 })}
-                    className="p-2 border-b border-[#222] text-[#64748B] hover:text-[#F1F5F9] hover:bg-[#1A1A1A] transition-colors"
-                    title="Zoom Out"
-                >
+                <button onClick={() => zoomOut({ duration: 300 })} className="p-2 border-b border-[#222] text-[#64748B] hover:text-[#F1F5F9] hover:bg-[#1A1A1A] transition-colors" title="Zoom Out">
                     <Minus className="w-4 h-4" />
                 </button>
-                <button
-                    onClick={() => fitView({ duration: 800, padding: 0.3 })}
-                    className="p-2 border-b border-[#222] text-[#64748B] hover:text-[#F1F5F9] hover:bg-[#1A1A1A] transition-colors"
-                    title="Fit View"
-                >
+                <button onClick={() => fitView({ duration: 800, padding: 0.3 })} className="p-2 border-b border-[#222] text-[#64748B] hover:text-[#F1F5F9] hover:bg-[#1A1A1A] transition-colors" title="Fit View">
                     <Maximize className="w-4 h-4" />
                 </button>
-                <button
-                    onClick={() => setIsLocked(!isLocked)}
-                    className="p-2 text-[#64748B] hover:text-[#F1F5F9] hover:bg-[#1A1A1A] transition-colors"
-                    title={isLocked ? 'Unlock' : 'Lock'}
-                >
+                <button onClick={() => setIsLocked(!isLocked)} className="p-2 text-[#64748B] hover:text-[#F1F5F9] hover:bg-[#1A1A1A] transition-colors" title={isLocked ? 'Unlock' : 'Lock'}>
                     {isLocked ? <Lock className="w-4 h-4 text-[#F87171]" /> : <Unlock className="w-4 h-4" />}
                 </button>
             </Panel>
 
             {hasNodes && (
                 <>
-                    <Panel
-                        position="top-right"
-                        className="hidden md:flex flex-col gap-1.5 bg-[#111]/90 backdrop-blur-sm border border-[#222] rounded-xl p-3 shadow-xl mr-2 mt-2"
-                    >
+                    <Panel position="top-right" className="hidden md:flex flex-col gap-1.5 bg-[#111]/90 backdrop-blur-sm border border-[#222] rounded-xl p-3 shadow-xl mr-2 mt-2 tour-legend">
                         <p className="font-mono text-[8px] text-[#3A3A4A] uppercase tracking-widest mb-0.5">Node Types</p>
                         {NODE_LEGEND.map(({ color, label }) => (
                             <div key={label} className="flex items-center gap-2">
@@ -297,10 +344,7 @@ const CustomCanvasControls = ({ isLocked, setIsLocked, onUndo, onRedo, hasNodes 
                         ))}
                     </Panel>
 
-                    <Panel
-                        position="top-center"
-                        className="md:hidden flex items-center gap-3 bg-[#111]/90 backdrop-blur-sm border border-[#222] rounded-xl px-3 py-1.5 shadow-lg mt-2"
-                    >
+                    <Panel position="top-center" className="md:hidden flex items-center gap-3 bg-[#111]/90 backdrop-blur-sm border border-[#222] rounded-xl px-3 py-1.5 shadow-lg mt-2">
                         {NODE_LEGEND.map(({ color, label }) => (
                             <div key={label} className="flex items-center gap-1.5">
                                 <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: color }} />
@@ -314,7 +358,7 @@ const CustomCanvasControls = ({ isLocked, setIsLocked, onUndo, onRedo, hasNodes 
     );
 };
 
-// ── REPO + BRANCH PANEL ──────────────────────────────────────────────────────
+// ── REPO + BRANCH PANEL ───────────────────────────────────────────────────────
 const RepoBranchPanel = ({ user }) => {
     const [repo, setRepo] = useState(null);
     const [branches, setBranches] = useState([]);
@@ -328,11 +372,7 @@ const RepoBranchPanel = ({ user }) => {
         if (!user) return;
         const load = async () => {
             try {
-                const { data: settings } = await supabase
-                    .from('user_settings')
-                    .select('selected_repo_full_name')
-                    .eq('user_id', user.id)
-                    .maybeSingle();
+                const { data: settings } = await supabase.from('user_settings').select('selected_repo_full_name').eq('user_id', user.id).maybeSingle();
                 if (!settings?.selected_repo_full_name) return;
                 setRepo(settings.selected_repo_full_name);
                 await fetchBranches();
@@ -347,17 +387,13 @@ const RepoBranchPanel = ({ user }) => {
         setLoading(true);
         try {
             const { data: { session } } = await supabase.auth.getSession();
-            const res = await fetch(`${API_URL}/github/branches`, {
-                headers: { Authorization: `Bearer ${session?.access_token}` },
-            });
+            const res = await fetch(`${API_URL}/github/branches`, { headers: { Authorization: `Bearer ${session?.access_token}` } });
             if (!res.ok) throw new Error('Failed to fetch branches');
             const data = await res.json();
             setRepo(data.repo);
             setBranches(data.branches || []);
             setDefaultBranch(data.default_branch);
-            if (!selectedBranch && data.default_branch) {
-                setSelectedBranch(data.default_branch);
-            }
+            if (!selectedBranch && data.default_branch) setSelectedBranch(data.default_branch);
         } catch (e) {
             console.error('Failed to fetch branches:', e);
         } finally {
@@ -367,9 +403,7 @@ const RepoBranchPanel = ({ user }) => {
 
     useEffect(() => {
         const handler = (e) => {
-            if (panelRef.current && !panelRef.current.contains(e.target)) {
-                setShowBranches(false);
-            }
+            if (panelRef.current && !panelRef.current.contains(e.target)) setShowBranches(false);
         };
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
@@ -381,7 +415,7 @@ const RepoBranchPanel = ({ user }) => {
     const repoOwner = repo.split('/')[0];
 
     return (
-        <Panel position="top-left" className="ml-3 mt-3 z-10">
+        <Panel position="top-left" className="ml-3 mt-3 z-10 tour-repo">
             <div ref={panelRef} className="relative">
                 <div className="flex items-center bg-[#0D0D0D] border border-[#222] rounded-xl overflow-hidden shadow-xl">
                     <div className="flex items-center gap-2 px-3 py-2 border-r border-[#1A1A1A]">
@@ -391,29 +425,15 @@ const RepoBranchPanel = ({ user }) => {
                             <span className="font-mono text-[11px] text-[#F1F5F9] font-semibold">{repoName}</span>
                         </div>
                     </div>
-
-                    <button
-                        onClick={() => setShowBranches(!showBranches)}
-                        className="flex items-center gap-2 px-3 py-2 hover:bg-[#111] transition-colors group"
-                    >
+                    <button onClick={() => setShowBranches(!showBranches)} className="flex items-center gap-2 px-3 py-2 hover:bg-[#111] transition-colors group">
                         <GitBranch className="w-3.5 h-3.5 text-[#6EE7B7] shrink-0" />
                         <div className="flex flex-col leading-none text-left">
                             <span className="font-mono text-[9px] text-[#444] uppercase tracking-widest">branch</span>
-                            <span className="font-mono text-[11px] text-[#6EE7B7] font-semibold">
-                                {selectedBranch || '—'}
-                            </span>
+                            <span className="font-mono text-[11px] text-[#6EE7B7] font-semibold">{selectedBranch || '—'}</span>
                         </div>
-                        <ChevronDown
-                            className={`w-3 h-3 text-[#444] transition-transform duration-200 ${showBranches ? 'rotate-180' : ''}`}
-                        />
+                        <ChevronDown className={`w-3 h-3 text-[#444] transition-transform duration-200 ${showBranches ? 'rotate-180' : ''}`} />
                     </button>
-
-                    <button
-                        onClick={fetchBranches}
-                        disabled={loading}
-                        className="px-2 py-2 border-l border-[#1A1A1A] text-[#444] hover:text-[#6EE7B7] transition-colors"
-                        title="Refresh branches"
-                    >
+                    <button onClick={fetchBranches} disabled={loading} className="px-2 py-2 border-l border-[#1A1A1A] text-[#444] hover:text-[#6EE7B7] transition-colors" title="Refresh branches">
                         <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin text-[#6EE7B7]' : ''}`} />
                     </button>
                 </div>
@@ -428,12 +448,8 @@ const RepoBranchPanel = ({ user }) => {
                             className="absolute left-0 top-[calc(100%+6px)] w-[220px] bg-[#0D0D0D] border border-[#222] rounded-xl shadow-2xl overflow-hidden z-50"
                         >
                             <div className="px-3 py-2 border-b border-[#1A1A1A] flex items-center justify-between">
-                                <span className="font-mono text-[9px] text-[#444] uppercase tracking-widest">
-                                    {repoOwner}/{repoName}
-                                </span>
-                                <span className="font-mono text-[9px] text-[#444]">
-                                    {branches.length} branches
-                                </span>
+                                <span className="font-mono text-[9px] text-[#444] uppercase tracking-widest">{repoOwner}/{repoName}</span>
+                                <span className="font-mono text-[9px] text-[#444]">{branches.length} branches</span>
                             </div>
                             <div className="max-h-48 overflow-y-auto p-1">
                                 {loading ? (
@@ -451,34 +467,19 @@ const RepoBranchPanel = ({ user }) => {
                                                 setSelectedBranch(branch.name);
                                                 setShowBranches(false);
                                             }}
-                                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors text-left ${selectedBranch === branch.name
-                                                    ? 'bg-[#6EE7B7]/10 border border-[#6EE7B7]/20'
-                                                    : 'hover:bg-[#111] border border-transparent'
+                                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors text-left ${selectedBranch === branch.name ? 'bg-[#6EE7B7]/10 border border-[#6EE7B7]/20' : 'hover:bg-[#111] border border-transparent'
                                                 }`}
                                         >
                                             <div className="flex items-center gap-2 min-w-0">
                                                 <GitBranch className="w-3 h-3 text-[#444] shrink-0" />
-                                                <span
-                                                    className={`font-mono text-[11px] truncate ${selectedBranch === branch.name ? 'text-[#6EE7B7]' : 'text-[#94A3B8]'
-                                                        }`}
-                                                >
+                                                <span className={`font-mono text-[11px] truncate ${selectedBranch === branch.name ? 'text-[#6EE7B7]' : 'text-[#94A3B8]'}`}>
                                                     {branch.name}
                                                 </span>
                                             </div>
                                             <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                                                {branch.is_default && (
-                                                    <span className="font-mono text-[8px] text-[#6EE7B7] bg-[#6EE7B7]/10 border border-[#6EE7B7]/20 px-1.5 py-0.5 rounded-full">
-                                                        default
-                                                    </span>
-                                                )}
-                                                {branch.protected && (
-                                                    <span className="font-mono text-[8px] text-[#F59E0B] bg-[#F59E0B]/10 border border-[#F59E0B]/20 px-1.5 py-0.5 rounded-full">
-                                                        protected
-                                                    </span>
-                                                )}
-                                                {selectedBranch === branch.name && (
-                                                    <Check className="w-3 h-3 text-[#6EE7B7]" />
-                                                )}
+                                                {branch.is_default && <span className="font-mono text-[8px] text-[#6EE7B7] bg-[#6EE7B7]/10 border border-[#6EE7B7]/20 px-1.5 py-0.5 rounded-full">default</span>}
+                                                {branch.protected && <span className="font-mono text-[8px] text-[#F59E0B] bg-[#F59E0B]/10 border border-[#F59E0B]/20 px-1.5 py-0.5 rounded-full">protected</span>}
+                                                {selectedBranch === branch.name && <Check className="w-3 h-3 text-[#6EE7B7]" />}
                                             </div>
                                         </button>
                                     ))
@@ -492,7 +493,7 @@ const RepoBranchPanel = ({ user }) => {
     );
 };
 
-// ── AGENT SELECTOR ───────────────────────────────────────────────────────────
+// ── AGENT SELECTOR ────────────────────────────────────────────────────────────
 const AgentSelector = ({ value, onChange, disabled }) => {
     const [open, setOpen] = useState(false);
     const selected = AGENTS.find((a) => a.id === value) || AGENTS[0];
@@ -507,16 +508,14 @@ const AgentSelector = ({ value, onChange, disabled }) => {
     }, []);
 
     return (
-        <div className="relative shrink-0" ref={ref}>
+        <div className="relative shrink-0 tour-agent" ref={ref}>
             <button
                 type="button"
                 disabled={disabled}
                 onClick={() => setOpen(!open)}
                 className="flex h-8 w-8 items-center justify-center rounded-full border border-[#222] bg-[#0D0D0D] hover:bg-[#1A1A1A] disabled:opacity-50 transition-all"
             >
-                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#111] border border-[#222] text-[10px]">
-                    {selected.icon}
-                </div>
+                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#111] border border-[#222] text-[10px]">{selected.icon}</div>
             </button>
 
             <AnimatePresence>
@@ -539,13 +538,9 @@ const AgentSelector = ({ value, onChange, disabled }) => {
                                     className="flex items-center justify-between w-full p-2 rounded-lg hover:bg-[#1A1A1A] transition-colors text-left group"
                                 >
                                     <div className="flex items-center gap-2">
-                                        <div className="flex items-center justify-center w-6 h-6 rounded-full bg-[#111] border border-[#222] text-xs">
-                                            {agent.icon}
-                                        </div>
+                                        <div className="flex items-center justify-center w-6 h-6 rounded-full bg-[#111] border border-[#222] text-xs">{agent.icon}</div>
                                         <div className="flex flex-col">
-                                            <span className="font-mono text-xs text-[#F1F5F9] group-hover:text-[#6EE7B7] transition-colors">
-                                                {agent.name}
-                                            </span>
+                                            <span className="font-mono text-xs text-[#F1F5F9] group-hover:text-[#6EE7B7] transition-colors">{agent.name}</span>
                                             <span className="font-mono text-[9px] text-[#64748B]">{agent.desc}</span>
                                         </div>
                                     </div>
@@ -560,20 +555,8 @@ const AgentSelector = ({ value, onChange, disabled }) => {
     );
 };
 
-// ── UNIFIED PROMPT BOX ───────────────────────────────────────────────────────
-const UnifiedPromptBox = ({
-    prompt,
-    setPrompt,
-    model,
-    setModel,
-    isGenerating,
-    handleGenerate,
-    onToggleRecipes,
-    isRecipeOpen,
-    onToggleSuggestions,
-    isSuggestionsOpen,
-    hasStarted,
-}) => {
+// ── UNIFIED PROMPT BOX ────────────────────────────────────────────────────────
+const UnifiedPromptBox = ({ prompt, setPrompt, model, setModel, isGenerating, handleGenerate, onToggleRecipes, isRecipeOpen, onToggleSuggestions, isSuggestionsOpen, hasStarted }) => {
     const textareaRef = useRef(null);
     const [placeholderIndex, setPlaceholderIndex] = useState(0);
     const placeholders = [
@@ -597,7 +580,7 @@ const UnifiedPromptBox = ({
     const activePlaceholder = hasStarted ? 'Describe your workflow...' : `>_ ${placeholders[placeholderIndex]}`;
 
     return (
-        <div className="w-full max-w-2xl mx-auto rounded-[24px] border border-[#333] bg-[#111]/95 backdrop-blur-xl p-2 shadow-[0_8px_40px_rgba(0,0,0,0.8)] flex flex-col pointer-events-auto">
+        <div className="w-full max-w-2xl mx-auto rounded-[24px] border border-[#333] bg-[#111]/95 backdrop-blur-xl p-2 shadow-[0_8px_40px_rgba(0,0,0,0.8)] flex flex-col pointer-events-auto tour-prompt">
             <textarea
                 ref={textareaRef}
                 placeholder={activePlaceholder}
@@ -622,18 +605,14 @@ const UnifiedPromptBox = ({
                     <AgentSelector value={model} onChange={setModel} disabled={isGenerating} />
                     <button
                         onClick={onToggleRecipes}
-                        className={`flex h-8 w-8 items-center justify-center rounded-full border transition-all ${isRecipeOpen
-                                ? 'bg-[#6EE7B7]/10 border-[#6EE7B7]/30 text-[#6EE7B7]'
-                                : 'border-transparent bg-[#0D0D0D] border-[#222] text-[#64748B] hover:bg-[#1A1A1A] hover:text-[#F1F5F9]'
+                        className={`tour-recipes flex h-8 w-8 items-center justify-center rounded-full border transition-all ${isRecipeOpen ? 'bg-[#6EE7B7]/10 border-[#6EE7B7]/30 text-[#6EE7B7]' : 'border-transparent bg-[#0D0D0D] border-[#222] text-[#64748B] hover:bg-[#1A1A1A] hover:text-[#F1F5F9]'
                             }`}
                     >
                         <BookOpen className="h-3.5 w-3.5" />
                     </button>
                     <button
                         onClick={onToggleSuggestions}
-                        className={`flex h-8 w-8 items-center justify-center rounded-full border transition-all ${isSuggestionsOpen
-                                ? 'bg-[#6EE7B7]/10 border-[#6EE7B7]/30 text-[#6EE7B7]'
-                                : 'border-transparent bg-[#0D0D0D] border-[#222] text-[#64748B] hover:bg-[#1A1A1A] hover:text-[#F1F5F9]'
+                        className={`tour-suggestions flex h-8 w-8 items-center justify-center rounded-full border transition-all ${isSuggestionsOpen ? 'bg-[#6EE7B7]/10 border-[#6EE7B7]/30 text-[#6EE7B7]' : 'border-transparent bg-[#0D0D0D] border-[#222] text-[#64748B] hover:bg-[#1A1A1A] hover:text-[#F1F5F9]'
                             }`}
                     >
                         <Lightbulb className="h-3.5 w-3.5" />
@@ -644,25 +623,18 @@ const UnifiedPromptBox = ({
                     onClick={handleGenerate}
                     className="flex h-8 w-8 items-center justify-center rounded-full bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] disabled:opacity-50 disabled:cursor-not-allowed transition-all shrink-0"
                 >
-                    {isGenerating ? (
-                        <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#080808]/40 border-t-[#080808]" />
-                    ) : (
-                        <ArrowUp className="h-4 w-4" />
-                    )}
+                    {isGenerating ? <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#080808]/40 border-t-[#080808]" /> : <ArrowUp className="h-4 w-4" />}
                 </button>
             </div>
         </div>
     );
 };
 
-// ── EDGE CONDITION MENU ──────────────────────────────────────────────────────
+// ── EDGE CONDITION MENU ───────────────────────────────────────────────────────
 const EdgeConditionMenu = ({ edge, position, onSelect, onClose }) => {
     if (!edge) return null;
     return (
-        <div
-            className="fixed z-50 bg-[#111] border border-[#222] rounded-xl shadow-2xl overflow-hidden"
-            style={{ left: position.x, top: position.y, minWidth: 180 }}
-        >
+        <div className="fixed z-50 bg-[#111] border border-[#222] rounded-xl shadow-2xl overflow-hidden" style={{ left: position.x, top: position.y, minWidth: 180 }}>
             <div className="px-3 py-2 border-b border-[#222]">
                 <p className="font-mono text-[10px] text-[#64748B] uppercase tracking-widest">Edge condition</p>
             </div>
@@ -677,17 +649,15 @@ const EdgeConditionMenu = ({ edge, position, onSelect, onClose }) => {
                     style={{ color: opt.color }}
                 >
                     {opt.label}
-                    {edge.data?.condition === opt.value && (
-                        <span className="ml-auto text-[#6EE7B7]">✓</span>
-                    )}
+                    {edge.data?.condition === opt.value && <span className="ml-auto text-[#6EE7B7]">✓</span>}
                 </button>
             ))}
         </div>
     );
 };
 
-// ── MAIN WORKFLOW BUILDER ────────────────────────────────────────────────────
-const WorkflowBuilder = () => {
+// ── MAIN COMPONENT ────────────────────────────────────────────────────────────
+export default function WorkflowBuilder() {
     const [title, setTitle] = useState('Untitled Workflow');
     const [nodes, setNodes, onNodesChange] = useNodesState([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -707,6 +677,22 @@ const WorkflowBuilder = () => {
     const [showRerunModal, setShowRerunModal] = useState(false);
     const [edgeMenu, setEdgeMenu] = useState({ edge: null, position: { x: 0, y: 0 } });
 
+    // Tour
+    const [tourRunning, setTourRunning] = useState(false);
+
+    useEffect(() => {
+        if (!localStorage.getItem('devflow_tour_seen')) {
+            setTimeout(() => setTourRunning(true), 800);
+        }
+    }, []);
+
+    const handleTourCallback = ({ status }) => {
+        if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
+            setTourRunning(false);
+            localStorage.setItem('devflow_tour_seen', 'true');
+        }
+    };
+
     const historyRef = useRef([]);
     const historyIndexRef = useRef(-1);
     const autoSaveTimer = useRef(null);
@@ -715,7 +701,6 @@ const WorkflowBuilder = () => {
     const location = useLocation();
     const { user } = useAuth();
 
-    // ── History (Undo / Redo) ────────────────────────────────────────────────
     const pushHistory = useCallback((n, e) => {
         historyRef.current = historyRef.current.slice(0, historyIndexRef.current + 1);
         historyRef.current.push({ nodes: n, edges: e });
@@ -725,6 +710,7 @@ const WorkflowBuilder = () => {
     useEffect(() => {
         if (nodes.length === 0 && edges.length === 0) return;
         setIsDirty(true);
+
         const snapshot = { nodes, edges };
         const history = historyRef.current;
         historyRef.current = history.slice(0, historyIndexRef.current + 1);
@@ -757,7 +743,7 @@ const WorkflowBuilder = () => {
         setEdges(snap.edges);
     }, [setNodes, setEdges]);
 
-    // ── Replay / Template loading ─────────────────────────────────────────────
+    // ── Load replay / template ────────────────────────────────────────────────
     useEffect(() => {
         if (location.state?.replaySnapshot) {
             const snap = location.state.replaySnapshot;
@@ -765,14 +751,16 @@ const WorkflowBuilder = () => {
             setNodes([]);
             setEdges([]);
             setHasStarted(true);
+
             snap.nodes?.forEach((node, idx) => {
                 setTimeout(() => {
                     setNodes((nds) => [...nds, node]);
-                    if (idx > 0 && snap.edges?.[idx - 1])
+                    if (idx > 0 && snap.edges?.[idx - 1]) {
                         setEdges((eds) => [
                             ...eds,
                             { ...snap.edges[idx - 1], animated: false, style: { stroke: '#444', strokeWidth: 2 }, type: 'smoothstep' },
                         ]);
+                    }
                 }, idx * 150);
             });
             showToast('Snapshot loaded from run history', 'success');
@@ -789,14 +777,16 @@ const WorkflowBuilder = () => {
             setNodes([]);
             setEdges([]);
             setHasStarted(true);
+
             tpl.nodes.forEach((node, idx) => {
                 setTimeout(() => {
                     setNodes((nds) => [...nds, node]);
-                    if (idx > 0 && tpl.edges?.[idx - 1])
+                    if (idx > 0 && tpl.edges?.[idx - 1]) {
                         setEdges((eds) => [
                             ...eds,
                             { ...tpl.edges[idx - 1], animated: false, style: { stroke: '#444', strokeWidth: 2 }, type: 'smoothstep' },
                         ]);
+                    }
                 }, idx * 150);
             });
         }
@@ -833,12 +823,7 @@ const WorkflowBuilder = () => {
                         data: { ...e.data, condition },
                         label: condition === 'always' ? '' : condition === 'errors_found' ? 'if errors' : 'if clean',
                         style: {
-                            stroke:
-                                condition === 'errors_found'
-                                    ? '#F87171'
-                                    : condition === 'no_errors'
-                                        ? '#6EE7B7'
-                                        : '#444',
+                            stroke: condition === 'errors_found' ? '#F87171' : condition === 'no_errors' ? '#6EE7B7' : '#444',
                             strokeWidth: 2,
                         },
                     }
@@ -899,9 +884,7 @@ const WorkflowBuilder = () => {
     const checkUnsupportedFeatures = (promptText) => {
         const lower = promptText.toLowerCase();
         for (const { keywords, feature } of UNSUPPORTED_FEATURES) {
-            if (keywords.some((k) => lower.includes(k))) {
-                return feature;
-            }
+            if (keywords.some((k) => lower.includes(k))) return feature;
         }
         return null;
     };
@@ -925,23 +908,11 @@ const WorkflowBuilder = () => {
         }
 
         const notifNodes = nodes.filter((n) => n.data?.type === 'notification' || n.type === 'notification');
-        const missingContact = notifNodes.find(
-            (n) => !n.data?.email && !n.data?.slack_webhook && !n.data?.description?.includes('@')
-        );
+        const missingContact = notifNodes.find((n) => !n.data?.email && !n.data?.slack_webhook && !n.data?.description?.includes('@'));
         if (missingContact) {
-            showToast(
-                `"${missingContact.data?.label || 'Notification'}" node needs an email or webhook — open it in the config panel.`,
-                'error'
-            );
-            setNodes((nds) =>
-                nds.map((n) =>
-                    n.id === missingContact.id ? { ...n, data: { ...n.data, status: 'failed' } } : n
-                )
-            );
-            setTimeout(
-                () => setNodes((nds) => nds.map((n) => ({ ...n, data: { ...n.data, status: undefined } }))),
-                3000
-            );
+            showToast(`"${missingContact.data?.label || 'Notification'}" node needs an email or webhook — open it in the config panel.`, 'error');
+            setNodes((nds) => nds.map((n) => (n.id === missingContact.id ? { ...n, data: { ...n.data, status: 'failed' } } : n)));
+            setTimeout(() => setNodes((nds) => nds.map((n) => ({ ...n, data: { ...n.data, status: undefined } }))), 3000);
             return;
         }
 
@@ -954,16 +925,8 @@ const WorkflowBuilder = () => {
         });
 
         const { data: { user: authUser } } = await supabase.auth.getUser();
-        const { data: wfSettings } = await supabase
-            .from('user_settings')
-            .select('github_token')
-            .eq('user_id', authUser.id)
-            .single();
-
-        const githubConnected =
-            authUser?.app_metadata?.provider === 'github' ||
-            authUser?.app_metadata?.providers?.includes('github') ||
-            !!wfSettings?.github_token;
+        const { data: wfSettings } = await supabase.from('user_settings').select('github_token').eq('user_id', authUser.id).single();
+        const githubConnected = authUser?.app_metadata?.provider === 'github' || authUser?.app_metadata?.providers?.includes('github') || !!wfSettings?.github_token;
 
         if (hasGithubNodes && !githubConnected) {
             showToast('This pipeline has GitHub nodes — connect GitHub in Integrations first', 'error');
@@ -986,30 +949,15 @@ const WorkflowBuilder = () => {
 
             socket.onopen = () => {
                 showToast('Pipeline started...', 'info');
-                const edgesWithCondition = edges.map((e) => ({
-                    ...e,
-                    condition: e.data?.condition || 'always',
-                }));
-                socket.send(
-                    JSON.stringify({
-                        workflow_id: workflowId,
-                        workflow_name: title,
-                        nodes,
-                        edges: edgesWithCondition,
-                        snapshot: { title, nodes, edges, prompt: lastPrompt },
-                    })
-                );
+                const edgesWithCondition = edges.map((e) => ({ ...e, condition: e.data?.condition || 'always' }));
+                socket.send(JSON.stringify({ workflow_id: workflowId, workflow_name: title, nodes, edges: edgesWithCondition, snapshot: { title, nodes, edges, prompt: lastPrompt } }));
             };
 
             socket.onmessage = (event) => {
                 const msg = JSON.parse(event.data);
                 if (msg.type === 'node_update') {
                     const log = msg.data;
-                    setNodes((nds) =>
-                        nds.map((n) =>
-                            n.id === log.node_id ? { ...n, data: { ...n.data, status: log.status } } : n
-                        )
-                    );
+                    setNodes((nds) => nds.map((n) => (n.id === log.node_id ? { ...n, data: { ...n.data, status: log.status } } : n)));
                     if (log.status === 'success') showToast(`✓ ${log.node_label}`, 'success');
                     if (log.status === 'failed') showToast(`✗ ${log.node_label}: ${log.message}`, 'error');
                 } else if (msg.type === 'complete') {
@@ -1019,10 +967,7 @@ const WorkflowBuilder = () => {
                     setTimeout(() => {
                         setNodes((nds) => nds.map((n) => ({ ...n, data: { ...n.data, status: undefined } })));
                     }, 3000);
-                    showToast(
-                        `Pipeline ${result.status} — ${result.duration}`,
-                        result.status === 'success' ? 'success' : 'error'
-                    );
+                    showToast(`Pipeline ${result.status} — ${result.duration}`, result.status === 'success' ? 'success' : 'error');
                     setIsRunning(false);
                 } else if (msg.type === 'error') {
                     showToast('Pipeline error: ' + msg.message, 'error');
@@ -1063,15 +1008,8 @@ const WorkflowBuilder = () => {
         let repoContext = '';
         try {
             const { data: { session } } = await supabase.auth.getSession();
-            const { data: settingsData } = await supabase
-                .from('user_settings')
-                .select('selected_repo_full_name')
-                .eq('user_id', user.id)
-                .single();
-
-            const selectedRepo = settingsData?.selected_repo_full_name
-                ? { full_name: settingsData.selected_repo_full_name }
-                : null;
+            const { data: settingsData } = await supabase.from('user_settings').select('selected_repo_full_name').eq('user_id', user.id).single();
+            const selectedRepo = settingsData?.selected_repo_full_name ? { full_name: settingsData.selected_repo_full_name } : null;
 
             if (selectedRepo?.full_name) {
                 const treeRes = await fetch(`${API_URL}/github/tree`, {
@@ -1079,9 +1017,7 @@ const WorkflowBuilder = () => {
                 });
                 if (treeRes.ok) {
                     const treeData = await treeRes.json();
-                    repoContext = `\nThe user's GitHub repo is "${selectedRepo.full_name}" and contains these files: ${treeData.files
-                        .slice(0, 30)
-                        .join(', ')}`;
+                    repoContext = `\nThe user's GitHub repo is "${selectedRepo.full_name}" and contains these files: ${treeData.files.slice(0, 30).join(', ')}`;
                 }
             }
         } catch (e) {
@@ -1159,22 +1095,17 @@ IMPORTANT: For edges leading to email/notification nodes — if the email is for
                 const parentPos = positions[parentId];
                 const yOffset = totalSiblings > 1 ? (branchIndex - (totalSiblings - 1) / 2) * nodeSpacingY : 0;
                 const baseY = parentPos ? parentPos.y + yOffset : 200 + yOffset;
-                const x = 60 + depth * nodeSpacingX;
-                positions[nodeId] = { x, y: baseY };
+                positions[nodeId] = { x: 60 + depth * nodeSpacingX, y: baseY };
 
                 const children = childrenMap[nodeId] || [];
-                children.forEach((childId, idx) => {
-                    assignPosition(childId, depth + 1, idx, children.length);
-                });
+                children.forEach((childId, idx) => assignPosition(childId, depth + 1, idx, children.length));
             };
 
             const rootNodes = parsed.nodes.filter((n) => !parentMap[n.id]);
             rootNodes.forEach((n, idx) => assignPosition(n.id, 0, idx, rootNodes.length));
 
             parsed.nodes.forEach((n, i) => {
-                if (!positions[n.id]) {
-                    positions[n.id] = { x: 60 + i * nodeSpacingX, y: 200 };
-                }
+                if (!positions[n.id]) positions[n.id] = { x: 60 + i * nodeSpacingX, y: 200 };
             });
 
             const spacedNodes = parsed.nodes.map((n) => ({
@@ -1207,12 +1138,7 @@ IMPORTANT: For edges leading to email/notification nodes — if the email is for
                                 data: { ...edge.data, condition },
                                 label: condition === 'always' ? '' : condition === 'errors_found' ? 'if errors' : 'if clean',
                                 style: {
-                                    stroke:
-                                        condition === 'errors_found'
-                                            ? '#F87171'
-                                            : condition === 'no_errors'
-                                                ? '#6EE7B7'
-                                                : '#444',
+                                    stroke: condition === 'errors_found' ? '#F87171' : condition === 'no_errors' ? '#6EE7B7' : '#444',
                                     strokeWidth: 2,
                                 },
                             },
@@ -1240,19 +1166,46 @@ IMPORTANT: For edges leading to email/notification nodes — if the email is for
         @media(max-width:767px){.react-flow__controls{display:none!important;}}
       `}</style>
 
+            {/* ── JOYRIDE TOUR ─────────────────────────────────────────────── */}
+            <Joyride
+                steps={TOUR_STEPS}
+                run={tourRunning}
+                continuous
+                showSkipButton
+                showProgress
+                scrollToFirstStep={false}
+                disableScrolling
+                callback={handleTourCallback}
+                styles={joyrideStyles}
+                locale={{ back: '← Back', close: 'Close', last: 'Done ✓', next: 'Next →', skip: 'Skip tour' }}
+            />
+
             <TopBar title={title}>
                 <div className="flex items-center gap-2">
+                    {/* Help / restart tour */}
+                    <button
+                        onClick={() => {
+                            localStorage.removeItem('devflow_tour_seen');
+                            setTourRunning(true);
+                        }}
+                        className="hidden md:flex items-center justify-center w-8 h-8 rounded-xl border border-[#1A1A1A] bg-[#0D0D0D] text-[#444] hover:text-[#6EE7B7] hover:border-[#6EE7B7]/30 transition-colors"
+                        title="Restart tour"
+                    >
+                        <HelpCircle className="w-3.5 h-3.5" />
+                    </button>
+
                     <button
                         onClick={handleSaveDraft}
-                        className="flex items-center gap-1.5 font-mono text-[10px] md:text-xs text-[#64748B] hover:text-[#F1F5F9] border border-[#222] px-2.5 md:px-3 py-1.5 transition-colors rounded-xl bg-[#111]"
+                        className="tour-save flex items-center gap-1.5 font-mono text-[10px] md:text-xs text-[#64748B] hover:text-[#F1F5F9] border border-[#222] px-2.5 md:px-3 py-1.5 transition-colors rounded-xl bg-[#111]"
                     >
                         <Save className="w-3.5 h-3.5" />
                         <span className="hidden sm:inline">Save</span>
                     </button>
+
                     <button
                         onClick={handleRunPipeline}
                         disabled={isRunning}
-                        className="flex items-center gap-1.5 font-mono text-[10px] md:text-xs font-bold bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] px-3.5 md:px-4 py-1.5 transition-colors rounded-xl disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="tour-run flex items-center gap-1.5 font-mono text-[10px] md:text-xs font-bold bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] px-3.5 md:px-4 py-1.5 transition-colors rounded-xl disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                         {isRunning ? (
                             <div className="w-3.5 h-3.5 border-2 border-[#080808]/40 border-t-[#080808] rounded-full animate-spin" />
@@ -1269,13 +1222,7 @@ IMPORTANT: For edges leading to email/notification nodes — if the email is for
                 <AnimatePresence>
                     {isRecipeOpen && (
                         <>
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                className="md:hidden fixed inset-0 bg-black/60 z-[100] backdrop-blur-sm"
-                                onClick={() => setIsRecipeOpen(false)}
-                            />
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="md:hidden fixed inset-0 bg-black/60 z-[100] backdrop-blur-sm" onClick={() => setIsRecipeOpen(false)} />
                             <motion.div
                                 initial={{ x: '-100%' }}
                                 animate={{ x: 0 }}
@@ -1284,13 +1231,8 @@ IMPORTANT: For edges leading to email/notification nodes — if the email is for
                                 className="absolute left-0 top-0 bottom-0 w-[280px] md:w-[320px] bg-[#0D0D0D] border-r border-[#222] z-[101] overflow-hidden shadow-2xl flex flex-col"
                             >
                                 <div className="h-14 flex items-center justify-between px-5 border-b border-[#222] shrink-0">
-                                    <span className="font-mono text-xs text-[#6EE7B7] uppercase font-bold tracking-widest">
-                                        Recipe_Library
-                                    </span>
-                                    <button
-                                        onClick={() => setIsRecipeOpen(false)}
-                                        className="text-[#64748B] hover:text-[#F1F5F9]"
-                                    >
+                                    <span className="font-mono text-xs text-[#6EE7B7] uppercase font-bold tracking-widest">Recipe_Library</span>
+                                    <button onClick={() => setIsRecipeOpen(false)} className="text-[#64748B] hover:text-[#F1F5F9]">
                                         <X className="w-5 h-5" />
                                     </button>
                                 </div>
@@ -1304,15 +1246,9 @@ IMPORTANT: For edges leading to email/notification nodes — if the email is for
                                             }}
                                             className="w-full text-left bg-[#111] border border-[#1A1A1A] hover:border-[#6EE7B7]/40 rounded-xl p-4 transition-all group"
                                         >
-                                            <div className="font-mono text-xs text-[#F1F5F9] group-hover:text-[#6EE7B7] mb-1 font-bold">
-                                                {r.title}
-                                            </div>
-                                            <div className="font-mono text-[10px] text-[#64748B] leading-relaxed mb-2">
-                                                {r.desc}
-                                            </div>
-                                            <span className="font-mono text-[9px] text-[#64748B] bg-[#0D0D0D] border border-[#222] px-2 py-0.5 rounded-full">
-                                                {r.tag}
-                                            </span>
+                                            <div className="font-mono text-xs text-[#F1F5F9] group-hover:text-[#6EE7B7] mb-1 font-bold">{r.title}</div>
+                                            <div className="font-mono text-[10px] text-[#64748B] leading-relaxed mb-2">{r.desc}</div>
+                                            <span className="font-mono text-[9px] text-[#64748B] bg-[#0D0D0D] border border-[#222] px-2 py-0.5 rounded-full">{r.tag}</span>
                                         </button>
                                     ))}
                                 </div>
@@ -1325,13 +1261,7 @@ IMPORTANT: For edges leading to email/notification nodes — if the email is for
                 <AnimatePresence>
                     {isSuggestionsOpen && (
                         <>
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                className="md:hidden fixed inset-0 bg-black/60 z-[100] backdrop-blur-sm"
-                                onClick={() => setIsSuggestionsOpen(false)}
-                            />
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="md:hidden fixed inset-0 bg-black/60 z-[100] backdrop-blur-sm" onClick={() => setIsSuggestionsOpen(false)} />
                             <motion.div
                                 initial={{ x: '100%' }}
                                 animate={{ x: 0 }}
@@ -1340,13 +1270,8 @@ IMPORTANT: For edges leading to email/notification nodes — if the email is for
                                 className="absolute right-0 top-0 bottom-0 w-[280px] md:w-[320px] bg-[#0D0D0D] border-l border-[#222] z-[101] overflow-hidden shadow-2xl flex flex-col"
                             >
                                 <div className="h-14 flex items-center justify-between px-5 border-b border-[#222] shrink-0">
-                                    <span className="font-mono text-xs text-[#6EE7B7] uppercase font-bold tracking-widest">
-                                        Suggestions
-                                    </span>
-                                    <button
-                                        onClick={() => setIsSuggestionsOpen(false)}
-                                        className="text-[#64748B] hover:text-[#F1F5F9]"
-                                    >
+                                    <span className="font-mono text-xs text-[#6EE7B7] uppercase font-bold tracking-widest">Suggestions</span>
+                                    <button onClick={() => setIsSuggestionsOpen(false)} className="text-[#64748B] hover:text-[#F1F5F9]">
                                         <X className="w-5 h-5" />
                                     </button>
                                 </div>
@@ -1360,12 +1285,8 @@ IMPORTANT: For edges leading to email/notification nodes — if the email is for
                                             }}
                                             className="w-full text-left bg-[#111] border border-[#1A1A1A] hover:border-[#6EE7B7]/40 rounded-xl p-4 transition-all group"
                                         >
-                                            <div className="font-mono text-xs text-[#F1F5F9] group-hover:text-[#6EE7B7] mb-1 font-bold">
-                                                {s.label}
-                                            </div>
-                                            <div className="font-mono text-[10px] text-[#64748B] leading-relaxed">
-                                                {s.prompt}
-                                            </div>
+                                            <div className="font-mono text-xs text-[#F1F5F9] group-hover:text-[#6EE7B7] mb-1 font-bold">{s.label}</div>
+                                            <div className="font-mono text-[10px] text-[#64748B] leading-relaxed">{s.prompt}</div>
                                         </button>
                                     ))}
                                 </div>
@@ -1403,105 +1324,71 @@ IMPORTANT: For edges leading to email/notification nodes — if the email is for
                                         {selectedNode.data.type || 'action'}_config
                                     </h3>
                                 </div>
-                                <button
-                                    onClick={() => setSelectedNode(null)}
-                                    className="text-[#64748B] hover:text-[#F1F5F9]"
-                                >
+                                <button onClick={() => setSelectedNode(null)} className="text-[#64748B] hover:text-[#F1F5F9]">
                                     <X className="w-5 h-5" />
                                 </button>
                             </div>
 
                             <div className="p-5 flex-1 overflow-y-auto space-y-4">
                                 <div>
-                                    <label className="font-mono text-[10px] text-[#64748B] uppercase tracking-wider mb-2 block">
-                                        Step Name
-                                    </label>
+                                    <label className="font-mono text-[10px] text-[#64748B] uppercase tracking-wider mb-2 block">Step Name</label>
                                     <input
                                         type="text"
                                         className="w-full bg-[#111] border border-[#222] rounded-xl px-4 py-2.5 text-xs font-mono text-[#F1F5F9] outline-none focus:border-[#6EE7B7]/40 transition-colors"
                                         value={selectedNode.data.label || ''}
                                         onChange={(e) => {
-                                            const updated = {
-                                                ...selectedNode,
-                                                data: { ...selectedNode.data, label: e.target.value },
-                                            };
+                                            const updated = { ...selectedNode, data: { ...selectedNode.data, label: e.target.value } };
                                             setSelectedNode(updated);
-                                            setNodes((nds) =>
-                                                nds.map((n) => (n.id === selectedNode.id ? updated : n))
-                                            );
+                                            setNodes((nds) => nds.map((n) => (n.id === selectedNode.id ? updated : n)));
                                             setIsDirty(true);
                                         }}
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="font-mono text-[10px] text-[#64748B] uppercase tracking-wider mb-2 block">
-                                        Description / Instructions
-                                    </label>
+                                    <label className="font-mono text-[10px] text-[#64748B] uppercase tracking-wider mb-2 block">Description / Instructions</label>
                                     <textarea
                                         className="w-full bg-[#111] border border-[#222] rounded-xl px-4 py-2.5 text-xs font-mono text-[#F1F5F9] outline-none focus:border-[#6EE7B7]/40 transition-colors min-h-[80px] resize-none"
                                         value={selectedNode.data.description || ''}
                                         onChange={(e) => {
-                                            const updated = {
-                                                ...selectedNode,
-                                                data: { ...selectedNode.data, description: e.target.value },
-                                            };
+                                            const updated = { ...selectedNode, data: { ...selectedNode.data, description: e.target.value } };
                                             setSelectedNode(updated);
-                                            setNodes((nds) =>
-                                                nds.map((n) => (n.id === selectedNode.id ? updated : n))
-                                            );
+                                            setNodes((nds) => nds.map((n) => (n.id === selectedNode.id ? updated : n)));
                                             setIsDirty(true);
                                         }}
                                         placeholder="Describe what this step should do..."
                                     />
                                 </div>
 
-                                {(selectedNode.data.type === 'notification' ||
-                                    selectedNode.data.type === 'action') && (
-                                        <div>
-                                            <label className="font-mono text-[10px] text-[#64748B] uppercase tracking-wider mb-2 block">
-                                                Recipient Email (optional)
-                                            </label>
-                                            <input
-                                                type="email"
-                                                className="w-full bg-[#111] border border-[#222] rounded-xl px-4 py-2.5 text-xs font-mono text-[#F1F5F9] outline-none focus:border-[#6EE7B7]/40 transition-colors"
-                                                value={selectedNode.data.email || ''}
-                                                onChange={(e) => {
-                                                    const updated = {
-                                                        ...selectedNode,
-                                                        data: { ...selectedNode.data, email: e.target.value },
-                                                    };
-                                                    setSelectedNode(updated);
-                                                    setNodes((nds) =>
-                                                        nds.map((n) => (n.id === selectedNode.id ? updated : n))
-                                                    );
-                                                    setIsDirty(true);
-                                                }}
-                                                placeholder="notify@yourteam.com"
-                                            />
-                                            <p className="font-mono text-[10px] text-[#444] mt-1.5">
-                                                If set, this step will send an email when executed
-                                            </p>
-                                        </div>
-                                    )}
+                                {(selectedNode.data.type === 'notification' || selectedNode.data.type === 'action') && (
+                                    <div>
+                                        <label className="font-mono text-[10px] text-[#64748B] uppercase tracking-wider mb-2 block">Recipient Email (optional)</label>
+                                        <input
+                                            type="email"
+                                            className="w-full bg-[#111] border border-[#222] rounded-xl px-4 py-2.5 text-xs font-mono text-[#F1F5F9] outline-none focus:border-[#6EE7B7]/40 transition-colors"
+                                            value={selectedNode.data.email || ''}
+                                            onChange={(e) => {
+                                                const updated = { ...selectedNode, data: { ...selectedNode.data, email: e.target.value } };
+                                                setSelectedNode(updated);
+                                                setNodes((nds) => nds.map((n) => (n.id === selectedNode.id ? updated : n)));
+                                                setIsDirty(true);
+                                            }}
+                                            placeholder="notify@yourteam.com"
+                                        />
+                                        <p className="font-mono text-[10px] text-[#444] mt-1.5">If set, this step will send an email when executed</p>
+                                    </div>
+                                )}
 
                                 {selectedNode.data.type === 'ai' && (
                                     <div>
-                                        <label className="font-mono text-[10px] text-[#64748B] uppercase tracking-wider mb-2 block">
-                                            AI Model
-                                        </label>
+                                        <label className="font-mono text-[10px] text-[#64748B] uppercase tracking-wider mb-2 block">AI Model</label>
                                         <select
                                             className="w-full bg-[#111] border border-[#222] rounded-xl px-4 py-2.5 text-xs font-mono text-[#F1F5F9] outline-none focus:border-[#6EE7B7]/40 transition-colors cursor-pointer"
                                             value={selectedNode.data.model || 'groq'}
                                             onChange={(e) => {
-                                                const updated = {
-                                                    ...selectedNode,
-                                                    data: { ...selectedNode.data, model: e.target.value },
-                                                };
+                                                const updated = { ...selectedNode, data: { ...selectedNode.data, model: e.target.value } };
                                                 setSelectedNode(updated);
-                                                setNodes((nds) =>
-                                                    nds.map((n) => (n.id === selectedNode.id ? updated : n))
-                                                );
+                                                setNodes((nds) => nds.map((n) => (n.id === selectedNode.id ? updated : n)));
                                                 setIsDirty(true);
                                             }}
                                         >
@@ -1514,12 +1401,9 @@ IMPORTANT: For edges leading to email/notification nodes — if the email is for
 
                                 {selectedNode.data.type === 'trigger' && (
                                     <div className="bg-[#111] border border-[#1A1A1A] rounded-xl p-4 space-y-2">
-                                        <p className="font-mono text-[10px] text-[#64748B] uppercase tracking-widest">
-                                            Trigger Info
-                                        </p>
+                                        <p className="font-mono text-[10px] text-[#64748B] uppercase tracking-widest">Trigger Info</p>
                                         <p className="font-mono text-[10px] text-[#444] leading-relaxed">
-                                            This node starts the pipeline. Connect GitHub webhooks in Integrations to
-                                            auto-trigger on push, PR, or issue events.
+                                            This node starts the pipeline. Connect GitHub webhooks in Integrations to auto-trigger on push, PR, or issue events.
                                         </p>
                                     </div>
                                 )}
@@ -1554,9 +1438,7 @@ IMPORTANT: For edges leading to email/notification nodes — if the email is for
                                 <button
                                     onClick={() => {
                                         setNodes((nds) => nds.filter((n) => n.id !== selectedNode.id));
-                                        setEdges((eds) =>
-                                            eds.filter((e) => e.source !== selectedNode.id && e.target !== selectedNode.id)
-                                        );
+                                        setEdges((eds) => eds.filter((e) => e.source !== selectedNode.id && e.target !== selectedNode.id));
                                         setSelectedNode(null);
                                         setIsDirty(true);
                                         showToast('Step removed', 'info');
@@ -1571,13 +1453,7 @@ IMPORTANT: For edges leading to email/notification nodes — if the email is for
                 </AnimatePresence>
 
                 {/* Main Canvas */}
-                <div
-                    className="flex-1 relative overflow-hidden"
-                    style={{
-                        width: selectedNode ? 'calc(100% - 320px)' : '100%',
-                        transition: 'width 0.3s ease',
-                    }}
-                >
+                <div className="flex-1 relative overflow-hidden" style={{ width: selectedNode ? 'calc(100% - 320px)' : '100%', transition: 'width 0.3s ease' }}>
                     <ReactFlow
                         nodes={nodes}
                         edges={edges}
@@ -1593,11 +1469,7 @@ IMPORTANT: For edges leading to email/notification nodes — if the email is for
                         nodeTypes={nodeTypes}
                         fitView
                         fitViewOptions={{ padding: 0.3, minZoom: 0.4, maxZoom: 1.2 }}
-                        defaultEdgeOptions={{
-                            animated: false,
-                            style: { stroke: '#444', strokeWidth: 2 },
-                            type: 'smoothstep',
-                        }}
+                        defaultEdgeOptions={{ animated: false, style: { stroke: '#444', strokeWidth: 2 }, type: 'smoothstep' }}
                         className="bg-[#080808] w-full h-full"
                         nodesDraggable={!isCanvasLocked}
                         nodesConnectable={!isCanvasLocked}
@@ -1607,39 +1479,19 @@ IMPORTANT: For edges leading to email/notification nodes — if the email is for
                         zoomOnPinch={!isCanvasLocked}
                     >
                         <Background color="#1A1A1A" gap={25} size={1} />
-                        <CustomCanvasControls
-                            isLocked={isCanvasLocked}
-                            setIsLocked={setIsCanvasLocked}
-                            onUndo={handleUndo}
-                            onRedo={handleRedo}
-                            hasNodes={nodes.length > 0}
-                        />
+                        <CustomCanvasControls isLocked={isCanvasLocked} setIsLocked={setIsCanvasLocked} onUndo={handleUndo} onRedo={handleRedo} hasNodes={nodes.length > 0} />
                         <RepoBranchPanel user={user} />
-
-                        {/* ── ADD NODE BUTTON ── */}
-                        <AddNodePanel
-                            setNodes={setNodes}
-                            setIsDirty={setIsDirty}
-                            showToast={showToast}
-                        />
+                        <AddNodePanel setNodes={setNodes} setIsDirty={setIsDirty} showToast={showToast} />
 
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none px-6">
-                            <span
-                                className="font-mono font-extrabold uppercase text-center leading-none tracking-tighter text-[#111] opacity-50"
-                                style={{ fontSize: 'clamp(32px, 10vw, 120px)' }}
-                            >
+                            <span className="font-mono font-extrabold uppercase text-center leading-none tracking-tighter text-[#111] opacity-50" style={{ fontSize: 'clamp(32px, 10vw, 120px)' }}>
                                 describe your<br />workflow below
                             </span>
                         </div>
                     </ReactFlow>
                 </div>
 
-                <EdgeConditionMenu
-                    edge={edgeMenu.edge}
-                    position={edgeMenu.position}
-                    onSelect={handleEdgeConditionSelect}
-                    onClose={() => setEdgeMenu({ edge: null, position: { x: 0, y: 0 } })}
-                />
+                <EdgeConditionMenu edge={edgeMenu.edge} position={edgeMenu.position} onSelect={handleEdgeConditionSelect} onClose={() => setEdgeMenu({ edge: null, position: { x: 0, y: 0 } })} />
             </div>
 
             {/* Prompt Input Bar */}
@@ -1650,11 +1502,7 @@ IMPORTANT: For edges leading to email/notification nodes — if the email is for
                 <div className="w-full max-w-2xl pointer-events-auto">
                     <AnimatePresence>
                         {!hasStarted && (
-                            <motion.div
-                                initial={{ opacity: 1 }}
-                                exit={{ opacity: 0, y: 10 }}
-                                className="w-full flex flex-wrap justify-center gap-2 mb-3 px-2"
-                            >
+                            <motion.div initial={{ opacity: 1 }} exit={{ opacity: 0, y: 10 }} className="w-full flex flex-wrap justify-center gap-2 mb-3 px-2">
                                 {SUGGESTIONS.map((s) => (
                                     <button
                                         key={s.label}
@@ -1711,9 +1559,7 @@ IMPORTANT: For edges leading to email/notification nodes — if the email is for
                                     <p className="font-mono text-xs text-[#64748B] leading-relaxed">
                                         <span className="text-[#F59E0B] font-semibold">{unsupportedFeature}</span> is on our roadmap but hasn't been integrated yet. We're working on it!
                                     </p>
-                                    <p className="font-mono text-[10px] text-[#444]">
-                                        Try a workflow using GitHub, Slack, Notion, Linear, Jira, or email instead.
-                                    </p>
+                                    <p className="font-mono text-[10px] text-[#444]">Try a workflow using GitHub, Slack, Notion, Linear, Jira, or email instead.</p>
                                 </div>
                                 <div className="flex gap-3 pt-2">
                                     <button
@@ -1757,9 +1603,7 @@ IMPORTANT: For edges leading to email/notification nodes — if the email is for
                                 </div>
                                 <h3 className="font-mono text-sm font-bold text-[#F1F5F9]">Run same pipeline?</h3>
                             </div>
-                            <p className="font-mono text-xs text-[#64748B] mb-5">
-                                This pipeline hasn't changed since the last run. Run it again anyway?
-                            </p>
+                            <p className="font-mono text-xs text-[#64748B] mb-5">This pipeline hasn't changed since the last run. Run it again anyway?</p>
                             <div className="flex gap-3">
                                 <button
                                     onClick={() => setShowRerunModal(false)}
@@ -1783,6 +1627,4 @@ IMPORTANT: For edges leading to email/notification nodes — if the email is for
             </AnimatePresence>
         </div>
     );
-};
-
-export default WorkflowBuilder;
+}
