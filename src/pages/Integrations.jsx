@@ -268,7 +268,27 @@ const Integrations = () => {
                                                                 {integration.id === 'github' && (
                                                                     <a href={`https://github.com/${user?.user_metadata?.user_name || ''}`} target="_blank" rel="noreferrer" className="block w-full text-left px-4 py-2 text-sm text-[#F1F5F9] hover:bg-[#222] rounded-xl transition-colors">View on GitHub →</a>
                                                                 )}
-                                                                <button onClick={() => showToast("Disconnect coming soon", "info")} className="w-full text-left px-4 py-2 text-sm text-[#ef4444] hover:bg-[#222] rounded-xl transition-colors">Disconnect</button>
+                                                                <button
+                                                                    onClick={async () => {
+                                                                        try {
+                                                                            const { data: { session } } = await supabase.auth.getSession();
+                                                                            await supabase
+                                                                                .from('user_settings')
+                                                                                .update({
+                                                                                    github_token: null,
+                                                                                    selected_repo_full_name: null,
+                                                                                    updated_at: new Date().toISOString()
+                                                                                })
+                                                                                .eq('user_id', session.user.id);
+                                                                            // Clear context too
+                                                                            window.location.reload();
+                                                                        } catch (err) {
+                                                                            showToast('Failed to disconnect GitHub', 'error');
+                                                                        }
+                                                                    }}
+                                                                    className="w-full text-left px-4 py-2 text-sm text-[#ef4444] hover:bg-[#222] rounded-xl transition-colors">
+                                                                    Disconnect
+                                                                </button>
                                                             </div>
                                                         </div>
                                                     </div>
