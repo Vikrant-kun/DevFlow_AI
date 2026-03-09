@@ -361,8 +361,13 @@ const Dashboard = () => {
                                                 One more step
                                             </h3>
                                             <p className="font-mono text-xs text-[#64748B] leading-relaxed mb-1">
-                                                You're signed in with GitHub — but DevFlow needs a{' '}
-                                                <span className="text-[#F1F5F9]">Personal Access Token</span> to read and write your repos.
+                                                You're signed in with{' '}
+                                                <span className="text-[#F1F5F9]">
+                                                    {user?.app_metadata?.provider === 'google' ? 'Google' :
+                                                        user?.app_metadata?.provider === 'github' ? 'GitHub' : 'email'}
+                                                </span>{' '}
+                                                — but DevFlow needs a{' '}
+                                                <span className="text-[#F1F5F9]">GitHub Personal Access Token</span> to read and write your repos.
                                             </p>
                                             <p className="font-mono text-[10px] text-[#444] mb-5">
                                                 OAuth login proves your identity. A PAT gives DevFlow permission to commit, push, and scan your code.
