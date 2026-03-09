@@ -3,77 +3,191 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Menu, X, Github } from 'lucide-react';
+import { Menu, X, Github, Zap } from 'lucide-react';
 
 const sectionVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } }
+    hidden: { opacity: 0, y: 24 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: 'easeOut' } },
 };
 
-const Docs = () => {
+const LogoMark = ({ size = 24 }) => (
+    <div
+        style={{
+            width: size,
+            height: size,
+            borderRadius: 6,
+            background: '#6EE7B7',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+        }}
+    >
+        <Zap
+            style={{ width: size * 0.58, height: size * 0.58, color: '#080808' }}
+            strokeWidth={3}
+        />
+    </div>
+);
+
+const NAV_LINKS = [
+    { href: '/#features', label: 'Features' },
+    { href: '/pricing', label: 'Pricing' },
+    { href: '/docs', label: 'Docs' },
+    { href: '/about', label: 'About' },
+];
+
+export default function Docs() {
     const navigate = useNavigate();
     const { user } = useAuth();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+    const handleSignOut = async () => {
+        await supabase.auth.signOut();
+        setIsMobileMenuOpen(false);
+        navigate('/');
+    };
+
     return (
-        <div className="min-h-screen bg-[#080808] text-[#F1F5F9] selection:bg-[#6EE7B7]/30 flex flex-col">
+        <div className="relative min-h-screen bg-[#080808] text-[#F1F5F9] selection:bg-[#6EE7B7]/30 flex flex-col">
+            {/* Background grid */}
+            <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(#1A1A1A_1px,transparent_1px)] [background-size:24px_24px] opacity-30 [mask-image:linear-gradient(to_bottom,black_40%,transparent_100%)]" />
 
-            {/* Subtle Grid Background */}
-            <div className="absolute inset-0 z-0 bg-[radial-gradient(#1A1A1A_1px,transparent_1px)] [background-size:24px_24px] opacity-30 [mask-image:linear-gradient(to_bottom,black_40%,transparent_100%)] pointer-events-none" />
-
-            {/* Navbar */}
-            <nav className="fixed top-0 w-full z-50 border-b border-[#1A1A1A] bg-[#080808]/80 backdrop-blur-md">
-                <div className="max-w-7xl mx-auto px-4 md:px-6 h-14 md:h-16 flex items-center justify-between">
-                    <Link to="/" className="flex items-center gap-2 font-bold text-xl font-mono hover:bg-white/5 hover:rounded-xl px-2 py-1 -ml-2 transition-colors">
-                        <span className="text-[#F1F5F9]">DevFlow</span><span className="text-[#6EE7B7]">AI</span>
+            {/* ─── Navbar ──────────────────────────────────────────────── */}
+            <nav className="fixed top-0 z-50 w-full border-b border-[#1A1A1A] bg-[#080808]/80 backdrop-blur-md">
+                <div className="mx-auto flex h-14 md:h-16 max-w-7xl items-center justify-between px-4 md:px-6">
+                    <Link
+                        to="/"
+                        className="flex items-center gap-2.5 font-mono text-xl font-bold transition-colors hover:bg-white/5 hover:rounded-xl px-2 py-1 -ml-2"
+                    >
+                        <LogoMark size={26} />
+                        <span className="text-[#F1F5F9]">DevFlow</span>
+                        <span className="text-[#6EE7B7]">AI</span>
                     </Link>
-                    <div className="hidden md:flex items-center gap-8 text-sm font-mono text-[#64748B]">
-                        <a href="/#features" className="hover:text-[#F1F5F9] transition-colors">Features</a>
-                        <Link to="/about" className="hover:text-[#F1F5F9] transition-colors">About</Link>
-                        <Link to="/pricing" className="hover:text-[#F1F5F9] transition-colors">Pricing</Link>
-                        <Link to="/docs" className="text-[#F1F5F9] transition-colors">Docs</Link>
+
+                    {/* Desktop nav links */}
+                    <div className="hidden items-center gap-8 text-sm font-mono md:flex">
+                        {NAV_LINKS.map(({ href, label }) => (
+                            <a
+                                key={href}
+                                href={href}
+                                className={`transition-colors ${label === 'Docs' ? 'text-[#F1F5F9]' : 'text-[#64748B] hover:text-[#F1F5F9]'
+                                    }`}
+                            >
+                                {label}
+                            </a>
+                        ))}
                     </div>
-                    <div className="hidden md:flex items-center gap-3">
+
+                    {/* Desktop auth area */}
+                    <div className="hidden items-center gap-3 md:flex">
                         {user ? (
-                            <div className="relative group">
-                                <button className="font-mono text-sm text-[#64748B] hover:text-[#F1F5F9] px-4 py-2 transition-colors border border-transparent hover:border-[#222] rounded-xl">Account</button>
-                                <div className="absolute right-0 mt-2 w-44 bg-[#111] border border-[#222] shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 rounded-xl overflow-hidden">
+                            <div className="group relative">
+                                <button className="font-mono rounded-xl border border-transparent px-4 py-2 text-sm text-[#64748B] transition-colors hover:border-[#222] hover:text-[#F1F5F9]">
+                                    Account
+                                </button>
+                                <div className="invisible absolute right-0 mt-2 w-44 origin-top-right rounded-xl border border-[#222] bg-[#111] opacity-0 shadow-2xl transition-all group-hover:visible group-hover:opacity-100">
                                     <div className="p-1">
-                                        <button onClick={() => navigate('/dashboard')} className="w-full text-left px-3 py-2 text-xs text-[#F1F5F9] hover:bg-[#1A1A1A] transition-colors font-mono rounded-xl">Dashboard →</button>
-                                        <button onClick={() => supabase.auth.signOut()} className="w-full text-left px-3 py-2 text-xs text-[#F87171] hover:bg-[#1A1A1A] transition-colors font-mono rounded-xl">Sign out</button>
+                                        <button
+                                            onClick={() => navigate('/dashboard')}
+                                            className="w-full rounded-xl px-3 py-2 text-left text-xs font-mono text-[#F1F5F9] transition-colors hover:bg-[#1A1A1A]"
+                                        >
+                                            Dashboard →
+                                        </button>
+                                        <button
+                                            onClick={handleSignOut}
+                                            className="w-full rounded-xl px-3 py-2 text-left text-xs font-mono text-[#F87171] transition-colors hover:bg-[#1A1A1A]"
+                                        >
+                                            Sign out
+                                        </button>
                                     </div>
                                 </div>
                             </div>
                         ) : (
                             <>
-                                <button onClick={() => navigate('/auth?mode=login')} className="font-mono text-sm text-[#64748B] hover:text-white px-4 py-2 transition-colors rounded-xl">Log in</button>
-                                <button onClick={() => navigate('/auth?mode=signup')} className="font-mono text-sm bg-[#6EE7B7] text-[#080808] px-4 py-2 font-bold hover:bg-[#34D399] transition-colors rounded-xl">Sign up</button>
+                                <button
+                                    onClick={() => navigate('/auth?mode=login')}
+                                    className="rounded-xl px-4 py-2 text-sm font-mono text-[#64748B] transition-colors hover:text-white"
+                                >
+                                    Log in
+                                </button>
+                                <button
+                                    onClick={() => navigate('/auth?mode=signup')}
+                                    className="rounded-xl bg-[#6EE7B7] px-4 py-2 font-bold text-sm font-mono text-[#080808] transition-colors hover:bg-[#34D399]"
+                                >
+                                    Sign up
+                                </button>
                             </>
                         )}
                     </div>
-                    <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="md:hidden w-9 h-9 flex items-center justify-center text-[#64748B] hover:text-white transition-colors">
-                        {isMobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+
+                    {/* Mobile menu button */}
+                    <button
+                        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                        className="flex h-9 w-9 items-center justify-center text-[#64748B] transition-colors hover:text-white md:hidden"
+                        aria-label="Toggle menu"
+                    >
+                        {isMobileMenuOpen ? <X size={16} /> : <Menu size={16} />}
                     </button>
                 </div>
 
-                {/* Mobile Menu */}
+                {/* Mobile menu dropdown */}
                 <AnimatePresence>
                     {isMobileMenuOpen && (
-                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-                            className="md:hidden bg-[#0D0D0D] border-t border-[#1A1A1A] overflow-hidden">
-                            <div className="px-4 flex flex-col">
-                                {[['/#features', 'Features'], ['/about', 'About'], ['/pricing', 'Pricing'], ['/docs', 'Docs']].map(([href, label]) => (
-                                    <a key={href} href={href} onClick={() => setIsMobileMenuOpen(false)}
-                                        className={`py-4 border-b border-[#1A1A1A] text-sm font-mono transition-colors ${label === 'Docs' ? 'text-[#F1F5F9]' : 'text-[#64748B] hover:text-white'}`}>{label}</a>
+                        <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.3 }}
+                            className="overflow-hidden border-t border-[#1A1A1A] bg-[#0D0D0D] md:hidden"
+                        >
+                            <div className="flex flex-col px-4">
+                                {NAV_LINKS.map(({ href, label }) => (
+                                    <a
+                                        key={href}
+                                        href={href}
+                                        onClick={() => setIsMobileMenuOpen(false)}
+                                        className={`border-b border-[#1A1A1A] py-4 text-sm font-mono transition-colors ${label === 'Docs'
+                                            ? 'text-[#F1F5F9]'
+                                            : 'text-[#64748B] hover:text-white'
+                                            }`}
+                                    >
+                                        {label}
+                                    </a>
                                 ))}
                             </div>
-                            <div className="p-4 flex gap-3">
+
+                            <div className="flex gap-3 p-4">
                                 {user ? (
-                                    <button className="w-full bg-[#111] border border-[#222] text-[#F1F5F9] py-3 rounded-xl font-mono text-sm" onClick={() => navigate('/dashboard')}>Dashboard</button>
+                                    <button
+                                        onClick={() => {
+                                            navigate('/dashboard');
+                                            setIsMobileMenuOpen(false);
+                                        }}
+                                        className="w-full rounded-xl border border-[#222] bg-[#111] py-3 text-sm font-mono text-[#F1F5F9]"
+                                    >
+                                        Dashboard
+                                    </button>
                                 ) : (
                                     <>
-                                        <button className="flex-1 font-mono text-xs border border-[#1A1A1A] text-[#64748B] py-2 hover:text-white transition-colors rounded-xl" onClick={() => { navigate('/auth?mode=login'); setIsMobileMenuOpen(false); }}>Log in</button>
-                                        <button className="flex-1 font-mono text-xs bg-[#6EE7B7] text-[#080808] py-2 font-bold hover:bg-[#34D399] transition-colors rounded-xl" onClick={() => { navigate('/auth?mode=signup'); setIsMobileMenuOpen(false); }}>Sign up</button>
+                                        <button
+                                            onClick={() => {
+                                                navigate('/auth?mode=login');
+                                                setIsMobileMenuOpen(false);
+                                            }}
+                                            className="flex-1 rounded-xl border border-[#1A1A1A] py-2.5 text-xs font-mono text-[#64748B] transition-colors hover:text-white"
+                                        >
+                                            Log in
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                navigate('/auth?mode=signup');
+                                                setIsMobileMenuOpen(false);
+                                            }}
+                                            className="flex-1 rounded-xl bg-[#6EE7B7] py-2.5 text-xs font-bold font-mono text-[#080808] transition-colors hover:bg-[#34D399]"
+                                        >
+                                            Sign up
+                                        </button>
                                     </>
                                 )}
                             </div>
@@ -82,64 +196,71 @@ const Docs = () => {
                 </AnimatePresence>
             </nav>
 
-            {/* Main Content */}
-            <main className="flex-1 flex flex-col items-center justify-center pt-24 px-4 sm:px-6 relative z-10">
+            {/* ─── Main Content ────────────────────────────────────────── */}
+            <main className="relative z-10 flex flex-1 flex-col items-center justify-center pt-28 pb-16 px-5 sm:px-8">
                 <motion.div
                     initial="hidden"
                     animate="visible"
                     variants={sectionVariants}
-                    className="max-w-2xl w-full text-center"
+                    className="w-full max-w-2xl text-center"
                 >
-                    <div className="mb-6 font-mono text-[10px] md:text-xs text-[#6EE7B7] font-bold tracking-widest uppercase cursor-default">
+                    <div className="mb-6 font-mono text-xs font-bold uppercase tracking-widest text-[#6EE7B7] md:text-sm">
                         {`>_ documentation`}
                     </div>
 
-                    <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-4 text-[#F1F5F9] leading-tight">
-                        Documentation is <br className="sm:hidden" /> being written.
+                    <h1 className="mb-5 text-3xl font-extrabold tracking-tight sm:text-4xl md:text-5xl leading-tight text-[#F1F5F9]">
+                        Documentation is
+                        <br className="sm:hidden" /> being written.
                     </h1>
 
-                    <p className="text-sm md:text-base text-[#64748B] mb-10 max-w-md mx-auto">
-                        We're documenting every feature as we build it. Check back soon for full API references and integration guides.
+                    <p className="mx-auto mb-10 max-w-md text-base text-[#64748B] sm:text-lg">
+                        We're documenting every feature as we build it. Full API references, integration
+                        guides, and workflow examples coming soon.
                     </p>
 
-                    {/* Terminal Block - Updated to rounded-xl controls */}
-                    <div className="bg-[#111] border border-[#222] rounded-xl p-4 md:p-6 text-left font-mono text-xs md:text-sm shadow-2xl mx-auto max-w-lg mb-10 overflow-hidden">
-                        <div className="flex items-center gap-2 mb-4 border-b border-[#222] pb-3">
-                            <div className="w-2.5 h-2.5 rounded-full bg-[#FF5F56]"></div>
-                            <div className="w-2.5 h-2.5 rounded-full bg-[#FFBD2E]"></div>
-                            <div className="w-2.5 h-2.5 rounded-full bg-[#27C93F]"></div>
-                            <div className="ml-4 text-[10px] text-[#64748B] uppercase tracking-widest hidden sm:block">build_status</div>
+                    {/* Terminal-style status block */}
+                    <div className="mx-auto mb-10 max-w-lg overflow-hidden rounded-xl border border-[#222] bg-[#111] p-5 shadow-2xl md:p-6">
+                        <div className="mb-4 flex items-center gap-2 border-b border-[#222] pb-3">
+                            <div className="h-2.5 w-2.5 rounded-full bg-[#FF5F56]" />
+                            <div className="h-2.5 w-2.5 rounded-full bg-[#FFBD2E]" />
+                            <div className="h-2.5 w-2.5 rounded-full bg-[#27C93F]" />
+                            <div className="ml-4 hidden text-[10px] uppercase tracking-widest text-[#64748B] sm:block">
+                                build_status
+                            </div>
                         </div>
 
-                        <div className="space-y-3 md:space-y-4">
-                            <div className="flex justify-between items-center text-[#F1F5F9] whitespace-nowrap overflow-hidden text-ellipsis">
-                                <span className="truncate pr-4">writing installation guide..........</span>
-                                <span className="text-[#6EE7B7] shrink-0 font-bold">✓</span>
+                        <div className="space-y-3.5 text-left font-mono text-xs md:text-sm">
+                            <div className="flex items-center justify-between text-[#F1F5F9]">
+                                <span className="truncate pr-3">writing installation guide</span>
+                                <span className="font-bold text-[#6EE7B7]">✓</span>
                             </div>
-                            <div className="flex justify-between items-center text-[#F1F5F9] whitespace-nowrap overflow-hidden text-ellipsis">
-                                <span className="truncate pr-4">writing API reference...............</span>
-                                <span className="text-[#6EE7B7] shrink-0 font-bold">✓</span>
+                            <div className="flex items-center justify-between text-[#F1F5F9]">
+                                <span className="truncate pr-3">writing API reference</span>
+                                <span className="font-bold text-[#6EE7B7]">✓</span>
                             </div>
-                            <div className="flex justify-between items-center text-[#F1F5F9] whitespace-nowrap overflow-hidden text-ellipsis">
-                                <span className="truncate pr-4">writing integration docs............</span>
-                                <span className="text-[#F59E0B] inline-block animate-spin shrink-0">⟳</span>
+                            <div className="flex items-center justify-between text-[#F1F5F9]">
+                                <span className="truncate pr-3">writing integration guides</span>
+                                <span className="inline-block animate-spin text-[#F59E0B]">⟳</span>
                             </div>
-                            <div className="flex justify-between items-center text-[#64748B] whitespace-nowrap overflow-hidden text-ellipsis">
-                                <span className="truncate pr-4">writing workflow examples...........</span>
-                                <span className="shrink-0 text-[10px]">pending</span>
+                            <div className="flex items-center justify-between text-[#64748B]">
+                                <span className="truncate pr-3">writing workflow examples</span>
+                                <span className="text-[10px] opacity-70">pending</span>
                             </div>
                         </div>
                     </div>
 
-                    <a href="https://github.com/Vikrant-kun" target="_blank" rel="noreferrer" className="inline-block">
-                        <button className="bg-[#111] border border-[#222] text-[#F1F5F9] font-mono text-sm px-6 py-3 rounded-xl hover:bg-[#1A1A1A] hover:border-[#333] transition-colors flex items-center justify-center gap-2 shadow-sm w-full sm:w-auto">
-                            <Github className="w-4 h-4" /> Star on GitHub
+                    <a
+                        href="https://github.com/Vikrant-kun"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-block"
+                    >
+                        <button className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#222] bg-[#111] px-7 py-3 font-mono text-sm text-[#F1F5F9] transition-all hover:border-[#333] hover:bg-[#1A1A1A] sm:w-auto">
+                            <Github size={16} /> Star on GitHub
                         </button>
                     </a>
                 </motion.div>
             </main>
         </div>
     );
-};
-
-export default Docs;
+}
