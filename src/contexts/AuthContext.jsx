@@ -143,6 +143,24 @@ export const AuthProvider = ({ children }) => {
         navigate('/');
     };
 
+    const saveSelectedRepo = async (repo) => {
+        setSelectedRepo(repo);
+        if (!repo || !session) return;
+        try {
+            const { data: { session: currentSession } } = await supabase.auth.getSession();
+            await fetch(`${import.meta.env.VITE_API_URL}/github/select-repo`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${currentSession.access_token}`
+                },
+                body: JSON.stringify({ repo_full_name: repo.full_name })
+            });
+        } catch (e) {
+            console.error('Failed to save selected repo:', e);
+        }
+    };
+
     const value = {
         session,
         user,
@@ -150,7 +168,7 @@ export const AuthProvider = ({ children }) => {
         isGithubConnected,
         repos,
         selectedRepo,
-        setSelectedRepo,
+        saveSelectedRepo,
         githubLoading,
         connectGithubPat,
         fetchRepos,

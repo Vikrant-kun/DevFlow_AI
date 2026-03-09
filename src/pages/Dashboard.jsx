@@ -42,7 +42,7 @@ const Dashboard = () => {
         { label: "Time Saved", value: "0h" }
     ]);
     const { showToast } = useToast();
-    const { user, isGithubConnected, repos, selectedRepo, setSelectedRepo, githubLoading, fetchRepos } = useAuth();
+    const { user, isGithubConnected, repos, selectedRepo, saveSelectedRepo, githubLoading, fetchRepos } = useAuth();
     const [showRepoSelector, setShowRepoSelector] = useState(false);
     const [checklistDismissed, setChecklistDismissed] = useState(true);
 
@@ -408,14 +408,8 @@ const Dashboard = () => {
                                                                     whileHover={{ x: 3 }}
                                                                     transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                                                                     onClick={() => {
-                                                                        setSelectedRepo({ name: r.name, full_name: r.full_name });
+                                                                        saveSelectedRepo({ name: r.name, full_name: r.full_name });
                                                                         setShowRepoSelector(false);
-                                                                        supabase.from('user_settings').upsert({
-                                                                            user_id: user?.id,
-                                                                            selected_repo: r.name,
-                                                                            selected_repo_full_name: r.full_name,
-                                                                            updated_at: new Date().toISOString()
-                                                                        }, { onConflict: 'user_id' });
                                                                     }}
                                                                     className={`w-full text-left px-3 py-2.5 rounded-lg font-mono text-xs transition-colors flex items-center gap-2 ${selectedRepo?.full_name === r.full_name
                                                                         ? 'bg-[#6EE7B7]/10 text-[#6EE7B7] border border-[#6EE7B7]/20'

@@ -275,7 +275,7 @@ const WorkflowBuilder = () => {
                 setTimeout(() => {
                     setNodes(nds => [...nds, node]);
                     if (idx > 0 && snap.edges?.[idx - 1])
-                        setEdges(eds => [...eds, { ...snap.edges[idx - 1], animated: true, style: { stroke: '#333', strokeWidth: 2, strokeDasharray: '6,6' } }]);
+                        setEdges(eds => [...eds, { ...snap.edges[idx - 1], animated: false, style: { stroke: '#444', strokeWidth: 2 }, type: 'smoothstep' }]);
                 }, idx * 150);
             });
 
@@ -298,14 +298,14 @@ const WorkflowBuilder = () => {
                 setTimeout(() => {
                     setNodes(nds => [...nds, node]);
                     if (idx > 0 && tpl.edges?.[idx - 1])
-                        setEdges(eds => [...eds, { ...tpl.edges[idx - 1], animated: true, style: { stroke: '#333', strokeWidth: 2, strokeDasharray: '6,6' } }]);
+                        setEdges(eds => [...eds, { ...tpl.edges[idx - 1], animated: false, style: { stroke: '#444', strokeWidth: 2 }, type: 'smoothstep' }]);
                 }, idx * 150);
             });
         }
     }, [location, setNodes, setEdges]);
 
     const onConnect = useCallback((params) =>
-        setEdges(eds => addEdge({ ...params, animated: true, style: { stroke: '#333', strokeWidth: 2, strokeDasharray: '6,6' } }, eds)),
+        setEdges(eds => addEdge({ ...params, animated: false, style: { stroke: '#444', strokeWidth: 2 }, type: 'smoothstep' }, eds)),
         [setEdges]
     );
 
@@ -541,7 +541,6 @@ IMPORTANT: When generating github/fix/commit nodes, use REAL file paths from the
                 raw = data.choices[0].message.content;
             }
 
-
             const cleaned = raw.replace(/```json|```/g, '').trim();
             const parsed = JSON.parse(cleaned);
 
@@ -550,51 +549,52 @@ IMPORTANT: When generating github/fix/commit nodes, use REAL file paths from the
             setNodes([]); setEdges([]);
 
             const isMobile = window.innerWidth < 768;
-            // Build tree layout — detect branching nodes
-            const edges = parsed.edges || [];
-            const nodeSpacingX = isMobile ? 260 : 340;
-            const nodeSpacingY = isMobile ? 180 : 220;
 
-            // Find how many children each node has
+            // ── NEW HORIZONTAL LAYOUT ───────────────────────────────────────────────
+            const nodeSpacingX = isMobile ? 220 : 300;
+            const nodeSpacingY = isMobile ? 160 : 200;
+
             const childrenMap = {};
             const parentMap = {};
-            edges.forEach(e => {
+            (parsed.edges || []).forEach(e => {
                 if (!childrenMap[e.source]) childrenMap[e.source] = [];
                 childrenMap[e.source].push(e.target);
                 if (!parentMap[e.target]) parentMap[e.target] = [];
                 parentMap[e.target].push(e.source);
             });
 
-            // Assign depth (y) and branch (x) positions
             const positions = {};
-            const depthCount = {};
 
             const assignPosition = (nodeId, depth, branchIndex, totalSiblings) => {
                 if (positions[nodeId]) return;
-                const xOffset = totalSiblings > 1
-                    ? (branchIndex - (totalSiblings - 1) / 2) * nodeSpacingX
+                const parentId = parentMap[nodeId]?.[0];
+                const parentPos = positions[parentId];
+
+                // Branching: spread vertically, advance horizontally
+                const yOffset = totalSiblings > 1
+                    ? (branchIndex - (totalSiblings - 1) / 2) * nodeSpacingY
                     : 0;
-                const baseX = (positions[parentMap[nodeId]?.[0]]?.x ?? 400) + xOffset;
-                positions[nodeId] = {
-                    x: baseX,
-                    y: 80 + depth * nodeSpacingY
-                };
+                const baseY = parentPos ? parentPos.y + yOffset : 200 + yOffset;
+                const x = 60 + depth * nodeSpacingX;
+
+                positions[nodeId] = { x, y: baseY };
+
                 const children = childrenMap[nodeId] || [];
                 children.forEach((childId, idx) => {
                     assignPosition(childId, depth + 1, idx, children.length);
                 });
             };
 
-            // Find root nodes (no parents)
             const rootNodes = parsed.nodes.filter(n => !parentMap[n.id]);
             rootNodes.forEach((n, idx) => assignPosition(n.id, 0, idx, rootNodes.length));
 
-            // Fallback for disconnected nodes
             parsed.nodes.forEach((n, i) => {
                 if (!positions[n.id]) {
-                    positions[n.id] = { x: 50 + i * nodeSpacingX, y: 80 };
+                    positions[n.id] = { x: 60 + i * nodeSpacingX, y: 200 };
                 }
             });
+
+            // ────────────────────────────────────────────────────────────────────────
 
             const spacedNodes = parsed.nodes.map((n) => ({
                 id: n.id,
@@ -607,8 +607,9 @@ IMPORTANT: When generating github/fix/commit nodes, use REAL file paths from the
                 id: `e${e.source}-${e.target}-${Math.random().toString(36).slice(2, 7)}`,
                 source: e.source,
                 target: e.target,
-                animated: true,
-                style: { stroke: '#333', strokeWidth: 2, strokeDasharray: '6,6' }
+                animated: false,
+                style: { stroke: '#444', strokeWidth: 2 },
+                type: 'smoothstep'
             }));
 
             spacedNodes.forEach((node, idx) => {
@@ -622,7 +623,6 @@ IMPORTANT: When generating github/fix/commit nodes, use REAL file paths from the
 
             showToast(`Pipeline generated — ${spacedNodes.length} steps`, 'success');
             setIsGenerating(false);
-
 
             setTimeout(() => pushHistory(spacedNodes, formattedEdges), spacedNodes.length * 150 + 100);
 
@@ -866,7 +866,7 @@ IMPORTANT: When generating github/fix/commit nodes, use REAL file paths from the
                         nodeTypes={nodeTypes}
                         fitView
                         fitViewOptions={{ padding: 0.3, minZoom: 0.4, maxZoom: 1.2 }}
-                        defaultEdgeOptions={{ animated: true, style: { stroke: '#333', strokeWidth: 2, strokeDasharray: '6,6' } }}
+                        defaultEdgeOptions={{ animated: false, style: { stroke: '#444', strokeWidth: 2 }, type: 'smoothstep' }}
                         className="bg-[#080808] w-full h-full"
                         nodesDraggable={!isCanvasLocked}
                         nodesConnectable={!isCanvasLocked}
