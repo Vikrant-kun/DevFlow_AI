@@ -189,6 +189,40 @@ const UnifiedPromptBox = ({ prompt, setPrompt, model, setModel, isGenerating, ha
     );
 };
 
+// ── EDGE CONDITION COMPONENTS ────────────────────────────────────────────────
+const CONDITION_OPTIONS = [
+    { value: 'always', label: '⚡ Always', color: '#64748B' },
+    { value: 'errors_found', label: '🔴 If Errors Found', color: '#F87171' },
+    { value: 'no_errors', label: '🟢 If No Errors', color: '#6EE7B7' },
+];
+
+const EdgeConditionMenu = ({ edge, position, onSelect, onClose }) => {
+    if (!edge) return null;
+    return (
+        <div
+            className="fixed z-50 bg-[#111] border border-[#222] rounded-xl shadow-2xl overflow-hidden"
+            style={{ left: position.x, top: position.y, minWidth: 180 }}
+        >
+            <div className="px-3 py-2 border-b border-[#222]">
+                <p className="font-mono text-[10px] text-[#64748B] uppercase tracking-widest">Edge condition</p>
+            </div>
+            {CONDITION_OPTIONS.map(opt => (
+                <button
+                    key={opt.value}
+                    onClick={() => { onSelect(edge.id, opt.value); onClose(); }}
+                    className="w-full text-left px-3 py-2.5 font-mono text-xs hover:bg-[#1A1A1A] transition-colors flex items-center gap-2"
+                    style={{ color: opt.color }}
+                >
+                    {opt.label}
+                    {edge.data?.condition === opt.value && (
+                        <span className="ml-auto text-[#6EE7B7]">✓</span>
+                    )}
+                </button>
+            ))}
+        </div>
+    );
+};
+
 // ── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
 const WorkflowBuilder = () => {
@@ -209,6 +243,7 @@ const WorkflowBuilder = () => {
     const [isDirty, setIsDirty] = useState(false);
     const [unsupportedFeature, setUnsupportedFeature] = useState(null);
     const [showRerunModal, setShowRerunModal] = useState(false);
+    const [edgeMenu, setEdgeMenu] = useState({ edge: null, position: { x: 0, y: 0 } });
 
     const historyRef = useRef([]);
     const historyIndexRef = useRef(-1);
@@ -305,9 +340,33 @@ const WorkflowBuilder = () => {
     }, [location, setNodes, setEdges]);
 
     const onConnect = useCallback((params) =>
-        setEdges(eds => addEdge({ ...params, animated: false, style: { stroke: '#444', strokeWidth: 2 }, type: 'smoothstep' }, eds)),
+        setEdges(eds => addEdge({
+            ...params,
+            animated: false,
+            style: { stroke: '#444', strokeWidth: 2 },
+            type: 'smoothstep',
+            data: { condition: 'always' }
+        }, eds)),
         [setEdges]
     );
+
+    const handleEdgeClick = (event, edge) => {
+        event.stopPropagation();
+        setEdgeMenu({ edge, position: { x: event.clientX, y: event.clientY } });
+    };
+
+    const handleEdgeConditionSelect = (edgeId, condition) => {
+        setEdges(eds => eds.map(e =>
+            e.id === edgeId
+                ? {
+                    ...e,
+                    data: { ...e.data, condition },
+                    label: condition === 'always' ? '' : condition === 'errors_found' ? 'if errors' : 'if clean',
+                    style: { stroke: condition === 'errors_found' ? '#F87171' : condition === 'no_errors' ? '#6EE7B7' : '#444', strokeWidth: 2 }
+                }
+                : e
+        ));
+    };
 
     const getToken = async () => {
         const { data } = await supabase.auth.getSession();
@@ -419,10 +478,17 @@ const WorkflowBuilder = () => {
 
             socket.onopen = () => {
                 showToast('Pipeline started...', 'info');
+
+                const edgesWithCondition = edges.map(e => ({
+                    ...e,
+                    condition: e.data?.condition || 'always'
+                }));
+
                 socket.send(JSON.stringify({
                     workflow_id: workflowId,
                     workflow_name: title,
-                    nodes, edges,
+                    nodes,
+                    edges: edgesWithCondition,
                     snapshot: { title, nodes, edges, prompt: lastPrompt }
                 }));
             };
@@ -508,10 +574,12 @@ const WorkflowBuilder = () => {
 
         // ── UPDATED SYSTEM PROMPT ────────────────────────────────────────────────
         const systemPrompt = `You are a workflow automation expert. Convert the user's description into a structured pipeline. Return ONLY valid JSON, no markdown:
-{"name":"Short workflow name","nodes":[{"id":"1","type":"trigger|action|ai|notification","label":"Short Name","description":"What this step does","icon":"git-branch|zap|sparkles|bell|code|database|mail"}],"edges":[{"source":"1","target":"2"}]}
-Rules: first node always trigger, max 8 nodes, labels 2-4 words. For github/fix/commit nodes, always include the specific file path in the node description field based on what the user mentioned.${repoContext}
-IMPORTANT: When generating github/fix/commit nodes, use REAL file paths from the repo above in the description field, not placeholder paths like /path/to/file.js.
-IMPORTANT: For email/notification nodes, use ONLY these labels — success/no-error emails: "All Clear" or "No Issues Found" or "Pipeline Succeeded". failure/error emails: "Error Alert" or "Fix Needed" or "Issues Detected". Never use ambiguous labels like "No Errors", "Fix Errors", "Send Email", "Notify" for email nodes.`;
+{"name":"Short workflow name","nodes":[{"id":"1","type":"trigger|action|ai|notification","label":"Short Name","description":"What this step does","icon":"git-branch|zap|sparkles|bell|code|database|mail"}],"edges":[{"source":"1","target":"2","condition":"always|errors_found|no_errors"}]}
+Rules: first node always trigger, max 8 nodes, labels 2-4 words.
+For github/fix/commit nodes, always include the specific file path in the node description field based on what the user mentioned.${repoContext}
+IMPORTANT: Use REAL file paths from the repo in description fields, not placeholder paths.
+IMPORTANT: For email/notification nodes — success/no-error emails: label must be "All Clear" or "No Issues Found" or "Pipeline Succeeded". Error/failure emails: label must be "Error Alert" or "Fix Needed" or "Issues Detected".
+IMPORTANT: For edges leading to email/notification nodes — if the email is for errors/failures, set condition="errors_found". If the email is for success/no-errors, set condition="no_errors". All other edges use condition="always".`;
 
         try {
             let raw;
@@ -608,6 +676,7 @@ IMPORTANT: For email/notification nodes, use ONLY these labels — success/no-er
                 id: `e${e.source}-${e.target}-${Math.random().toString(36).slice(2, 7)}`,
                 source: e.source,
                 target: e.target,
+                condition: e.condition || 'always',
                 animated: false,
                 style: { stroke: '#444', strokeWidth: 2 },
                 type: 'smoothstep'
@@ -617,7 +686,15 @@ IMPORTANT: For email/notification nodes, use ONLY these labels — success/no-er
                 setTimeout(() => {
                     setNodes(nds => [...nds, node]);
                     if (idx > 0 && formattedEdges[idx - 1]) {
-                        setEdges(eds => [...eds, formattedEdges[idx - 1]]);
+                        const edge = formattedEdges[idx - 1];
+                        // Preserve AI-generated condition if present
+                        const condition = edge.condition || 'always';
+                        setEdges(eds => [...eds, {
+                            ...edge,
+                            data: { ...edge.data, condition },
+                            label: condition === 'always' ? '' : condition === 'errors_found' ? 'if errors' : 'if clean',
+                            style: { stroke: condition === 'errors_found' ? '#F87171' : condition === 'no_errors' ? '#6EE7B7' : '#444', strokeWidth: 2 }
+                        }]);
                     }
                 }, idx * 150);
             });
@@ -863,7 +940,11 @@ IMPORTANT: For email/notification nodes, use ONLY these labels — success/no-er
                         onEdgesChange={onEdgesChange}
                         onConnect={onConnect}
                         onNodeClick={(_, node) => setSelectedNode(node)}
-                        onPaneClick={() => setSelectedNode(null)}
+                        onEdgeClick={handleEdgeClick}
+                        onPaneClick={() => {
+                            setSelectedNode(null);
+                            setEdgeMenu({ edge: null, position: { x: 0, y: 0 } });
+                        }}
                         nodeTypes={nodeTypes}
                         fitView
                         fitViewOptions={{ padding: 0.3, minZoom: 0.4, maxZoom: 1.2 }}
@@ -892,6 +973,13 @@ IMPORTANT: For email/notification nodes, use ONLY these labels — success/no-er
                         </div>
                     </ReactFlow>
                 </div>
+
+                <EdgeConditionMenu
+                    edge={edgeMenu.edge}
+                    position={edgeMenu.position}
+                    onSelect={handleEdgeConditionSelect}
+                    onClose={() => setEdgeMenu({ edge: null, position: { x: 0, y: 0 } })}
+                />
             </div>
 
             {/* Prompt Input Bar */}
