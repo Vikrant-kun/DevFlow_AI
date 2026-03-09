@@ -510,7 +510,8 @@ const WorkflowBuilder = () => {
         const systemPrompt = `You are a workflow automation expert. Convert the user's description into a structured pipeline. Return ONLY valid JSON, no markdown:
 {"name":"Short workflow name","nodes":[{"id":"1","type":"trigger|action|ai|notification","label":"Short Name","description":"What this step does","icon":"git-branch|zap|sparkles|bell|code|database|mail"}],"edges":[{"source":"1","target":"2"}]}
 Rules: first node always trigger, max 8 nodes, labels 2-4 words. For github/fix/commit nodes, always include the specific file path in the node description field based on what the user mentioned.${repoContext}
-IMPORTANT: When generating github/fix/commit nodes, use REAL file paths from the repo above in the description field, not placeholder paths like /path/to/file.js.`;
+IMPORTANT: When generating github/fix/commit nodes, use REAL file paths from the repo above in the description field, not placeholder paths like /path/to/file.js.
+IMPORTANT: For email/notification nodes, use ONLY these labels — success/no-error emails: "All Clear" or "No Issues Found" or "Pipeline Succeeded". failure/error emails: "Error Alert" or "Fix Needed" or "Issues Detected". Never use ambiguous labels like "No Errors", "Fix Errors", "Send Email", "Notify" for email nodes.`;
 
         try {
             let raw;
