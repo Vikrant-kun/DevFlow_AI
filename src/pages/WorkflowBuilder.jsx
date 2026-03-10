@@ -1062,8 +1062,8 @@ export default function WorkflowBuilder() {
             if (res.ok) {
                 const { repo: selectedRepo } = await res.json();
                 if (selectedRepo?.full_name) {
-                    const treeRes = await fetch(`${API_URL}/github/tree`, {
-                        headers: { Authorization: `Bearer ${token}` },
+                    const res = await fetch(`${API_URL}${API_ROUTES.githubBranches}`, {
+                        headers: { Authorization: `Bearer ${token}` }
                     });
                     if (treeRes.ok) {
                         const treeData = await treeRes.json();
