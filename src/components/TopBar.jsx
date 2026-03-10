@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import WebhookDisplay from "./WebhookDisplay";
 import { useAuth } from "../contexts/AuthContext";
+import { apiFetch } from "../lib/api";
 
 /* ------------------ timeAgo helper ------------------ */
 const timeAgo = (dateStr) => {
@@ -35,12 +36,8 @@ const TopBar = ({ title, children }) => {
 
         const loadNotifications = async () => {
             try {
-                const token = await getAuthToken();
-                const res = await fetch(`${API}/runs`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                if (!res.ok) return;
-                const data = await res.json();
+                const data = await apiFetch('/runs', {}, getAuthToken);
+                if (!data) return;
 
                 // data is { runs: [...] }
                 const runs = data.runs || [];

@@ -2,8 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import {
     motion,
     AnimatePresence,
-    useSpring,
-    useMotionValue,
 } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -274,15 +272,13 @@ export const BillingToggle = ({ isYearly, onToggle }) => {
             />
             <button
                 onClick={() => handleToggle(false)}
-                className={`relative z-10 w-32 py-2.5 font-mono text-sm transition-colors ${!isYearly ? 'font-bold text-[#080808]' : 'text-[#64748B]'
-                    }`}
+                className={`relative z-10 w-32 py-2.5 font-mono text-sm transition-colors ${!isYearly ? 'font-bold text-[#080808]' : 'text-[#64748B]'}`}
             >
                 Monthly
             </button>
             <button
                 onClick={() => handleToggle(true)}
-                className={`relative z-10 flex w-32 items-center justify-center gap-1.5 py-2.5 font-mono text-sm transition-colors ${isYearly ? 'font-bold text-[#080808]' : 'text-[#64748B]'
-                    }`}
+                className={`relative z-10 flex w-32 items-center justify-center gap-1.5 py-2.5 font-mono text-sm transition-colors ${isYearly ? 'font-bold text-[#080808]' : 'text-[#64748B]'}`}
             >
                 Yearly
                 <span
@@ -302,6 +298,13 @@ export default function Pricing() {
     const navigate = useNavigate();
     const { user, signOut } = useAuth();
 
+    // ── Fixed: missing declarations ────────────────────────────────
+    const containerRef = useRef(null);
+    const [mouse, setMouse] = useState({ x: null, y: null });
+
+    // Generate star particles (used in background)
+    const stars = useRef(Array.from({ length: 35 }, (_, i) => i));
+
     const [isYearly, setIsYearly] = useState(false);
     const [openFaq, setOpenFaq] = useState(null);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -319,12 +322,10 @@ export default function Pricing() {
             onMouseMove={(e) => setMouse({ x: e.clientX, y: e.clientY })}
             onMouseLeave={() => setMouse({ x: null, y: null })}
         >
-            {/* Star particles */}
+            {/* Star particles background */}
             <div className="pointer-events-none fixed inset-0 z-0">
                 {stars.current.map((i) => (
-                    <StarParticle
-                        key={i}
-                    />
+                    <StarParticle key={i} />
                 ))}
             </div>
 
@@ -345,8 +346,7 @@ export default function Pricing() {
                             <a
                                 key={href}
                                 href={href}
-                                className={`transition-colors ${label === 'Pricing' ? 'text-[#6EE7B7]' : 'text-[#64748B] hover:text-[#F1F5F9]'
-                                    }`}
+                                className={`transition-colors ${label === 'Pricing' ? 'text-[#6EE7B7]' : 'text-[#64748B] hover:text-[#F1F5F9]'}`}
                             >
                                 {label}
                             </a>
@@ -418,8 +418,7 @@ export default function Pricing() {
                                         key={href}
                                         href={href}
                                         onClick={() => setMobileMenuOpen(false)}
-                                        className={`border-b border-[#1A1A1A] py-3.5 text-sm font-mono transition-colors ${label === 'Pricing' ? 'text-[#6EE7B7]' : 'text-[#64748B] hover:text-white'
-                                            }`}
+                                        className={`border-b border-[#1A1A1A] py-3.5 text-sm font-mono transition-colors ${label === 'Pricing' ? 'text-[#6EE7B7]' : 'text-[#64748B] hover:text-white'}`}
                                     >
                                         {label}
                                     </a>
@@ -642,8 +641,7 @@ export default function Pricing() {
                             {tableRows.map((row, i) => (
                                 <div
                                     key={row.label}
-                                    className={`grid grid-cols-5 border-b border-[#1A1A1A] last:border-0 ${i % 2 === 0 ? 'bg-[#080808]' : 'bg-[#0D0D0D]'
-                                        }`}
+                                    className={`grid grid-cols-5 border-b border-[#1A1A1A] last:border-0 ${i % 2 === 0 ? 'bg-[#080808]' : 'bg-[#0D0D0D]'}`}
                                 >
                                     <div className="p-5 font-mono text-xs text-[#64748B]">{row.label}</div>
                                     {[row.free, row.pro, row.team, row.enterprise].map((val, j) => (

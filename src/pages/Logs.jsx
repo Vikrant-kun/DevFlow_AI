@@ -9,6 +9,7 @@ import TopBar from '../components/TopBar';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../contexts/ToastContext';
+import { apiFetch } from '../lib/api';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -292,12 +293,8 @@ const Logs = () => {
             if (!user) { setIsLoading(false); return; }
             setIsLoading(true);
             try {
-                const token = await getAuthToken();
-                const res = await fetch(`${API_URL}/runs/`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (res.ok) {
-                    const data = await res.json();
+                const data = await apiFetch('/runs/', {}, getAuthToken);
+                if (data) {
                     setLogsData(data.runs || data);
                 }
             } catch (err) {

@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import TopBar from '../components/TopBar';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import { apiFetch } from '../lib/api';
 
 const containerVariants = {
     hidden: { opacity: 0 },
@@ -61,12 +62,8 @@ const Workflows = () => {
         const fetchWorkflows = async () => {
             if (!user) return;
             try {
-                const token = await getAuthToken();
-                const res = await fetch(`${API_URL}/workflows`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (!res.ok) throw new Error("Failed to load");
-                const { workflows: data } = await res.json();
+                const dataObj = await apiFetch('/workflows', {}, getAuthToken);
+                const data = dataObj.workflows || [];
 
                 const formatted = data.map(w => ({
                     id: w.id,
@@ -90,12 +87,9 @@ const Workflows = () => {
     const confirmDelete = async () => {
         if (!workflowToDelete) return;
         try {
-            const token = await getAuthToken();
-            const res = await fetch(`${API_URL}/workflows/${workflowToDelete.id}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (!res.ok) throw new Error("Delete failed");
+            await apiFetch(`/workflows/${workflowToDelete.id}`, {
+                method: 'DELETE'
+            }, getAuthToken);
             setWorkflows(prev => prev.filter(w => w.id !== workflowToDelete.id));
             showToast("Workflow deleted", "success");
         } catch (err) {

@@ -7,6 +7,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import TopBar from '../components/TopBar';
 import Sidebar from '../components/Sidebar';
+import { apiFetch } from '../lib/api';
 
 const getStatusBadge = (status) => {
     switch (status) {
@@ -69,21 +70,16 @@ const Dashboard = () => {
         const loadData = async () => {
             if (!user) return;
             try {
-                const token = await getAuthToken();
-
                 // Load all workflows and runs in parallel
-                const [workflowsRes, runsRes] = await Promise.all([
-                    fetch(`${API_URL}/workflows`, { headers: { Authorization: `Bearer ${token}` } }),
-                    fetch(`${API_URL}/runs`, { headers: { Authorization: `Bearer ${token}` } })
+                const [workflowsData, runsData] = await Promise.all([
+                    apiFetch('/workflows', {}, getAuthToken),
+                    apiFetch('/runs', {}, getAuthToken)
                 ]);
 
-                if (!workflowsRes.ok || !runsRes.ok) {
+                if (!workflowsData || !runsData) {
                     console.error('Failed to fetch workflows or runs');
                     return;
                 }
-
-                const { workflows: workflowsData } = await workflowsRes.json();
-                const { runs: runsData } = await runsRes.json();
 
                 // Checklist progress
                 const hasWorkflow = !!workflowsData?.length;
@@ -172,23 +168,17 @@ const Dashboard = () => {
         if (!selectedRepo || uploadFiles.length === 0) return;
         setIsCommitting(true);
         try {
-            const token = await getAuthToken();
             for (const file of uploadFiles) {
                 const content = await file.text();
-                const res = await fetch(`${API_URL}/github/commit`, {
+                await apiFetch('/github/commit', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                     body: JSON.stringify({
                         repo_full_name: selectedRepo.full_name,
                         path: file.name,
                         content,
                         message: commitMessage || `Add ${file.name} via DevFlow`
                     })
-                });
-                if (!res.ok) {
-                    const errorData = await res.json();
-                    throw new Error(errorData.detail || 'Commit failed');
-                }
+                }, getAuthToken);
             }
             showToast(`${uploadFiles.length} file(s) pushed to ${selectedRepo.full_name}`, 'success');
             setUploadFiles([]);
@@ -206,18 +196,11 @@ const Dashboard = () => {
             return;
         }
         try {
-            const token = await getAuthToken();
             showToast(`Running ${workflow.name}...`, 'info');
-            const res = await fetch(`${API_URL}/workflows/run`, {
+            const result = await apiFetch('/workflows/run', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({ workflow_id: workflow.id, workflow_name: workflow.name, snapshot: {} })
-            });
-            if (!res.ok) {
-                const errorData = await res.json();
-                throw new Error(errorData.detail || `Run failed (${res.status})`);
-            }
-            const result = await res.json();
+            }, getAuthToken);
             if (result.status === 'success') {
                 showToast(`${workflow.name} executed!`, 'success');
             } else {
@@ -231,15 +214,9 @@ const Dashboard = () => {
     const handleDeleteWorkflow = async (workflow) => {
         if (!confirm(`Delete "${workflow.name}"? This cannot be undone.`)) return;
         try {
-            const token = await getAuthToken();
-            const res = await fetch(`${API_URL}/workflows/${workflow.id}`, {
-                method: 'DELETE',
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            if (!res.ok) {
-                const errorData = await res.json();
-                throw new Error(errorData.detail || 'Delete failed');
-            }
+            await apiFetch(`/workflows/${workflow.id}`, {
+                method: 'DELETE'
+            }, getAuthToken);
             setRecentWorkflows(prev => prev.filter(w => w.id !== workflow.id));
             showToast(`"${workflow.name}" deleted`, 'success');
         } catch (err) {

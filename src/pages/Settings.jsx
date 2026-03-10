@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { Github, Users, Crown, LogOut, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { apiFetch } from '../lib/api';
 
 const containerVariants = {
     hidden: { opacity: 0 },
@@ -52,23 +53,16 @@ const Settings = () => {
     const handleDeleteWorkflows = async () => {
         if (!window.confirm('Delete all workflows? This cannot be undone.')) return;
         try {
-            const token = await getAuthToken();
             // First fetch all workflows
-            const wfRes = await fetch(`${API_URL}/workflows`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            if (!wfRes.ok) throw new Error('Failed to fetch workflows');
-            const { workflows } = await wfRes.json();
+            const wfData = await apiFetch('/workflows', {}, getAuthToken);
+            const workflows = wfData.workflows || [];
 
             // Delete them all in parallel
             await Promise.all(
                 workflows.map(w =>
-                    fetch(`${API_URL}/workflows/${w.id}`, {
-                        method: 'DELETE',
-                        headers: { Authorization: `Bearer ${token}` }
-                    }).then(res => {
-                        if (!res.ok) throw new Error(`Failed to delete workflow ${w.id}`);
-                    })
+                    apiFetch(`/workflows/${w.id}`, {
+                        method: 'DELETE'
+                    }, getAuthToken)
                 )
             );
 

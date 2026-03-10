@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useUser, useAuth as useClerkAuth } from '@clerk/clerk-react';
 import { useNavigate } from 'react-router-dom';
+import { apiFetch } from '../lib/api';
 
 const AuthContext = createContext();
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -36,23 +37,14 @@ export const AuthProvider = ({ children }) => {
         if (!isSignedIn) return;
         setGithubLoading(true);
         try {
-            const token = await getAuthToken();
-            const res = await fetch(`${API}/github/repos`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            if (res.ok) {
-                const data = await res.json();
+            const data = await apiFetch('/github/repos', {}, getAuthToken);
+            if (data) {
                 setIsGithubConnected(true);
                 setRepos(data.repos || []);
 
                 // Restore selected repo
-                const repoRes = await fetch(`${API}/github/selected-repo`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                if (repoRes.ok) {
-                    const repoData = await repoRes.json();
-                    if (repoData.repo) setSelectedRepo(repoData.repo);
-                }
+                const repoData = await apiFetch('/github/selected-repo', {}, getAuthToken);
+                if (repoData && repoData.repo) setSelectedRepo(repoData.repo);
             } else {
                 setIsGithubConnected(false);
             }
@@ -68,12 +60,8 @@ export const AuthProvider = ({ children }) => {
         if (!isSignedIn) return;
         setGithubLoading(true);
         try {
-            const token = await getAuthToken();
-            const res = await fetch(`${API}/github/repos`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            if (res.ok) {
-                const data = await res.json();
+            const data = await apiFetch('/github/repos', {}, getAuthToken);
+            if (data) {
                 setRepos(data.repos || []);
             }
         } catch (err) {
@@ -91,12 +79,10 @@ export const AuthProvider = ({ children }) => {
             });
             if (!test.ok) throw new Error('Invalid PAT');
 
-            const token = await getAuthToken();
-            await fetch(`${API}/github/token`, {
+            await apiFetch('/github/token', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({ token: pat.trim() })
-            });
+            }, getAuthToken);
 
             setIsGithubConnected(true);
             await fetchRepos();
@@ -119,12 +105,10 @@ export const AuthProvider = ({ children }) => {
         setSelectedRepo(repo);
         if (!repo || !isSignedIn) return;
         try {
-            const token = await getAuthToken();
-            await fetch(`${API}/github/select-repo`, {
+            await apiFetch('/github/select-repo', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({ repo_full_name: repo.full_name })
-            });
+            }, getAuthToken);
         } catch (e) {
             console.error('Failed to save selected repo:', e);
         }
