@@ -389,7 +389,7 @@ const RepoBranchPanel = ({ user, getAuthToken }) => {
                 if (mounted) setRepo(repoData.repo.full_name);
 
                 // Fetch branches
-                const branchesRes = await fetch(`${API_URL}/github/branches`, {
+                const branchesRes = await fetch(`${API_URL}${API_ROUTES.githubBranches}`, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
                 if (!branchesRes.ok) throw new Error('Failed to fetch branches');
@@ -420,7 +420,7 @@ const RepoBranchPanel = ({ user, getAuthToken }) => {
         setLoading(true);
         try {
             const token = await getAuthToken();
-            const res = await fetch(`${API_URL}/github/branches`, {
+            const branchesRes = await fetch(`${API_URL}${API_ROUTES.githubBranches}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (!res.ok) throw new Error('Failed to fetch branches');
