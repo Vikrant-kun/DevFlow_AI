@@ -3,7 +3,6 @@ import { Bell, CheckCircle2, Zap, GitCommit, AlertCircle, User as UserIcon } fro
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import WebhookDisplay from "./WebhookDisplay";
-import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 
 /* ------------------ timeAgo helper ------------------ */
@@ -23,7 +22,8 @@ const timeAgo = (dateStr) => {
 
 const TopBar = ({ title, children }) => {
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, getAuthToken } = useAuth();
+    const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
     const [notificationsOpen, setNotificationsOpen] = useState(false);
     const [activeNotifications, setActiveNotifications] = useState([]);
@@ -34,16 +34,19 @@ const TopBar = ({ title, children }) => {
         if (!user) return;
 
         const loadNotifications = async () => {
-            const { data } = await supabase
-                .from("workflow_runs")
-                .select("id, workflow_name, status, started_at, duration")
-                .eq("user_id", user.id)
-                .order("started_at", { ascending: false })
-                .limit(5);
+            try {
+                const token = await getAuthToken();
+                const res = await fetch(`${API}/runs`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (!res.ok) return;
+                const data = await res.json();
 
-            if (data) {
+                // data is { runs: [...] }
+                const runs = data.runs || [];
+
                 setActiveNotifications(
-                    data.map((r) => ({
+                    runs.slice(0, 5).map((r) => ({
                         id: r.id,
                         name: r.workflow_name,
                         description: `${r.status === "success" ? "Completed" : "Failed"} in ${r.duration || "—"}`,
@@ -52,43 +55,16 @@ const TopBar = ({ title, children }) => {
                         color: r.status === "success" ? "#6EE7B7" : "#F87171",
                     }))
                 );
+            } catch (err) {
+                console.error("Failed to load notifications:", err);
             }
         };
 
         loadNotifications();
 
-        /* ------------------ Realtime Subscription ------------------ */
-        const channel = supabase
-            .channel("workflow_runs_changes")
-            .on(
-                "postgres_changes",
-                {
-                    event: "INSERT",
-                    schema: "public",
-                    table: "workflow_runs",
-                    filter: `user_id=eq.${user.id}`,
-                },
-                (payload) => {
-                    const r = payload.new;
-
-                    setActiveNotifications((prev) =>
-                        [
-                            {
-                                id: r.id,
-                                name: r.workflow_name,
-                                description: `${r.status === "success" ? "Completed" : "Failed"} in ${r.duration || "—"}`,
-                                time: "just now",
-                                iconType: r.status === "success" ? "success" : "error",
-                                color: r.status === "success" ? "#6EE7B7" : "#F87171",
-                            },
-                            ...prev,
-                        ].slice(0, 5)
-                    );
-                }
-            )
-            .subscribe();
-
-        return () => supabase.removeChannel(channel);
+        // Polling as a fallback for realtime (every 30s)
+        const pollInterval = setInterval(loadNotifications, 30000);
+        return () => clearInterval(pollInterval);
     }, [user]);
 
     /* ------------------ Close Dropdown Outside Click ------------------ */

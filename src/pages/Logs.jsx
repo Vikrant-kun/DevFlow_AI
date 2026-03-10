@@ -6,9 +6,9 @@ import {
     Cpu, Bell, X, ArrowRight, Layers
 } from 'lucide-react';
 import TopBar from '../components/TopBar';
-import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../contexts/ToastContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -273,7 +273,8 @@ const Logs = () => {
     const [activeFilter, setActiveFilter] = useState('All');
     const filterRef = useRef(null);
 
-    const { user } = useAuth();
+    const { user, getAuthToken } = useAuth();
+    const { showToast } = useToast();
     const navigate = useNavigate();
 
     // ── PERFECT GRID LAYOUT SPACING ──
@@ -288,39 +289,24 @@ const Logs = () => {
     // Fetch from backend API (has snapshots + logs)
     useEffect(() => {
         const fetchLogs = async () => {
-            setIsLoading(true);
             if (!user) { setIsLoading(false); return; }
+            setIsLoading(true);
             try {
-                const { data: session } = await supabase.auth.getSession();
-                const token = session?.session?.access_token;
-
+                const token = await getAuthToken();
                 const res = await fetch(`${API_URL}/runs/`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-
                 if (res.ok) {
                     const data = await res.json();
                     setLogsData(data.runs || data);
-                } else {
-                    // Fallback to Supabase direct
-                    const { data, error } = await supabase
-                        .from('workflow_runs').select('*')
-                        .eq('user_id', user.id)
-                        .order('started_at', { ascending: false });
-                    if (data && !error) setLogsData(data);
                 }
-            } catch {
-                // Fallback to Supabase direct
-                const { data, error } = await supabase
-                    .from('workflow_runs').select('*')
-                    .eq('user_id', user.id)
-                    .order('started_at', { ascending: false });
-                if (data && !error) setLogsData(data);
+            } catch (err) {
+                console.error("Failed to fetch logs:", err);
             }
             setIsLoading(false);
         };
         fetchLogs();
-    }, [user]);
+    }, [user, getAuthToken]);
 
     const handleReplay = (run) => {
         setReplayRun(null);

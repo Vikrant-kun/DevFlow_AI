@@ -1,6 +1,4 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { useSignIn, useSignUp } from '@clerk/clerk-react';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -8,6 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Github, Zap, GitBranch, Sparkles, ArrowLeft } from 'lucide-react';
 
 const Auth = () => {
+    const { isLoaded: isSignInLoaded, signIn, setActive: setSignInActive } = useSignIn();
+    const { isLoaded: isSignUpLoaded, signUp, setActive: setSignUpActive } = useSignUp();
     const [searchParams] = useSearchParams();
     const mode = searchParams.get('mode');
     const [isLogin, setIsLogin] = useState(mode === 'signup' ? false : true);
@@ -53,7 +53,7 @@ const Auth = () => {
     }, []);
 
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { isSignedIn } = useAuth();
 
     useEffect(() => {
         if (mode === 'signup') {
@@ -64,7 +64,7 @@ const Auth = () => {
     }, [mode]);
 
     useEffect(() => {
-        if (user) {
+        if (isSignedIn) {
             const hasOnboarded = localStorage.getItem('devflow_onboarded') === 'true';
             if (hasOnboarded) {
                 navigate('/dashboard', { replace: true });
@@ -72,36 +72,63 @@ const Auth = () => {
                 navigate('/onboarding', { replace: true });
             }
         }
-    }, [user, navigate]);
+    }, [isSignedIn, navigate]);
 
     const handleEmailAuth = async (e) => {
         e.preventDefault();
+        if (!isSignInLoaded || !isSignUpLoaded) return;
         setLoading(true);
         setError(null);
 
         try {
             if (isLogin) {
-                const { error } = await supabase.auth.signInWithPassword({ email, password });
-                if (error) throw error;
-            } else {
-                const { error } = await supabase.auth.signUp({
-                    email, password, options: { data: { full_name: fullName } }
+                const result = await signIn.create({
+                    identifier: email,
+                    password,
                 });
-                if (error) throw error;
+                if (result.status === "complete") {
+                    await setSignInActive({ session: result.createdSessionId });
+                    navigate("/dashboard");
+                } else {
+                    console.error("Sign in failed:", result);
+                    setError("Sign in requires MFA or other steps not yet implemented.");
+                }
+            } else {
+                const result = await signUp.create({
+                    emailAddress: email,
+                    password,
+                    firstName: fullName.split(' ')[0],
+                    lastName: fullName.split(' ').slice(1).join(' '),
+                });
+                // Note: Clerk usually requires verification. For simplicity we'll assume it's disabled or handled by Clerk UI.
+                // In a production app, we'd handle email verification here.
+                if (result.status === "complete") {
+                    await setSignUpActive({ session: result.createdSessionId });
+                    navigate("/onboarding");
+                } else {
+                    setError("Check your email for verification. (Flow not fully implemented here)");
+                }
             }
         } catch (err) {
-            setError(err.message);
+            setError(err.errors ? err.errors[0].message : err.message);
         } finally {
             setLoading(false);
         }
     };
 
     const handleOAuth = async (provider) => {
-        try {
-            const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: `${window.location.origin}/dashboard` } });
-            if (error) throw error;
-        } catch (err) {
-            setError(err.message);
+        if (isLogin) {
+            signIn.authenticateWithRedirect({
+                strategy: `oauth_${provider}`,
+                redirectUrl: "/sso-callback",
+                redirectUrlComplete: "/dashboard",
+            });
+        } else {
+            signUp.authenticateWithRedirect({
+                strategy: `oauth_${provider}`,
+                redirectUrl: "/sso-callback",
+                redirectUrlComplete: "/onboarding",
+            });
         }
     };
 

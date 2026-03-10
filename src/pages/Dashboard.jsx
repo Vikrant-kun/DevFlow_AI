@@ -4,7 +4,6 @@ import { Play, FileEdit, Plus, Layers, X, Github, CheckCircle2, ChevronRight, Up
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { useToast } from '../contexts/ToastContext';
-import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import TopBar from '../components/TopBar';
 import Sidebar from '../components/Sidebar';
@@ -42,13 +41,12 @@ const Dashboard = () => {
         { label: "Time Saved", value: "0h" }
     ]);
     const { showToast } = useToast();
-    const { user, isGithubConnected, repos, selectedRepo, saveSelectedRepo, githubLoading, fetchRepos } = useAuth();
+    const { user, isGithubConnected, repos, selectedRepo, saveSelectedRepo, githubLoading, fetchRepos, getAuthToken } = useAuth();
     const [showRepoSelector, setShowRepoSelector] = useState(false);
     const [checklistDismissed, setChecklistDismissed] = useState(true);
     const [patBannerDismissed, setPatBannerDismissed] = useState(
         () => localStorage.getItem('devflow_pat_banner_dismissed') === 'true'
     );
-
 
     // ── File commit / upload state ───────────────────────────────────────
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -70,65 +68,68 @@ const Dashboard = () => {
 
         const loadData = async () => {
             if (!user) return;
+            try {
+                const token = await getAuthToken();
 
-            // Checklist progress
-            const { data: workflows } = await supabase
-                .from('workflows')
-                .select('id')
-                .eq('user_id', user.id)
-                .limit(1);
-
-            const hasWorkflow = !!workflows?.length;
-            const hasRun = localStorage.getItem('devflow_has_run') === 'true';
-
-            setChecklistItems([
-                { id: 'create_account', label: 'create_account', done: true, route: null },
-                { id: 'connect_github', label: 'connect_github', done: isGithubConnected, route: '/integrations' },
-                { id: 'create_workflow', label: 'create_first_workflow', done: hasWorkflow, route: '/workflows/new' },
-                { id: 'run_pipeline', label: 'run_first_pipeline', done: hasRun, route: null, locked: !hasWorkflow },
-            ]);
-
-            // Load recent workflows + stats
-            const { data: workflowsData } = await supabase
-                .from('workflows')
-                .select('*')
-                .eq('user_id', user.id)
-                .order('created_at', { ascending: false });
-
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-
-            const { data: runsData } = await supabase
-                .from('workflow_runs')
-                .select('status, started_at, duration')
-                .eq('user_id', user.id);
-
-            if (runsData && workflowsData) {
-                const todayRuns = runsData.filter(r => new Date(r.started_at) >= today);
-                const successRuns = runsData.filter(r => r.status === 'success');
-                const successRate = runsData.length > 0
-                    ? Math.round((successRuns.length / runsData.length) * 100)
-                    : 0;
-
-                const minutesSaved = successRuns.length * 5;
-                const timeSaved = minutesSaved >= 60
-                    ? `${Math.floor(minutesSaved / 60)}h ${minutesSaved % 60}m`
-                    : `${minutesSaved}m`;
-
-                setStats([
-                    { label: 'Total Workflows', value: workflowsData.length.toString() },
-                    { label: 'Runs Today', value: todayRuns.length.toString() },
-                    { label: 'Success Rate', value: runsData.length > 0 ? `${successRate}%` : '—' },
-                    { label: 'Time Saved', value: timeSaved || '0m' }
+                // Load all workflows and runs in parallel
+                const [workflowsRes, runsRes] = await Promise.all([
+                    fetch(`${API_URL}/workflows`, { headers: { Authorization: `Bearer ${token}` } }),
+                    fetch(`${API_URL}/runs`, { headers: { Authorization: `Bearer ${token}` } })
                 ]);
 
-                const recent = workflowsData.slice(0, 4).map(w => ({
-                    id: w.id,
-                    name: w.name,
-                    status: w.status.charAt(0).toUpperCase() + w.status.slice(1),
-                    lastRun: w.updated_at ? new Date(w.updated_at).toLocaleDateString() : 'Never'
-                }));
-                setRecentWorkflows(recent);
+                if (!workflowsRes.ok || !runsRes.ok) {
+                    console.error('Failed to fetch workflows or runs');
+                    return;
+                }
+
+                const { workflows: workflowsData } = await workflowsRes.json();
+                const { runs: runsData } = await runsRes.json();
+
+                // Checklist progress
+                const hasWorkflow = !!workflowsData?.length;
+                const hasRun = runsData?.some(r => r.status === 'success') || localStorage.getItem('devflow_has_run') === 'true';
+
+                setChecklistItems([
+                    { id: 'create_account', label: 'create_account', done: true, route: null },
+                    { id: 'connect_github', label: 'connect_github', done: isGithubConnected, route: '/integrations' },
+                    { id: 'create_first_workflow', label: 'create_first_workflow', done: hasWorkflow, route: '/workflows/new' },
+                    { id: 'run_pipeline', label: 'run_first_pipeline', done: hasRun, route: null, locked: !hasWorkflow },
+                ]);
+
+                // Stats calculation
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                if (runsData && workflowsData) {
+                    const todayRuns = runsData.filter(r => new Date(r.started_at) >= today);
+                    const successRuns = runsData.filter(r => r.status === 'success');
+                    const successRate = runsData.length > 0
+                        ? Math.round((successRuns.length / runsData.length) * 100)
+                        : 0;
+
+                    const minutesSaved = successRuns.length * 5;
+                    const timeSaved = minutesSaved >= 60
+                        ? `${Math.floor(minutesSaved / 60)}h ${minutesSaved % 60}m`
+                        : `${minutesSaved}m`;
+
+                    setStats([
+                        { label: 'Total Workflows', value: workflowsData.length.toString() },
+                        { label: 'Runs Today', value: todayRuns.length.toString() },
+                        { label: 'Success Rate', value: runsData.length > 0 ? `${successRate}%` : '—' },
+                        { label: 'Time Saved', value: timeSaved || '0m' }
+                    ]);
+
+                    const recent = workflowsData.slice(0, 4).map(w => ({
+                        id: w.id,
+                        name: w.name,
+                        status: (w.status || "draft").charAt(0).toUpperCase() + (w.status || "draft").slice(1),
+                        lastRun: w.updated_at ? new Date(w.updated_at).toLocaleDateString() : 'Never'
+                    }));
+                    setRecentWorkflows(recent);
+                }
+            } catch (err) {
+                console.error("Dashboard data load error:", err);
+                showToast("Failed to load dashboard data", "error");
             }
         };
 
@@ -138,7 +139,7 @@ const Dashboard = () => {
         if (isGithubConnected && repos.length === 0) {
             fetchRepos();
         }
-    }, [user, isGithubConnected]);
+    }, [user, isGithubConnected, showToast, fetchRepos]);
 
     const handleDismissChecklist = () => {
         localStorage.setItem('devflow_checklist_dismissed', 'true');
@@ -159,7 +160,6 @@ const Dashboard = () => {
         }
     };
 
-
     // ── File upload / commit handlers ────────────────────────────────────
     const handleDrop = useCallback((e) => {
         e.preventDefault();
@@ -172,12 +172,12 @@ const Dashboard = () => {
         if (!selectedRepo || uploadFiles.length === 0) return;
         setIsCommitting(true);
         try {
-            const { data: { session } } = await supabase.auth.getSession();
+            const token = await getAuthToken();
             for (const file of uploadFiles) {
                 const content = await file.text();
                 const res = await fetch(`${API_URL}/github/commit`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                     body: JSON.stringify({
                         repo_full_name: selectedRepo.full_name,
                         path: file.name,
@@ -185,7 +185,10 @@ const Dashboard = () => {
                         message: commitMessage || `Add ${file.name} via DevFlow`
                     })
                 });
-                if (!res.ok) throw new Error((await res.json()).detail || 'Commit failed');
+                if (!res.ok) {
+                    const errorData = await res.json();
+                    throw new Error(errorData.detail || 'Commit failed');
+                }
             }
             showToast(`${uploadFiles.length} file(s) pushed to ${selectedRepo.full_name}`, 'success');
             setUploadFiles([]);
@@ -198,19 +201,28 @@ const Dashboard = () => {
     };
 
     const handleRunWorkflow = async (workflow) => {
-        if (!user) { showToast('Log in to run.', 'error'); return; }
+        if (!user) {
+            showToast('Log in to run.', 'error');
+            return;
+        }
         try {
-            const { data: { session } } = await supabase.auth.getSession();
+            const token = await getAuthToken();
             showToast(`Running ${workflow.name}...`, 'info');
             const res = await fetch(`${API_URL}/workflows/run`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({ workflow_id: workflow.id, workflow_name: workflow.name, snapshot: {} })
             });
-            if (!res.ok) throw new Error(`${res.status}`);
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.detail || `Run failed (${res.status})`);
+            }
             const result = await res.json();
-            if (result.status === 'success') showToast(`${workflow.name} executed!`, 'success');
-            else showToast(`${workflow.name} failed — check Logs`, 'error');
+            if (result.status === 'success') {
+                showToast(`${workflow.name} executed!`, 'success');
+            } else {
+                showToast(`${workflow.name} failed — check Logs`, 'error');
+            }
         } catch (err) {
             showToast('Run failed: ' + err.message, 'error');
         }
@@ -218,10 +230,21 @@ const Dashboard = () => {
 
     const handleDeleteWorkflow = async (workflow) => {
         if (!confirm(`Delete "${workflow.name}"? This cannot be undone.`)) return;
-        const { error } = await supabase.from('workflows').delete().eq('id', workflow.id);
-        if (error) { showToast('Failed to delete', 'error'); return; }
-        setRecentWorkflows(prev => prev.filter(w => w.id !== workflow.id));
-        showToast(`"${workflow.name}" deleted`, 'success');
+        try {
+            const token = await getAuthToken();
+            const res = await fetch(`${API_URL}/workflows/${workflow.id}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.detail || 'Delete failed');
+            }
+            setRecentWorkflows(prev => prev.filter(w => w.id !== workflow.id));
+            showToast(`"${workflow.name}" deleted`, 'success');
+        } catch (err) {
+            showToast('Failed to delete: ' + err.message, 'error');
+        }
     };
 
     return (
@@ -315,7 +338,7 @@ const Dashboard = () => {
                             )}
                         </AnimatePresence>
 
-                        {/* GitHub PAT Banner — shown to GitHub OAuth users who haven't connected a PAT */}
+                        {/* GitHub PAT Banner */}
                         <AnimatePresence>
                             {!isGithubConnected && !patBannerDismissed && (
                                 <motion.div
@@ -336,11 +359,9 @@ const Dashboard = () => {
                                         onClick={e => e.stopPropagation()}
                                         className="relative w-full max-w-md bg-[#0D0D0D] border border-[#222] rounded-2xl overflow-hidden shadow-2xl"
                                     >
-                                        {/* top mint accent line */}
                                         <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-[#6EE7B7] to-transparent" />
 
                                         <div className="p-6">
-                                            {/* close */}
                                             <button
                                                 onClick={() => {
                                                     localStorage.setItem('devflow_pat_banner_dismissed', 'true');
@@ -351,20 +372,18 @@ const Dashboard = () => {
                                                 <X className="w-4 h-4" />
                                             </button>
 
-                                            {/* icon */}
                                             <div className="w-12 h-12 rounded-xl bg-[#6EE7B7]/10 border border-[#6EE7B7]/20 flex items-center justify-center mb-4">
                                                 <Github className="w-6 h-6 text-[#6EE7B7]" />
                                             </div>
 
-                                            {/* text */}
                                             <h3 className="font-mono text-base font-bold text-[#F1F5F9] mb-1">
                                                 One more step
                                             </h3>
                                             <p className="font-mono text-xs text-[#64748B] leading-relaxed mb-1">
                                                 You're signed in with{' '}
                                                 <span className="text-[#F1F5F9]">
-                                                    {user?.app_metadata?.provider === 'google' ? 'Google' :
-                                                        user?.app_metadata?.provider === 'github' ? 'GitHub' : 'email'}
+                                                    {user?.externalAccounts?.find(acc => acc.provider === 'google') ? 'Google' :
+                                                        user?.externalAccounts?.find(acc => acc.provider === 'github') ? 'GitHub' : 'email'}
                                                 </span>{' '}
                                                 — but DevFlow needs a{' '}
                                                 <span className="text-[#F1F5F9]">GitHub Personal Access Token</span> to read and write your repos.
@@ -373,7 +392,6 @@ const Dashboard = () => {
                                                 OAuth login proves your identity. A PAT gives DevFlow permission to commit, push, and scan your code.
                                             </p>
 
-                                            {/* actions */}
                                             <div className="flex gap-3">
                                                 <button
                                                     onClick={() => {

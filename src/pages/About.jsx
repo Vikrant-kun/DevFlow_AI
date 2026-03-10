@@ -16,7 +16,6 @@ import {
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
 
 const sectionVariants = {
     hidden: { opacity: 0, y: 30 },
@@ -54,17 +53,17 @@ const TECH_STACK = [
     { name: 'React Flow', icon: LayoutTemplate },
     { name: 'Framer Motion', icon: Code2 },
     { name: 'FastAPI', icon: Layers },
-    { name: 'Supabase', icon: Database },
+    { name: 'PostgreSQL', icon: Database },
     { name: 'AI Models', icon: Cpu },
 ];
 
 export default function About() {
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, handleLogout } = useAuth();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const handleSignOut = async () => {
-        await supabase.auth.signOut();
+        await handleLogout();
         setIsMobileMenuOpen(false);
         navigate('/');
     };

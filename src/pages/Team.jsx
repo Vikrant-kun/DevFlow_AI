@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, Crown, Settings as SettingsIcon, Shield, GitBranch } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
 import { useToast } from '../contexts/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import TopBar from '../components/TopBar';
@@ -42,62 +41,11 @@ export default function Team() {
         fetchTeamInfo();
     }, [user]);
     const fetchTeamInfo = async () => {
-        try {
-            setLoading(true);
-            let { data: ownedTeams } = await supabase.from('teams').select('*').eq('owner_id', user.id).limit(1);
-            let myTeam = ownedTeams?.[0];
-            let myRole = myTeam ? 'owner' : null;
-            if (!myTeam) {
-                const { data: membership } = await supabase.from('team_members').select('team_id, role, status').eq('user_id', user.id).limit(1);
-                if (membership && membership.length > 0) {
-                    const { data: memberTeam } = await supabase.from('teams').select('*').eq('id', membership[0].team_id).single();
-                    myTeam = memberTeam;
-                    myRole = membership[0].role;
-                    if (membership[0].status === 'pending') {
-                        await supabase.from('team_members').update({ status: 'active', joined_at: new Date().toISOString() }).eq('user_id', user.id);
-                    }
-                }
-            }
-            if (myTeam) {
-                setTeamData(myTeam);
-                setRole(myRole);
-                await fetchMembers(myTeam.id, myTeam);
-                await fetchTeamWorkflows(myTeam.id);
-            } else {
-                setTeamData(null);
-                setRole(null);
-            }
-        } catch (error) {
-            console.error(error);
-            showToast("Failed to load team data", "error");
-        } finally {
-            setLoading(false);
-        }
-    };
-    const fetchMembers = async (teamId, team) => {
-        const { data } = await supabase.from('team_members').select('*').eq('team_id', teamId).order('role', { ascending: false });
-        const ownerRow = { id: 'owner-row', team_id: teamId, user_id: team?.owner_id, email: user.email, role: 'owner', status: 'active', joined_at: team?.created_at };
-        const filteredData = data?.filter(m => m.user_id !== team?.owner_id) || [];
-        setMembers([ownerRow, ...filteredData]);
-    };
-    const fetchTeamWorkflows = async (teamId) => {
-        const { data } = await supabase.from('workflows').select('id, name, updated_at, status').eq('team_id', teamId).order('updated_at', { ascending: false });
-        setSharedWorkflows(data || []);
-        setStats(prev => ({ ...prev, workflows: data?.length || 0 }));
-    };
-    const handleCreateTeam = async (e) => {
-        e.preventDefault();
-        try {
-            const colors = ['#6EE7B7', '#60A5FA', '#FBBF24', '#F472B6'];
-            const color = colors[Math.floor(Math.random() * colors.length)];
-            const { data, error } = await supabase.from('teams').insert({ name: teamName, slug: teamSlug || teamName.toLowerCase().replace(/[^a-z0-9]/g, '-'), owner_id: user.id, avatar_color: color }).select().single();
-            if (error) throw error;
-            showToast("Team created!", "success");
-            setShowCreateModal(false);
-            setTeamData(data);
-            setRole('owner');
-            fetchTeamInfo();
-        } catch (error) { showToast(error.message || "Failed to create team", "error"); }
+        setLoading(true);
+        // Team API not yet implemented in new backend
+        setTeamData(null);
+        setRole(null);
+        setLoading(false);
     };
     const handleInviteMember = async (e) => {
         e.preventDefault();

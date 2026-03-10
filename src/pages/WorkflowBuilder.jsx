@@ -7,6 +7,7 @@ import {
     useNodesState,
     useEdgesState,
     addEdge,
+    useParams
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -35,10 +36,9 @@ import {
 } from 'lucide-react';
 import CustomNode from '../components/CustomNode';
 import TopBar from '../components/TopBar';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
 import { templateNodesData } from '../lib/templateNodes';
 
 const nodeTypes = { custom: CustomNode };
@@ -372,9 +372,14 @@ const RepoBranchPanel = ({ user }) => {
         if (!user) return;
         const load = async () => {
             try {
-                const { data: settings } = await supabase.from('user_settings').select('selected_repo_full_name').eq('user_id', user.id).maybeSingle();
-                if (!settings?.selected_repo_full_name) return;
-                setRepo(settings.selected_repo_full_name);
+                const token = await user.getToken();
+                const res = await fetch(`${API_URL}/github/selected-repo`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) return;
+                const { repo: repoData } = await res.json();
+                if (!repoData) return;
+                setRepo(repoData.full_name);
                 await fetchBranches();
             } catch (e) {
                 console.error('RepoBranchPanel load error:', e);
@@ -386,8 +391,10 @@ const RepoBranchPanel = ({ user }) => {
     const fetchBranches = async () => {
         setLoading(true);
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const res = await fetch(`${API_URL}/github/branches`, { headers: { Authorization: `Bearer ${session?.access_token}` } });
+            const token = await user.getToken();
+            const res = await fetch(`${API_URL}/github/branches`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
             if (!res.ok) throw new Error('Failed to fetch branches');
             const data = await res.json();
             setRepo(data.repo);
@@ -699,7 +706,8 @@ export default function WorkflowBuilder() {
 
     const { showToast } = useToast();
     const location = useLocation();
-    const { user } = useAuth();
+    const { id: routeId } = useParams();
+    const { user, getAuthToken } = useAuth();
 
     const pushHistory = useCallback((n, e) => {
         historyRef.current = historyRef.current.slice(0, historyIndexRef.current + 1);
@@ -768,6 +776,36 @@ export default function WorkflowBuilder() {
         }
     }, [location.state, setNodes, setEdges, showToast]);
 
+    // ── Load workflow by ID ──────────────────────────────────────────────────
+    useEffect(() => {
+        const workflowId = routeId || new URLSearchParams(location.search).get('id');
+        if (!workflowId || workflowId === 'new') return;
+
+        const loadWorkflow = async () => {
+            try {
+                const token = await getAuthToken();
+                const res = await fetch(`${API_URL}/workflows/${workflowId}`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (!res.ok) throw new Error("Workflow not found");
+                const w = await res.json();
+
+                setTitle(w.name);
+                setNodes(w.nodes || []);
+                setEdges(w.edges || []);
+                setCurrentWorkflowId(workflowId);
+                setHasStarted(true);
+                setIsDirty(false);
+
+                showToast(`Workflow "${w.name}" loaded`, 'info');
+            } catch (err) {
+                console.error(err);
+                showToast("Failed to load workflow", "error");
+            }
+        };
+        loadWorkflow();
+    }, [routeId, location.search, getAuthToken, API_URL]);
+
     useEffect(() => {
         const params = new URLSearchParams(location.search);
         const templateSlug = params.get('template');
@@ -832,18 +870,13 @@ export default function WorkflowBuilder() {
         );
     };
 
-    const getToken = async () => {
-        const { data } = await supabase.auth.getSession();
-        return data?.session?.access_token;
-    };
-
     const handleSaveDraft = async () => {
         if (!user) {
             showToast('Log in to save.', 'error');
             return null;
         }
         try {
-            const token = await getToken();
+            const token = await getAuthToken();
             const body = { name: title, nodes, edges, status: 'draft' };
             let res;
             if (currentWorkflowId) {
@@ -861,10 +894,14 @@ export default function WorkflowBuilder() {
             }
             if (!res.ok) throw new Error(`${res.status}`);
             const data = await res.json();
-            setCurrentWorkflowId(data.id);
+
+            // Handle different ID formats (UUID vs serial)
+            const newId = data.id || data.workflow_id;
+            setCurrentWorkflowId(newId);
+
             localStorage.setItem('devflow_has_workflow', 'true');
             setIsDirty(false);
-            return data.id;
+            return newId;
         } catch (err) {
             showToast('Failed to save: ' + err.message, 'error');
             return null;
@@ -924,11 +961,25 @@ export default function WorkflowBuilder() {
             return icon === 'git-branch' || ['github', 'commit', 'push', 'pr', 'branch'].some((k) => label.includes(k));
         });
 
-        const { data: { user: authUser } } = await supabase.auth.getUser();
-        const { data: wfSettings } = await supabase.from('user_settings').select('github_token').eq('user_id', authUser.id).single();
-        const githubConnected = authUser?.app_metadata?.provider === 'github' || authUser?.app_metadata?.providers?.includes('github') || !!wfSettings?.github_token;
+        // Use Clerk user and backend settings
+        const githubConnected = user?.externalAccounts?.some(acc => acc.provider === 'github');
 
-        if (hasGithubNodes && !githubConnected) {
+        // If it's a manual PAT connection, we'll check via the backend
+        let hasPAT = false;
+        try {
+            const token = await getAuthToken();
+            const res = await fetch(`${API_URL}/github/settings`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const settings = await res.json();
+                hasPAT = !!settings.github_token;
+            }
+        } catch (e) {
+            console.warn("Failed to check PAT settings", e);
+        }
+
+        if (hasGithubNodes && !githubConnected && !hasPAT) {
             showToast('This pipeline has GitHub nodes — connect GitHub in Integrations first', 'error');
             setIsRunning(false);
             return;
@@ -1007,17 +1058,21 @@ export default function WorkflowBuilder() {
 
         let repoContext = '';
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const { data: settingsData } = await supabase.from('user_settings').select('selected_repo_full_name').eq('user_id', user.id).single();
-            const selectedRepo = settingsData?.selected_repo_full_name ? { full_name: settingsData.selected_repo_full_name } : null;
+            const token = await getAuthToken();
+            const res = await fetch(`${API_URL}/github/selected-repo`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
 
-            if (selectedRepo?.full_name) {
-                const treeRes = await fetch(`${API_URL}/github/tree`, {
-                    headers: { Authorization: `Bearer ${session.access_token}` },
-                });
-                if (treeRes.ok) {
-                    const treeData = await treeRes.json();
-                    repoContext = `\nThe user's GitHub repo is "${selectedRepo.full_name}" and contains these files: ${treeData.files.slice(0, 30).join(', ')}`;
+            if (res.ok) {
+                const { repo: selectedRepo } = await res.json();
+                if (selectedRepo?.full_name) {
+                    const treeRes = await fetch(`${API_URL}/github/tree`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                    });
+                    if (treeRes.ok) {
+                        const treeData = await treeRes.json();
+                        repoContext = `\nThe user's GitHub repo is "${selectedRepo.full_name}" and contains these files: ${treeData.files.slice(0, 30).join(', ')}`;
+                    }
                 }
             }
         } catch (e) {

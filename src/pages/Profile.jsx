@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import TopBar from '../components/TopBar';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { supabase } from '../lib/supabase';
 
 const containerVariants = {
     hidden: { opacity: 0 },
@@ -16,7 +15,7 @@ const itemVariants = {
 };
 
 const Profile = () => {
-    const { user } = useAuth();
+    const { user, getAuthToken } = useAuth();
     const { showToast } = useToast();
     const [profileStatus, setProfileStatus] = useState('idle');
 
@@ -32,87 +31,87 @@ const Profile = () => {
     const [runsCount, setRunsCount] = useState(0);
     const [selectedRepo, setSelectedRepo] = useState(null);
 
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
     useEffect(() => {
         if (user) {
-            setFullName(user.user_metadata?.full_name || '');
-            setDisplayName(user.user_metadata?.preferred_username || user.user_metadata?.name || user.email?.split('@')[0] || '');
-            setBio(user.user_metadata?.bio || '');
-            setLocation(user.user_metadata?.location || '');
-            setWebsite(user.user_metadata?.website || '');
+            setFullName(user.fullName || '');
+            setDisplayName(user.username || user.firstName || user.primaryEmailAddress?.emailAddress?.split('@')[0] || '');
+
+            // Bio/Location/Website are traditionally in publicMetadata for Clerk
+            const meta = user.publicMetadata || {};
+            setBio(meta.bio || '');
+            setLocation(meta.location || '');
+            setWebsite(meta.website || '');
 
             const fetchStats = async () => {
-                // Fetch workflows count
-                const { count: wCount, error: wError } = await supabase
-                    .from('workflows')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('user_id', user.id);
-                if (!wError) setWorkflowsCount(wCount || 0);
-
-                // Fetch runs count
-                const { count: rCount, error: rError } = await supabase
-                    .from('workflow_runs')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('user_id', user.id);
-                if (!rError) setRunsCount(rCount || 0);
-
-                // Fetch selected repo safely
                 try {
-                    const { data: ud, error: udError } = await supabase
-                        .from('user_settings')
-                        .select('selected_repo, selected_repo_full_name')
-                        .eq('user_id', user.id)
-                        .maybeSingle();
+                    const token = await getAuthToken();
+                    const [wr, rr, sr] = await Promise.all([
+                        fetch(`${API_URL}/workflows`, { headers: { Authorization: `Bearer ${token}` } }),
+                        fetch(`${API_URL}/runs`, { headers: { Authorization: `Bearer ${token}` } }),
+                        fetch(`${API_URL}/github/selected-repo`, { headers: { Authorization: `Bearer ${token}` } })
+                    ]);
 
-                    if (!udError && ud) {
-                        setSelectedRepo(ud.selected_repo_full_name || ud.selected_repo);
+                    if (wr.ok) {
+                        const { workflows } = await wr.json();
+                        setWorkflowsCount(workflows?.length || 0);
+                    }
+                    if (rr.ok) {
+                        const { runs } = await rr.json();
+                        setRunsCount(runs?.length || 0);
+                    }
+                    if (sr.ok) {
+                        const { repo } = await sr.json();
+                        if (repo) setSelectedRepo(repo.full_name);
                     }
                 } catch (err) {
-                    console.log("No repo info found");
+                    console.error("Failed to fetch profile stats:", err);
                 }
             };
 
             fetchStats();
         }
-    }, [user]);
+    }, [user, getAuthToken, API_URL]);
 
-    const userEmail = user?.email || '';
-    const avatarUrl = user?.user_metadata?.avatar_url;
-    const initials = (fullName || userEmail).substring(0, 1).toUpperCase() || 'U';
+    const userEmail = user?.primaryEmailAddress?.emailAddress || '';
+    const avatarUrl = user?.imageUrl;
+    const initials = (user?.firstName || userEmail).substring(0, 1).toUpperCase() || 'U';
 
-    let providerBadge = "email";
-    if (user?.app_metadata?.provider === 'github' || user?.app_metadata?.providers?.includes('github')) {
-        providerBadge = "github";
-    } else if (user?.app_metadata?.provider === 'google' || user?.app_metadata?.providers?.includes('google')) {
-        providerBadge = "google";
-    }
+    let providerBadge = user?.externalAccounts?.[0]?.provider || "email";
 
-    const memberSince = user?.created_at
-        ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    const memberSince = user?.createdAt
+        ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
         : 'Unknown';
 
-    const lastLoginDate = user?.last_sign_in_at
-        ? new Date(user.last_sign_in_at).toLocaleString('en-US')
+    const lastLoginDate = user?.lastSignInAt
+        ? new Date(user.lastSignInAt).toLocaleString('en-US')
         : 'Unknown';
 
     const handleSaveProfile = async () => {
         setProfileStatus('loading');
         try {
-            const { error } = await supabase.auth.updateUser({
-                data: {
-                    full_name: fullName,
-                    preferred_username: displayName,
+            // Split name if possible
+            const names = fullName.split(' ');
+            const firstName = names[0] || '';
+            const lastName = names.slice(1).join(' ') || '';
+
+            await user.update({
+                firstName,
+                lastName,
+                username: displayName,
+                publicMetadata: {
                     bio,
                     location,
                     website
                 }
             });
 
-            if (error) throw error;
-
             setProfileStatus('success');
             showToast('Profile updated', 'success');
             setTimeout(() => setProfileStatus('idle'), 2000);
         } catch (error) {
+            console.error(error);
             setProfileStatus('error');
             showToast('Failed to save — try again', 'error');
             setTimeout(() => setProfileStatus('idle'), 2000);
@@ -286,9 +285,9 @@ const Profile = () => {
                                     <div className="space-y-2">
                                         <label className="text-xs font-mono text-[#64748B] lowercase">github_username</label>
                                         <div className="w-full bg-[#111] border border-[#1A1A1A] rounded-xl px-4 py-3 font-mono text-sm text-[#F1F5F9] flex justify-between items-center">
-                                            <span>{user.user_metadata?.user_name || 'username'}</span>
+                                            <span>{user.externalAccounts?.find(acc => acc.provider === 'github')?.username || 'connected'}</span>
                                             <a
-                                                href={`https://github.com/${user.user_metadata?.user_name}`}
+                                                href={`https://github.com/${user.externalAccounts?.find(acc => acc.provider === 'github')?.username}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="text-[#6EE7B7] hover:text-[#34D399] transition-colors lowercase font-bold"

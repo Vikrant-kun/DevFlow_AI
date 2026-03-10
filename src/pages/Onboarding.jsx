@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { Github, Slack, Trello, Sparkles, GitBranch, Layers } from 'lucide-react';
-import { supabase } from '../lib/supabase';
 import { useToast } from '../contexts/ToastContext';
 
 const Onboarding = () => {
@@ -11,8 +10,8 @@ const Onboarding = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
 
-    const userName = user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || '';
-    const [isGithubConnected, setIsGithubConnected] = useState(false);
+    const userName = user?.firstName || user?.username || user?.primaryEmailAddress?.emailAddress?.split('@')[0] || '';
+    const { isGithubConnected, getAuthToken } = useAuth();
     const { showToast } = useToast();
 
     useEffect(() => {
@@ -22,24 +21,11 @@ const Onboarding = () => {
         }
     }, [navigate]);
 
-    useEffect(() => {
-        const checkGithubConnection = async () => {
-            if (!user) return;
-            const connected = user?.app_metadata?.provider === 'github' ||
-                user?.app_metadata?.providers?.includes('github');
-            setIsGithubConnected(!!connected);
-        };
-        checkGithubConnection();
-    }, [user]);
+    // GitHub connection comes from AuthContext/Clerk
 
-    const handleGithubConnect = async () => {
+    const handleGithubConnect = () => {
         if (isGithubConnected) return;
-        try {
-            const { error } = await supabase.auth.signInWithOAuth({ provider: 'github', options: { redirectTo: window.location.origin + '/onboarding' } });
-            if (error) throw error;
-        } catch (err) {
-            showToast(err.message, "error");
-        }
+        navigate('/integrations');
     };
 
     const handleComplete = (path) => {

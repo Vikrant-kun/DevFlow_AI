@@ -3,7 +3,6 @@ import { motion, AnimatePresence, useSpring, useMotionValue } from 'framer-motio
 import { useNavigate } from 'react-router-dom';
 import { Zap, Sparkles, Star, Check, Minus, ArrowRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
 import TopBar from '../components/TopBar';
 import { BillingToggle } from './Pricing';
 import confetti from 'canvas-confetti';

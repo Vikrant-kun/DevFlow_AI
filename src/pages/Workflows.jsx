@@ -4,7 +4,6 @@ import { Plus, Search, Filter, Play, FileEdit, Trash2, Activity, Clock, MoreVert
 import { useNavigate } from 'react-router-dom';
 import TopBar from '../components/TopBar';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
 import { useToast } from '../contexts/ToastContext';
 
 const containerVariants = {
@@ -49,29 +48,30 @@ const StatusBadge = ({ status }) => {
 
 const Workflows = () => {
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, getAuthToken } = useAuth();
     const { showToast } = useToast();
     const [workflows, setWorkflows] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [workflowToDelete, setWorkflowToDelete] = useState(null);
 
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
     useEffect(() => {
         const fetchWorkflows = async () => {
             if (!user) return;
             try {
-                const { data, error } = await supabase
-                    .from('workflows')
-                    .select('*')
-                    .eq('user_id', user.id)
-                    .order('updated_at', { ascending: false });
-
-                if (error) throw error;
+                const token = await getAuthToken();
+                const res = await fetch(`${API_URL}/workflows`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) throw new Error("Failed to load");
+                const { workflows: data } = await res.json();
 
                 const formatted = data.map(w => ({
                     id: w.id,
                     name: w.name,
-                    status: w.status.charAt(0).toUpperCase() + w.status.slice(1),
+                    status: (w.status || 'draft').charAt(0).toUpperCase() + (w.status || 'draft').slice(1),
                     nodesCount: w.nodes ? w.nodes.length : 0,
                     updatedAt: new Date(w.updated_at || w.created_at).toLocaleDateString()
                 }));
@@ -85,13 +85,17 @@ const Workflows = () => {
             }
         };
         fetchWorkflows();
-    }, [user, showToast]);
+    }, [user, showToast, getAuthToken, API_URL]);
 
     const confirmDelete = async () => {
         if (!workflowToDelete) return;
         try {
-            const { error } = await supabase.from('workflows').delete().eq('id', workflowToDelete.id);
-            if (error) throw error;
+            const token = await getAuthToken();
+            const res = await fetch(`${API_URL}/workflows/${workflowToDelete.id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!res.ok) throw new Error("Delete failed");
             setWorkflows(prev => prev.filter(w => w.id !== workflowToDelete.id));
             showToast("Workflow deleted", "success");
         } catch (err) {

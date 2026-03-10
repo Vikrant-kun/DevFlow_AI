@@ -1,100 +1,80 @@
-// src/contexts/AuthContext.jsx
 import { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { useUser, useAuth as useClerkAuth } from '@clerk/clerk-react';
 import { useNavigate } from 'react-router-dom';
 
 const AuthContext = createContext();
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 export const AuthProvider = ({ children }) => {
-    const [session, setSession] = useState(null);
-    const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const { user, isLoaded, isSignedIn } = useUser();
+    const { getToken, signOut } = useClerkAuth();
+    const navigate = useNavigate();
 
-    // GitHub-specific state — shared across Dashboard & Integrations
     const [isGithubConnected, setIsGithubConnected] = useState(false);
     const [repos, setRepos] = useState([]);
     const [selectedRepo, setSelectedRepo] = useState(null);
-    const [githubLoading, setGithubLoading] = useState(false); // for spinners
+    const [githubLoading, setGithubLoading] = useState(false);
 
-    const navigate = useNavigate();
+    const loading = !isLoaded;
 
     useEffect(() => {
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setSession(session);
-            setUser(session?.user ?? null);
-            setLoading(false);
-            if (session?.user) checkGithubConnection(session);
-        });
+        if (!isLoaded) return;
+        if (isSignedIn) {
+            checkGithubConnection();
+        } else {
+            setIsGithubConnected(false);
+            setRepos([]);
+            setSelectedRepo(null);
+        }
+    }, [isLoaded, isSignedIn]);
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-            setSession(session);
-            setUser(session?.user ?? null);
-            setLoading(false);
+    const getAuthToken = async () => {
+        return await getToken();
+    };
 
-            if (event === 'SIGNED_IN') {
-                if (session?.user) checkGithubConnection(session);
-            } else if (event === 'SIGNED_OUT') {
-                setIsGithubConnected(false);
-                setRepos([]);
-                setSelectedRepo(null);
-                navigate('/');
-            }
-        });
-
-        return () => subscription.unsubscribe();
-    }, [navigate]);
-
-    const checkGithubConnection = async (currentSession = session) => {
-        if (!currentSession?.user) return;
-
+    const checkGithubConnection = async () => {
+        if (!isSignedIn) return;
         setGithubLoading(true);
         try {
-            const { data: settings } = await supabase
-                .from('user_settings')
-                .select('github_token, selected_repo, selected_repo_full_name')
-                .eq('user_id', currentSession.user.id)
-                .maybeSingle();
+            const token = await getAuthToken();
+            const res = await fetch(`${API}/github/repos`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setIsGithubConnected(true);
+                setRepos(data.repos || []);
 
-            const connected = !!settings?.github_token;
-
-            setIsGithubConnected(connected);
-
-            if (connected) {
                 // Restore selected repo
-                if (settings?.selected_repo_full_name || settings?.selected_repo) {
-                    setSelectedRepo({
-                        name: settings.selected_repo || settings.selected_repo_full_name.split('/')[1],
-                        full_name: settings.selected_repo_full_name || settings.selected_repo,
-                    });
+                const repoRes = await fetch(`${API}/github/selected-repo`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (repoRes.ok) {
+                    const repoData = await repoRes.json();
+                    if (repoData.repo) setSelectedRepo(repoData.repo);
                 }
-                await fetchRepos(currentSession);
+            } else {
+                setIsGithubConnected(false);
             }
         } catch (err) {
             console.error('GitHub connection check failed:', err);
+            setIsGithubConnected(false);
         } finally {
             setGithubLoading(false);
         }
     };
 
-    const fetchRepos = async (currentSession = session) => {
-        if (!currentSession) return;
+    const fetchRepos = async () => {
+        if (!isSignedIn) return;
         setGithubLoading(true);
         try {
-            let res;
-            // Prefer backend (handles PAT securely)
-            res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/github/repos`, {
-                headers: { Authorization: `Bearer ${currentSession.access_token}` },
+            const token = await getAuthToken();
+            const res = await fetch(`${API}/github/repos`, {
+                headers: { Authorization: `Bearer ${token}` }
             });
-
             if (res.ok) {
                 const data = await res.json();
                 setRepos(data.repos || []);
-            } else if (currentSession.provider_token) {
-                // Fallback direct (OAuth case)
-                const ghRes = await fetch('https://api.github.com/user/repos?sort=updated&per_page=30', {
-                    headers: { Authorization: `Bearer ${currentSession.provider_token}` },
-                });
-                if (ghRes.ok) setRepos(await ghRes.json());
             }
         } catch (err) {
             console.error('Fetch repos failed:', err);
@@ -104,27 +84,19 @@ export const AuthProvider = ({ children }) => {
     };
 
     const connectGithubPat = async (pat) => {
-        if (!user || !pat.trim()) return;
+        if (!isSignedIn || !pat.trim()) return;
         try {
-            // Test token
             const test = await fetch('https://api.github.com/user', {
-                headers: { Authorization: `Bearer ${pat.trim()}` },
+                headers: { Authorization: `Bearer ${pat.trim()}` }
             });
             if (!test.ok) throw new Error('Invalid PAT');
 
-            // Save via backend (preferred)
-            await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/github/token`, {
+            const token = await getAuthToken();
+            await fetch(`${API}/github/token`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-                body: JSON.stringify({ token: pat.trim() }),
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ token: pat.trim() })
             });
-
-            // Backup in Supabase
-            await supabase.from('user_settings').upsert({
-                user_id: user.id,
-                github_token: pat.trim(),
-                updated_at: new Date().toISOString(),
-            }, { onConflict: 'user_id' });
 
             setIsGithubConnected(true);
             await fetchRepos();
@@ -136,7 +108,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     const handleLogout = async () => {
-        await supabase.auth.signOut();
+        await signOut();
         setIsGithubConnected(false);
         setRepos([]);
         setSelectedRepo(null);
@@ -145,15 +117,12 @@ export const AuthProvider = ({ children }) => {
 
     const saveSelectedRepo = async (repo) => {
         setSelectedRepo(repo);
-        if (!repo || !session) return;
+        if (!repo || !isSignedIn) return;
         try {
-            const { data: { session: currentSession } } = await supabase.auth.getSession();
-            await fetch(`${import.meta.env.VITE_API_URL}/github/select-repo`, {
+            const token = await getAuthToken();
+            await fetch(`${API}/github/select-repo`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${currentSession.access_token}`
-                },
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({ repo_full_name: repo.full_name })
             });
         } catch (e) {
@@ -162,9 +131,10 @@ export const AuthProvider = ({ children }) => {
     };
 
     const value = {
-        session,
         user,
+        session: { access_token: null }, // shim for any legacy refs
         loading,
+        isSignedIn,
         isGithubConnected,
         repos,
         selectedRepo,
@@ -173,10 +143,15 @@ export const AuthProvider = ({ children }) => {
         connectGithubPat,
         fetchRepos,
         checkGithubConnection,
-        handleLogout, // expose so Sidebar can use it
+        handleLogout,
+        getAuthToken,
     };
 
-    return <AuthContext.Provider value={value}>{!loading && children}</AuthContext.Provider>;
+    return (
+        <AuthContext.Provider value={value}>
+            {!loading && children}
+        </AuthContext.Provider>
+    );
 };
 
 export const useAuth = () => useContext(AuthContext);

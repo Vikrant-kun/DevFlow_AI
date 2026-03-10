@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
 import { Menu, X, Github, Zap } from 'lucide-react';
 
 const sectionVariants = {
@@ -39,11 +38,11 @@ const NAV_LINKS = [
 
 export default function Docs() {
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, handleLogout } = useAuth();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const handleSignOut = async () => {
-        await supabase.auth.signOut();
+        await handleLogout();
         setIsMobileMenuOpen(false);
         navigate('/');
     };

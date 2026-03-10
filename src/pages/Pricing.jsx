@@ -17,7 +17,6 @@ import {
     X,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
 import confetti from 'canvas-confetti';
 
 const sectionVariants = {
@@ -215,42 +214,12 @@ const AnimatedPrice = ({ value }) => {
     return <span>{display}</span>;
 };
 
-const StarParticle = ({ mouseX, mouseY, containerRef }) => {
+const StarParticle = () => {
     const [pos] = useState({ x: Math.random() * 100, y: Math.random() * 100 });
     const [size] = useState(1 + Math.random() * 1.5);
     const [color] = useState(Math.random() > 0.5 ? '#6EE7B7' : '#60A5FA');
     const [delay] = useState(Math.random() * 5);
     const [dur] = useState(2 + Math.random() * 3);
-
-    const mx = useMotionValue(0);
-    const my = useMotionValue(0);
-    const sx = useSpring(mx, { stiffness: 80, damping: 20, mass: 0.1 });
-    const sy = useSpring(my, { stiffness: 80, damping: 20, mass: 0.1 });
-
-    useEffect(() => {
-        if (!containerRef.current || mouseX === null) {
-            mx.set(0);
-            my.set(0);
-            return;
-        }
-
-        const rect = containerRef.current.getBoundingClientRect();
-        const starX = rect.left + (pos.x / 100) * rect.width;
-        const starY = rect.top + (pos.y / 100) * rect.height;
-
-        const dx = mouseX - starX;
-        const dy = mouseY - starY;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-
-        if (dist < 350) {
-            const f = (1 - dist / 350) * 0.4;
-            mx.set(dx * f);
-            my.set(dy * f);
-        } else {
-            mx.set(0);
-            my.set(0);
-        }
-    }, [mouseX, mouseY, containerRef, pos]);
 
     return (
         <motion.div
@@ -261,8 +230,6 @@ const StarParticle = ({ mouseX, mouseY, containerRef }) => {
                 width: size,
                 height: size,
                 backgroundColor: color,
-                x: sx,
-                y: sy,
             }}
             animate={{ opacity: [0, 0.75, 0] }}
             transition={{ duration: dur, repeat: Infinity, delay, ease: 'easeInOut' }}
@@ -333,18 +300,14 @@ export const BillingToggle = ({ isYearly, onToggle }) => {
 
 export default function Pricing() {
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, signOut } = useAuth();
 
     const [isYearly, setIsYearly] = useState(false);
     const [openFaq, setOpenFaq] = useState(null);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-    const [mouse, setMouse] = useState({ x: null, y: null });
-
-    const containerRef = useRef(null);
-    const stars = useRef(Array.from({ length: 120 }, (_, i) => i)); // reduced to prevent perf issues
 
     const handleSignOut = async () => {
-        await supabase.auth.signOut();
+        await signOut();
         setMobileMenuOpen(false);
         navigate('/');
     };
@@ -361,9 +324,6 @@ export default function Pricing() {
                 {stars.current.map((i) => (
                     <StarParticle
                         key={i}
-                        mouseX={mouse.x}
-                        mouseY={mouse.y}
-                        containerRef={containerRef}
                     />
                 ))}
             </div>

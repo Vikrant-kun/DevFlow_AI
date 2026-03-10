@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import TopBar from '../components/TopBar';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { supabase } from '../lib/supabase';
 import { Github, Users, Crown, LogOut, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -22,9 +21,10 @@ const ToggleSwitch = ({ checked, onChange }) => (
 );
 
 const Settings = () => {
-    const { user } = useAuth();
+    const { user, getAuthToken, handleLogout } = useAuth();
     const { showToast } = useToast();
     const navigate = useNavigate();
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
     const [activeTab, setActiveTab] = useState('notifications');
 
@@ -45,38 +45,51 @@ const Settings = () => {
         showToast('Preferences saved', 'success');
     };
 
-    const [newPassword, setNewPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
-
-    const handlePasswordChange = async () => {
-        if (!newPassword || newPassword !== confirmPassword) {
-            showToast('Passwords do not match or are empty', 'error');
-            return;
-        }
-        const { error } = await supabase.auth.updateUser({ password: newPassword });
-        if (error) showToast(error.message, 'error');
-        else {
-            showToast('Password updated', 'success');
-            setNewPassword(''); setConfirmPassword('');
-        }
+    const handlePasswordChange = () => {
+        showToast('Use your account settings to change password (via Clerk)', 'info');
     };
 
     const handleDeleteWorkflows = async () => {
         if (!window.confirm('Delete all workflows? This cannot be undone.')) return;
-        const { error } = await supabase.from('workflows').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-        if (error) showToast(error.message, 'error');
-        else showToast('All workflows deleted', 'success');
+        try {
+            const token = await getAuthToken();
+            // First fetch all workflows
+            const wfRes = await fetch(`${API_URL}/workflows`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (!wfRes.ok) throw new Error('Failed to fetch workflows');
+            const { workflows } = await wfRes.json();
+
+            // Delete them all in parallel
+            await Promise.all(
+                workflows.map(w =>
+                    fetch(`${API_URL}/workflows/${w.id}`, {
+                        method: 'DELETE',
+                        headers: { Authorization: `Bearer ${token}` }
+                    }).then(res => {
+                        if (!res.ok) throw new Error(`Failed to delete workflow ${w.id}`);
+                    })
+                )
+            );
+
+            showToast('All workflows deleted', 'success');
+        } catch (err) {
+            showToast('Failed to delete workflows: ' + err.message, 'error');
+        }
     };
 
     const handleDeleteAccount = async () => {
         const confirmStr = window.prompt("Type DELETE to confirm account deletion:");
         if (confirmStr === 'DELETE') {
             try {
-                await supabase.auth.signOut();
+                await handleLogout();
                 navigate('/');
+                showToast('Logged out successfully', 'success');
             } catch (err) {
-                showToast(err.message, 'error');
+                showToast('Logout failed: ' + err.message, 'error');
             }
+        } else {
+            showToast('Account deletion cancelled', 'info');
         }
     };
 
@@ -90,28 +103,10 @@ const Settings = () => {
             if (!user || activeTab !== 'team') return;
             setTeamLoading(true);
             try {
-                let { data: ownedTeams } = await supabase.from('teams').select('*').eq('owner_id', user.id).limit(1);
-                let myTeam = ownedTeams?.[0];
-                let myRole = myTeam ? 'owner' : null;
-
-                if (!myTeam) {
-                    const { data: membership } = await supabase.from('team_members').select('team_id, role, status').eq('user_id', user.id).limit(1);
-                    if (membership && membership.length > 0) {
-                        const { data: memberTeam } = await supabase.from('teams').select('*').eq('id', membership[0].team_id).single();
-                        myTeam = memberTeam;
-                        myRole = membership[0].role;
-                    }
-                }
-
-                if (myTeam) {
-                    setTeamData(myTeam);
-                    setTeamRole(myRole);
-                    const { count } = await supabase.from('team_members').select('*', { count: 'exact', head: true }).eq('team_id', myTeam.id);
-                    setTeamMembersCount((count || 0) + 1);
-                } else {
-                    setTeamData(null);
-                    setTeamRole(null);
-                }
+                // Team API is not yet implemented in new backend → stub for now
+                setTeamData(null);
+                setTeamRole(null);
+                setTeamMembersCount(0);
             } catch (err) {
                 console.error(err);
             } finally {
@@ -123,46 +118,24 @@ const Settings = () => {
     }, [activeTab, user]);
 
     const handleUpdateTeam = async (field, value) => {
-        if (teamRole !== 'owner') return;
-        try {
-            const updates = { [field]: value };
-            if (field === 'name') updates.slug = value.toLowerCase().replace(/[^a-z0-9]/g, '-');
-            const { error } = await supabase.from('teams').update(updates).eq('id', teamData.id);
-            if (error) throw error;
-            showToast(`Team ${field} updated`, 'success');
-            const { data } = await supabase.from('teams').select('*').eq('id', teamData.id).single();
-            setTeamData(data);
-        } catch (err) { showToast(err.message, 'error'); }
+        showToast("Team updates coming soon to the new API", "info");
     };
 
     const handleLeaveTeam = async () => {
-        if (!window.confirm("Leave this team?")) return;
-        try {
-            await supabase.from('team_members').delete().eq('team_id', teamData.id).eq('user_id', user.id);
-            showToast("You have left the team", "success");
-            setTeamData(null); setTeamRole(null);
-        } catch (err) { showToast("Failed to leave team", "error"); }
+        showToast("Team management coming soon", "info");
     };
 
     const handleOwnerDeleteTeam = async () => {
-        const confirmStr = window.prompt(`Type "${teamData.name}" to delete this team:`);
-        if (confirmStr === teamData.name) {
-            try {
-                const { error } = await supabase.from('teams').delete().eq('id', teamData.id);
-                if (error) throw error;
-                showToast("Team deleted", "success");
-                setTeamData(null); setTeamRole(null);
-            } catch (err) { showToast("Failed to delete team", "error"); }
-        }
+        showToast("Team management coming soon", "info");
     };
 
-    const isEmailProvider = user?.app_metadata?.provider === 'email';
-    const providers = user?.app_metadata?.providers || [];
-    const hasGithub = providers.includes('github') || user?.app_metadata?.provider === 'github';
-    const hasGoogle = providers.includes('google') || user?.app_metadata?.provider === 'google';
+    // Clerk-based provider detection
+    const isEmailProvider = !!user?.primaryEmailAddress;
+    const hasGithub = user?.externalAccounts?.some(a => a.provider === 'github') || false;
+    const hasGoogle = user?.externalAccounts?.some(a => a.provider === 'google') || false;
 
-    const activeSessionTime = user?.last_sign_in_at
-        ? new Date(user.last_sign_in_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })
+    const activeSessionTime = user?.lastSignInAt
+        ? new Date(user.lastSignInAt).toLocaleString()
         : 'Active now';
 
     const tabs = [
@@ -288,7 +261,7 @@ const Settings = () => {
                                 <div className="bg-[#111] border border-[#F87171]/20 p-4 md:p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 rounded-xl shadow-sm">
                                     <div>
                                         <div className="font-mono text-[#F1F5F9] text-[10px] md:text-sm lowercase">revoke_access</div>
-                                        <div className="font-mono text-[#64748B] text-[9px] md:text-xs mt-1">You will lose access to all shared workflows.</div>
+                                        <div className="font-mono text-[#64748B] text-[9px] md:text-xs mt-0.5 md:mt-1">You will lose access to all shared workflows.</div>
                                     </div>
                                     <button className="w-full sm:w-auto text-[10px] md:text-xs font-mono text-[#F87171] border border-[#F87171]/50 hover:bg-[#F87171]/10 px-4 py-2.5 transition-colors lowercase flex items-center justify-center gap-2 rounded-xl" onClick={handleLeaveTeam}>
                                         <LogOut className="w-3.5 h-3.5" /> leave_team
@@ -301,7 +274,7 @@ const Settings = () => {
                                 <div className="bg-[#111] border border-[#F87171]/30 p-4 md:p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 rounded-xl shadow-sm">
                                     <div>
                                         <div className="font-mono text-[#F1F5F9] text-[10px] md:text-sm lowercase flex items-center gap-2"><Trash2 className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#F87171]" /> delete_organization</div>
-                                        <div className="font-mono text-[#64748B] text-[9px] md:text-xs mt-1">Permanently delete team and all resources.</div>
+                                        <div className="font-mono text-[#64748B] text-[9px] md:text-xs mt-0.5 md:mt-1">Permanently delete team and all resources.</div>
                                     </div>
                                     <button className="w-full sm:w-auto text-[10px] md:text-xs font-mono text-[#080808] bg-[#F87171] hover:bg-[#EF4444] px-4 py-2.5 transition-colors font-bold lowercase rounded-xl shadow-sm" onClick={handleOwnerDeleteTeam}>
                                         delete_team
@@ -325,7 +298,7 @@ const Settings = () => {
                             <Github className="w-4 h-4 md:w-5 md:h-5 text-[#F1F5F9] shrink-0" />
                             <div className="min-w-0">
                                 <div className="font-mono text-[#F1F5F9] text-[10px] md:text-sm lowercase">github</div>
-                                {hasGithub && <div className="font-mono text-[#64748B] text-[9px] md:text-xs mt-0.5 md:mt-1 truncate">{user?.email}</div>}
+                                {hasGithub && <div className="font-mono text-[#64748B] text-[9px] md:text-xs mt-0.5 md:mt-1 truncate">{user?.primaryEmailAddress?.emailAddress}</div>}
                             </div>
                         </div>
                         {hasGithub ? (
@@ -341,7 +314,7 @@ const Settings = () => {
                             </svg>
                             <div className="min-w-0">
                                 <div className="font-mono text-[#F1F5F9] text-[10px] md:text-sm lowercase">google</div>
-                                {hasGoogle && <div className="font-mono text-[#64748B] text-[9px] md:text-xs mt-0.5 md:mt-1 truncate">{user?.email}</div>}
+                                {hasGoogle && <div className="font-mono text-[#64748B] text-[9px] md:text-xs mt-0.5 md:mt-1 truncate">{user?.primaryEmailAddress?.emailAddress}</div>}
                             </div>
                         </div>
                         {hasGoogle ? (
@@ -359,8 +332,8 @@ const Settings = () => {
                         <div className="font-mono text-[#F1F5F9] text-[10px] md:text-sm">Current Browser Session</div>
                         <div className="font-mono text-[#64748B] text-[9px] md:text-xs mt-0.5 md:mt-1 lowercase">last active: {activeSessionTime}</div>
                     </div>
-                    <button className="w-full sm:w-auto text-[10px] md:text-xs font-mono text-[#F1F5F9] px-4 py-2 border border-[#333] hover:bg-[#222] transition-colors rounded-xl" onClick={async () => { await supabase.auth.signOut(); navigate('/'); }}>
-                        Sign out all sessions
+                    <button className="w-full sm:w-auto text-[10px] md:text-xs font-mono text-[#F1F5F9] px-4 py-2 border border-[#333] hover:bg-[#222] transition-colors rounded-xl" onClick={handleLogout}>
+                        Sign out
                     </button>
                 </div>
             </div>
@@ -370,13 +343,11 @@ const Settings = () => {
                     <div className="space-y-4 max-w-sm">
                         <div>
                             <div className="font-mono text-[#64748B] text-[10px] md:text-xs mb-1.5 lowercase">new_password</div>
-                            <input type="password" className="w-full bg-[#111] border border-[#222] text-[#F1F5F9] font-mono text-[10px] md:text-xs p-2.5 outline-none focus:border-[#6EE7B7] transition-colors rounded-xl shadow-sm" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+                            <input type="password" className="w-full bg-[#111] border border-[#222] text-[#F1F5F9] font-mono text-[10px] md:text-xs p-2.5 outline-none focus:border-[#6EE7B7] transition-colors rounded-xl shadow-sm" value={''} readOnly placeholder="Managed by Clerk" />
                         </div>
-                        <div>
-                            <div className="font-mono text-[#64748B] text-[10px] md:text-xs mb-1.5 lowercase">confirm_password</div>
-                            <input type="password" className="w-full bg-[#111] border border-[#222] text-[#F1F5F9] font-mono text-[10px] md:text-xs p-2.5 outline-none focus:border-[#6EE7B7] transition-colors rounded-xl shadow-sm" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />
-                        </div>
-                        <button className="w-full bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] font-mono text-[10px] md:text-xs px-6 py-2.5 transition-colors font-bold mt-2 rounded-xl shadow-sm" onClick={handlePasswordChange}>save_password</button>
+                        <button className="w-full bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] font-mono text-[10px] md:text-xs px-6 py-2.5 transition-colors font-bold mt-2 rounded-xl shadow-sm" onClick={handlePasswordChange}>
+                            manage_password
+                        </button>
                     </div>
                 </div>
             )}
@@ -394,14 +365,18 @@ const Settings = () => {
                             <div className="font-mono text-[#F1F5F9] text-[10px] md:text-sm lowercase">delete_workflows</div>
                             <div className="font-mono text-[#64748B] text-[9px] md:text-xs mt-0.5 md:mt-1">Remove all your saved workflows.</div>
                         </div>
-                        <button className="w-full sm:w-auto text-[10px] md:text-xs font-mono text-[#F87171] border border-[#F87171] px-4 py-2 hover:bg-[#F87171]/10 transition-colors lowercase rounded-xl" onClick={handleDeleteWorkflows}>delete_all_workflows</button>
+                        <button className="w-full sm:w-auto text-[10px] md:text-xs font-mono text-[#F87171] border border-[#F87171] px-4 py-2 hover:bg-[#F87171]/10 transition-colors lowercase rounded-xl" onClick={handleDeleteWorkflows}>
+                            delete_all_workflows
+                        </button>
                     </div>
                     <div className="bg-[#111] border border-[#F87171]/30 p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 rounded-xl shadow-sm">
                         <div>
                             <div className="font-mono text-[#F1F5F9] text-[10px] md:text-sm lowercase">terminate_account</div>
                             <div className="font-mono text-[#64748B] text-[9px] md:text-xs mt-0.5 md:mt-1">Permanently remove your account and all data.</div>
                         </div>
-                        <button className="w-full sm:w-auto text-[10px] md:text-xs font-mono text-[#080808] bg-[#F87171] hover:bg-[#EF4444] px-4 py-2 transition-colors font-bold lowercase rounded-xl shadow-sm" onClick={handleDeleteAccount}>delete_account</button>
+                        <button className="w-full sm:w-auto text-[10px] md:text-xs font-mono text-[#080808] bg-[#F87171] hover:bg-[#EF4444] px-4 py-2 transition-colors font-bold lowercase rounded-xl shadow-sm" onClick={handleDeleteAccount}>
+                            delete_account
+                        </button>
                     </div>
                 </div>
             </div>
@@ -412,7 +387,6 @@ const Settings = () => {
         <div className="flex flex-col h-screen bg-[#080808] transition-colors duration-300">
             <TopBar title={<span className="font-mono text-xs md:text-sm text-[#6EE7B7]">~ / settings</span>} />
             <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
-                {/* Horizontal scroll fix applied specifically here -> flex flex-row w-max */}
                 <div className="w-full md:w-[200px] bg-[#0D0D0D] border-b md:border-b-0 md:border-r border-[#1A1A1A] shrink-0 overflow-x-auto hidden-scrollbar">
                     <div className="flex flex-row md:flex-col py-0 md:py-6 w-max md:w-full">
                         {tabs.map(tab => (

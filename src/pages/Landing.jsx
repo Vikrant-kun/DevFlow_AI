@@ -4,7 +4,6 @@ import ProductDemo from '../components/ProductDemo';
 import { Zap, Menu, X, ArrowRight, GitBranch, Bell, Layers, CheckCircle2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
 
 // ── Animation variants ────────────────────────────────────────────
 const fadeUp = {

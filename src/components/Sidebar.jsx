@@ -45,7 +45,7 @@ const Sidebar = () => {
 
     const { handleLogout } = auth;
 
-    const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || '';
+    const userName = user?.fullName || user?.primaryEmailAddress?.emailAddress?.split('@')[0] || '';
     const initial = userName.charAt(0).toUpperCase() || 'U';
 
     const navItems = [
@@ -64,9 +64,9 @@ const Sidebar = () => {
                     <div className="p-4 border-b border-[#1A1A1A] shrink-0 flex flex-col gap-3 pointer-events-auto mb-2 bg-[#111]/50">
                         <div className="flex items-center gap-3">
                             <div className="h-10 w-10 rounded-lg bg-[#111] shrink-0 flex items-center justify-center border border-[#333] overflow-hidden">
-                                {user?.user_metadata?.avatar_url ? (
+                                {user?.imageUrl ? (
                                     <img
-                                        src={user.user_metadata.avatar_url}
+                                        src={user.imageUrl}
                                         alt="Avatar"
                                         className="h-full w-full object-cover"
                                     />
@@ -242,9 +242,9 @@ const Sidebar = () => {
                             className="flex items-center h-11 px-2 rounded-lg cursor-pointer hover:bg-[#111] transition-colors"
                         >
                             <div className="h-6 w-6 rounded-lg bg-[#1A1A1A] shrink-0 flex items-center justify-center border border-[#333] overflow-hidden">
-                                {user?.user_metadata?.avatar_url ? (
+                                {user?.imageUrl ? (
                                     <img
-                                        src={user.user_metadata.avatar_url}
+                                        src={user.imageUrl}
                                         alt="Avatar"
                                         className="h-full w-full object-cover"
                                     />
