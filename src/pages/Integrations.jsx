@@ -5,6 +5,7 @@ import TopBar from '../components/TopBar';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { apiFetch } from '../lib/api';
+import { API_ROUTES } from '../lib/apiRoutes';
 
 const containerVariants = {
     hidden: { opacity: 0 },
@@ -73,7 +74,7 @@ const Integrations = () => {
             if (!user) return;
 
             try {
-                const settings = await apiFetch('/github/integration-settings', {}, getAuthToken);
+                const settings = await apiFetch(API_ROUTES.githubSettings, {}, getAuthToken);
 
                 if (settings?.slack_webhook_url) {
                     setSlackWebhook(settings.slack_webhook_url);
@@ -104,7 +105,7 @@ const Integrations = () => {
 
     // Save helper
     const saveIntegrationSettings = async (body) => {
-        await apiFetch('/github/integration-settings', {
+        await apiFetch(API_ROUTES.githubSettings, {
             method: 'POST',
             body: JSON.stringify(body),
         }, getAuthToken);
@@ -131,7 +132,7 @@ const Integrations = () => {
         if (!newRepoName.trim()) return;
         setIsCreatingRepo(true);
         try {
-            const data = await apiFetch('/github/repos', {
+            const data = await apiFetch(API_ROUTES.githubRepos, {
                 method: 'POST',
                 body: JSON.stringify({
                     name: newRepoName.trim(),
@@ -158,7 +159,7 @@ const Integrations = () => {
         const repoObj = { name: fullName.split('/')[1], full_name: fullName };
         setSelectedRepo(repoObj);
         try {
-            await apiFetch('/github/select-repo', {
+            await apiFetch(API_ROUTES.githubSelectRepo, {
                 method: 'POST',
                 body: JSON.stringify({ repo_full_name: fullName }),
             }, getAuthToken);
@@ -238,7 +239,7 @@ const Integrations = () => {
     // GitHub Disconnect
     const disconnectGithub = async () => {
         try {
-            await apiFetch('/github/disconnect', {
+            await apiFetch(API_ROUTES.githubDisconnect, {
                 method: 'POST'
             }, getAuthToken);
             window.location.reload();

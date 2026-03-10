@@ -6,6 +6,7 @@ import TopBar from '../components/TopBar';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { apiFetch } from '../lib/api';
+import { API_ROUTES } from '../lib/apiRoutes';
 
 const containerVariants = {
     hidden: { opacity: 0 },
@@ -62,7 +63,7 @@ const Workflows = () => {
         const fetchWorkflows = async () => {
             if (!user) return;
             try {
-                const dataObj = await apiFetch('/workflows', {}, getAuthToken);
+                const dataObj = await apiFetch(API_ROUTES.workflows, {}, getAuthToken);
                 const data = dataObj.workflows || [];
 
                 const formatted = data.map(w => ({
@@ -87,7 +88,7 @@ const Workflows = () => {
     const confirmDelete = async () => {
         if (!workflowToDelete) return;
         try {
-            await apiFetch(`/workflows/${workflowToDelete.id}`, {
+            await apiFetch(`${API_ROUTES.workflows}${workflowToDelete.id}/`, {
                 method: 'DELETE'
             }, getAuthToken);
             setWorkflows(prev => prev.filter(w => w.id !== workflowToDelete.id));

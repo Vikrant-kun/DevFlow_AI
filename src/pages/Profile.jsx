@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import TopBar from '../components/TopBar';
 import { useAuth } from '../contexts/AuthContext';
+import { API_ROUTES } from '../lib/apiRoutes';
 import { useToast } from '../contexts/ToastContext';
 
 const containerVariants = {
@@ -48,17 +49,19 @@ const Profile = () => {
                 try {
                     const token = await getAuthToken();
                     const [wr, rr, sr] = await Promise.all([
-                        fetch(`${API_URL}/workflows`, { headers: { Authorization: `Bearer ${token}` } }),
-                        fetch(`${API_URL}/runs`, { headers: { Authorization: `Bearer ${token}` } }),
-                        fetch(`${API_URL}/github/selected-repo`, { headers: { Authorization: `Bearer ${token}` } })
+                        fetch(`${API_URL}${API_ROUTES.workflows}`, { headers: { Authorization: `Bearer ${token}` } }),
+                        fetch(`${API_URL}${API_ROUTES.runs}`, { headers: { Authorization: `Bearer ${token}` } }),
+                        fetch(`${API_URL}${API_ROUTES.githubSelectedRepo}`, { headers: { Authorization: `Bearer ${token}` } })
                     ]);
 
                     if (wr.ok) {
-                        const { workflows } = await wr.json();
+                        const data = await wr.json();
+                        const workflows = data?.workflows || data || [];
                         setWorkflowsCount(workflows?.length || 0);
                     }
                     if (rr.ok) {
-                        const { runs } = await rr.json();
+                        const data = await rr.json();
+                        const runs = data?.runs || data || [];
                         setRunsCount(runs?.length || 0);
                     }
                     if (sr.ok) {

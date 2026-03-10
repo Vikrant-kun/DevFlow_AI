@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import { useUser, useAuth as useClerkAuth } from '@clerk/clerk-react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../lib/api';
+import { API_ROUTES } from '../lib/apiRoutes';
 
 const AuthContext = createContext();
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -37,13 +38,13 @@ export const AuthProvider = ({ children }) => {
         if (!isSignedIn) return;
         setGithubLoading(true);
         try {
-            const data = await apiFetch('/github/repos', {}, getAuthToken);
+            const data = await apiFetch(API_ROUTES.githubRepos, {}, getAuthToken);
             if (data) {
                 setIsGithubConnected(true);
                 setRepos(data.repos || []);
 
                 // Restore selected repo
-                const repoData = await apiFetch('/github/selected-repo', {}, getAuthToken);
+                const repoData = await apiFetch(API_ROUTES.githubSelectedRepo, {}, getAuthToken);
                 if (repoData && repoData.repo) setSelectedRepo(repoData.repo);
             } else {
                 setIsGithubConnected(false);
@@ -60,7 +61,7 @@ export const AuthProvider = ({ children }) => {
         if (!isSignedIn) return;
         setGithubLoading(true);
         try {
-            const data = await apiFetch('/github/repos', {}, getAuthToken);
+            const data = await apiFetch(API_ROUTES.githubRepos, {}, getAuthToken);
             if (data) {
                 setRepos(data.repos || []);
             }
@@ -105,7 +106,7 @@ export const AuthProvider = ({ children }) => {
         setSelectedRepo(repo);
         if (!repo || !isSignedIn) return;
         try {
-            await apiFetch('/github/select-repo', {
+            await apiFetch(API_ROUTES.githubSelectRepo, {
                 method: 'POST',
                 body: JSON.stringify({ repo_full_name: repo.full_name })
             }, getAuthToken);

@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import WebhookDisplay from "./WebhookDisplay";
 import { useAuth } from "../contexts/AuthContext";
 import { apiFetch } from "../lib/api";
+import { API_ROUTES } from "../lib/apiRoutes";
 
 /* ------------------ timeAgo helper ------------------ */
 const timeAgo = (dateStr) => {
@@ -36,7 +37,7 @@ const TopBar = ({ title, children }) => {
 
         const loadNotifications = async () => {
             try {
-                const data = await apiFetch('/runs', {}, getAuthToken);
+                const data = await apiFetch(API_ROUTES.runs, {}, getAuthToken);
                 if (!data) return;
 
                 // data is { runs: [...] }

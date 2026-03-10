@@ -8,6 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 import TopBar from '../components/TopBar';
 import Sidebar from '../components/Sidebar';
 import { apiFetch } from '../lib/api';
+import { API_ROUTES } from '../lib/apiRoutes';
 
 const getStatusBadge = (status) => {
     switch (status) {
@@ -71,10 +72,13 @@ const Dashboard = () => {
             if (!user) return;
             try {
                 // Load all workflows and runs in parallel
-                const [workflowsData, runsData] = await Promise.all([
-                    apiFetch('/workflows', {}, getAuthToken),
-                    apiFetch('/runs', {}, getAuthToken)
+                const [workflowsResponse, runsResponse] = await Promise.all([
+                    apiFetch(API_ROUTES.workflows, {}, getAuthToken),
+                    apiFetch(API_ROUTES.runs, {}, getAuthToken)
                 ]);
+
+                const workflowsData = workflowsResponse?.workflows || workflowsResponse || [];
+                const runsData = runsResponse?.runs || runsResponse || [];
 
                 if (!workflowsData || !runsData) {
                     console.error('Failed to fetch workflows or runs');
@@ -170,7 +174,7 @@ const Dashboard = () => {
         try {
             for (const file of uploadFiles) {
                 const content = await file.text();
-                await apiFetch('/github/commit', {
+                await apiFetch(API_ROUTES.githubSettings, {
                     method: 'POST',
                     body: JSON.stringify({
                         repo_full_name: selectedRepo.full_name,
@@ -197,7 +201,7 @@ const Dashboard = () => {
         }
         try {
             showToast(`Running ${workflow.name}...`, 'info');
-            const result = await apiFetch('/workflows/run', {
+            const result = await apiFetch(API_ROUTES.workflowRun, {
                 method: 'POST',
                 body: JSON.stringify({ workflow_id: workflow.id, workflow_name: workflow.name, snapshot: {} })
             }, getAuthToken);
@@ -214,7 +218,7 @@ const Dashboard = () => {
     const handleDeleteWorkflow = async (workflow) => {
         if (!confirm(`Delete "${workflow.name}"? This cannot be undone.`)) return;
         try {
-            await apiFetch(`/workflows/${workflow.id}`, {
+            await apiFetch(`${API_ROUTES.workflows}${workflow.id}/`, {
                 method: 'DELETE'
             }, getAuthToken);
             setRecentWorkflows(prev => prev.filter(w => w.id !== workflow.id));
