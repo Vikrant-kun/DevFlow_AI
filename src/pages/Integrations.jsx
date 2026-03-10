@@ -63,10 +63,14 @@ const Integrations = () => {
                     .eq('user_id', authUser.id)
                     .maybeSingle();
 
-                if (extraSettings?.notion_token) { setNotionToken(extraSettings.notion_token); setIsNotionConnected(true); }
-                if (extraSettings?.linear_token) { setLinearToken(extraSettings.linear_token); setIsLinearConnected(true); }
-                if (extraSettings?.jira_token) { setJiraToken(extraSettings.jira_token); setIsJiraConnected(true); }
-                if (extraSettings?.jira_domain) setJiraDomain(extraSettings.jira_domain);
+                if (settings?.slack_webhook_url) {
+                    setSlackWebhook(settings.slack_webhook_url);
+                    setIsSlackConnected(true);
+                }
+                if (settings?.notion_token) { setNotionToken(settings.notion_token); setIsNotionConnected(true); }
+                if (settings?.linear_token) { setLinearToken(settings.linear_token); setIsLinearConnected(true); }
+                if (settings?.jira_token) { setJiraToken(settings.jira_token); setIsJiraConnected(true); }
+                if (settings?.jira_domain) setJiraDomain(settings.jira_domain);
             }
         };
         loadOtherIntegrations();
