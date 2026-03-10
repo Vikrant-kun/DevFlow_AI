@@ -4,6 +4,8 @@ export const API_ROUTES = {
     workflowRun: "/workflows/run/",
     githubSettings: "/github/integration-settings/",
     githubBranches: "/github/branches/",
+    githubCommits: "/github/commits/",
+    githubPullRequests: "/github/pull-requests/",
     githubRepos: "/github/repos/",
     githubSelectRepo: "/github/select-repo/",
     githubSelectedRepo: "/github/selected-repo/",
