@@ -57,19 +57,9 @@ const Integrations = () => {
         const loadOtherIntegrations = async () => {
             const { data: { user: authUser } } = await supabase.auth.getUser();
             if (authUser) {
-                const { data: slackSettings } = await supabase
+                const { data: settings } = await supabase
                     .from('user_settings')
-                    .select('slack_webhook_url')
-                    .eq('user_id', authUser.id)
-                    .maybeSingle();
-                if (slackSettings?.slack_webhook_url) {
-                    setSlackWebhook(slackSettings.slack_webhook_url);
-                    setIsSlackConnected(true);
-                }
-
-                const { data: extraSettings } = await supabase
-                    .from('user_settings')
-                    .select('notion_token, linear_token, jira_token, jira_domain')
+                    .select('slack_webhook_url, notion_token, linear_token, jira_token, jira_domain')
                     .eq('user_id', authUser.id)
                     .maybeSingle();
 

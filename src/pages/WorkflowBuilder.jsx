@@ -293,8 +293,8 @@ const AddNodePanel = ({ setNodes, setIsDirty, showToast }) => {
                 <button
                     onClick={() => setOpen(!open)}
                     className={`w-10 h-10 rounded-xl border shadow-xl flex items-center justify-center transition-all duration-200 ${open
-                            ? 'bg-[#6EE7B7] border-[#6EE7B7] text-[#080808] rotate-45'
-                            : 'bg-[#111] border-[#222] text-[#64748B] hover:border-[#6EE7B7] hover:text-[#6EE7B7]'
+                        ? 'bg-[#6EE7B7] border-[#6EE7B7] text-[#080808] rotate-45'
+                        : 'bg-[#111] border-[#222] text-[#64748B] hover:border-[#6EE7B7] hover:text-[#6EE7B7]'
                         }`}
                     title="Add node"
                 >
