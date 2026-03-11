@@ -1,7 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, FileEdit, Plus, Layers, X, Github, CheckCircle2, ChevronRight, Upload, FileCode, GitCommit, Zap } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import {
+    Play, FileEdit, Plus, Layers, X, Github,
+    CheckCircle2, ChevronRight, Upload, FileCode,
+    GitCommit, Zap, Activity, Clock, Terminal,
+    Fingerprint, GitFork, Bell, ArrowRight, ShieldCheck,
+    Cpu, Database, Loader2, Trash2
+} from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -9,61 +15,76 @@ import TopBar from '../components/TopBar';
 import Sidebar from '../components/Sidebar';
 import { apiFetch } from '../lib/api';
 import { API_ROUTES } from '../lib/apiRoutes';
+import { cn } from '../lib/utils';
 
-const getStatusBadge = (status) => {
-    switch (status) {
-        case 'Active':
-            return <span className="flex items-center gap-2 text-xs md:text-sm font-mono text-text-secondary"><span className="w-2 h-2 rounded-xl bg-[#6EE7B7]"></span> Active</span>;
-        case 'Paused':
-            return <span className="flex items-center gap-2 text-xs md:text-sm font-mono text-text-secondary"><span className="w-2 h-2 rounded-xl bg-[#F59E0B]"></span> Paused</span>;
-        case 'Failed':
-            return <span className="flex items-center gap-2 text-xs md:text-sm font-mono text-text-secondary"><span className="w-2 h-2 rounded-xl bg-[#F87171]"></span> Failed</span>;
-        default:
-            return null;
-    }
+// ── STATUS BADGE ────────────────────────────────────────────────────────────
+const StatusBadge = ({ status }) => {
+    const s = (status || 'draft').toLowerCase();
+    const configs = {
+        active: { color: '#6EE7B7', bg: 'bg-[#6EE7B7]/5', border: 'border-[#6EE7B7]/10', label: 'LIVE' },
+        success: { color: '#6EE7B7', bg: 'bg-[#6EE7B7]/5', border: 'border-[#6EE7B7]/10', label: 'LIVE' },
+        paused: { color: '#F59E0B', bg: 'bg-[#F59E0B]/5', border: 'border-[#F59E0B]/10', label: 'PAUSED' },
+        failed: { color: '#F87171', bg: 'bg-[#F87171]/5', border: 'border-[#F87171]/10', label: 'FAILED' },
+        draft: { color: '#64748B', bg: 'bg-[#1A1A1A]', border: 'border-[#222]', label: 'DRAFT' }
+    };
+    const cfg = configs[s] || configs.draft;
+    return (
+        <span className={cn(
+            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border font-mono text-[9px] font-bold uppercase tracking-widest",
+            cfg.bg, cfg.border
+        )} style={{ color: cfg.color }}>
+            {(s === 'active' || s === 'success') ? (
+                <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#6EE7B7] opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#6EE7B7]"></span>
+                </span>
+            ) : <div className="w-1 h-1 rounded-full" style={{ backgroundColor: cfg.color }} />}
+            {cfg.label}
+        </span>
+    );
 };
 
+// ── ANIMATION VARIANTS ──────────────────────────────────────────────────────
 const containerVariants = {
     hidden: { opacity: 0 },
-    show: { opacity: 1, transition: { staggerChildren: 0.1 } }
+    show: { opacity: 1, transition: { staggerChildren: 0.08, delayChildren: 0.1 } }
 };
 
 const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } }
+    hidden: { opacity: 0, y: 15, scale: 0.98 },
+    show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.4, ease: [0.23, 1, 0.32, 1] } }
 };
 
 const Dashboard = () => {
     const navigate = useNavigate();
+    const { user, isGithubConnected, repos, selectedRepo, saveSelectedRepo, githubLoading, fetchRepos, getAuthToken } = useAuth();
+    const { showToast } = useToast();
+
     const [recentWorkflows, setRecentWorkflows] = useState([]);
     const [stats, setStats] = useState([
-        { label: "Total Workflows", value: "0" },
-        { label: "Runs Today", value: "0" },
-        { label: "Success Rate", value: "—" },
-        { label: "Time Saved", value: "0h" }
+        { label: "Total_Pipelines", value: "0", icon: Layers },
+        { label: "Daily_Triggers", value: "0", icon: Activity },
+        { label: "Reliability_Index", value: "—", icon: ShieldCheck },
+        { label: "Cycles_Optimized", value: "0h", icon: Cpu }
     ]);
-    const { showToast } = useToast();
-    const { user, isGithubConnected, repos, selectedRepo, saveSelectedRepo, githubLoading, fetchRepos, getAuthToken } = useAuth();
+
     const [showRepoSelector, setShowRepoSelector] = useState(false);
     const [checklistDismissed, setChecklistDismissed] = useState(true);
-    const [patBannerDismissed, setPatBannerDismissed] = useState(
-        () => localStorage.getItem('devflow_pat_banner_dismissed') === 'true'
-    );
+    const [patBannerDismissed, setPatBannerDismissed] = useState(() => localStorage.getItem('devflow_pat_banner_dismissed') === 'true');
 
-    // ── File commit / upload state ───────────────────────────────────────
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
     const [uploadFiles, setUploadFiles] = useState([]);
     const [commitMessage, setCommitMessage] = useState('');
     const [isCommitting, setIsCommitting] = useState(false);
     const [isDragOver, setIsDragOver] = useState(false);
 
     const [checklistItems, setChecklistItems] = useState([
-        { id: 'create_account', label: 'create_account', done: true, route: null },
-        { id: 'connect_github', label: 'connect_github', done: false, route: '/integrations' },
-        { id: 'create_workflow', label: 'create_first_workflow', done: false, route: '/workflows/new' },
-        { id: 'run_pipeline', label: 'run_first_pipeline', done: false, route: null, locked: true }
+        { id: 'create_account', label: 'authenticate_user', done: true, route: null },
+        { id: 'connect_github', label: 'link_repository_provider', done: false, route: '/integrations' },
+        { id: 'create_workflow', label: 'define_first_sequence', done: false, route: '/workflows/new' },
+        { id: 'run_pipeline', label: 'execute_production_run', done: false, route: null, locked: true }
     ]);
 
+    // ── DATA LOADING ──
     useEffect(() => {
         const isDismissed = localStorage.getItem('devflow_checklist_dismissed') === 'true';
         setChecklistDismissed(isDismissed);
@@ -71,99 +92,62 @@ const Dashboard = () => {
         const loadData = async () => {
             if (!user) return;
             try {
-                // Load all workflows and runs in parallel
                 const [workflowsResponse, runsResponse] = await Promise.all([
                     apiFetch(API_ROUTES.workflows, {}, getAuthToken),
                     apiFetch(API_ROUTES.runs, {}, getAuthToken)
                 ]);
-
                 const workflowsData = workflowsResponse?.workflows || workflowsResponse || [];
                 const runsData = runsResponse?.runs || runsResponse || [];
 
-                if (!workflowsData || !runsData) {
-                    console.error('Failed to fetch workflows or runs');
-                    return;
-                }
-
-                // Checklist progress
                 const hasWorkflow = !!workflowsData?.length;
                 const hasRun = runsData?.some(r => r.status === 'success') || localStorage.getItem('devflow_has_run') === 'true';
 
                 setChecklistItems([
-                    { id: 'create_account', label: 'create_account', done: true, route: null },
-                    { id: 'connect_github', label: 'connect_github', done: isGithubConnected, route: '/integrations' },
-                    { id: 'create_first_workflow', label: 'create_first_workflow', done: hasWorkflow, route: '/workflows/new' },
-                    { id: 'run_pipeline', label: 'run_first_pipeline', done: hasRun, route: null, locked: !hasWorkflow },
+                    { id: 'create_account', label: 'authenticate_user', done: true, route: null },
+                    { id: 'connect_github', label: 'link_repository_provider', done: isGithubConnected, route: '/integrations' },
+                    { id: 'create_first_workflow', label: 'define_first_sequence', done: hasWorkflow, route: '/workflows/new' },
+                    { id: 'run_pipeline', label: 'execute_production_run', done: hasRun, route: null, locked: !hasWorkflow },
                 ]);
 
-                // Stats calculation
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-
                 if (runsData && workflowsData) {
+                    const today = new Date(); today.setHours(0, 0, 0, 0);
                     const todayRuns = runsData.filter(r => new Date(r.started_at) >= today);
                     const successRuns = runsData.filter(r => r.status === 'success');
-                    const successRate = runsData.length > 0
-                        ? Math.round((successRuns.length / runsData.length) * 100)
-                        : 0;
-
+                    const successRate = runsData.length > 0 ? Math.round((successRuns.length / runsData.length) * 100) : 0;
                     const minutesSaved = successRuns.length * 5;
-                    const timeSaved = minutesSaved >= 60
-                        ? `${Math.floor(minutesSaved / 60)}h ${minutesSaved % 60}m`
-                        : `${minutesSaved}m`;
+                    const timeSaved = minutesSaved >= 60 ? `${Math.floor(minutesSaved / 60)}h ${minutesSaved % 60}m` : `${minutesSaved}m`;
 
                     setStats([
-                        { label: 'Total Workflows', value: workflowsData.length.toString() },
-                        { label: 'Runs Today', value: todayRuns.length.toString() },
-                        { label: 'Success Rate', value: runsData.length > 0 ? `${successRate}%` : '—' },
-                        { label: 'Time Saved', value: timeSaved || '0m' }
+                        { label: 'Total_Pipelines', value: workflowsData.length.toString(), icon: Layers },
+                        { label: 'Daily_Triggers', value: todayRuns.length.toString(), icon: Activity },
+                        { label: 'Reliability_Index', value: runsData.length > 0 ? `${successRate}%` : '—', icon: ShieldCheck },
+                        { label: 'Cycles_Optimized', value: timeSaved || '0m', icon: Cpu }
                     ]);
 
-                    const recent = workflowsData.slice(0, 4).map(w => ({
-                        id: w.id,
-                        name: w.name,
-                        status: (w.status || "draft").charAt(0).toUpperCase() + (w.status || "draft").slice(1),
+                    setRecentWorkflows(workflowsData.slice(0, 4).map(w => ({
+                        id: w.id, name: w.name, status: w.status || "draft",
                         lastRun: w.updated_at ? new Date(w.updated_at).toLocaleDateString() : 'Never'
-                    }));
-                    setRecentWorkflows(recent);
+                    })));
                 }
-            } catch (err) {
-                console.error("Dashboard data load error:", err);
-                showToast("Failed to load dashboard data", "error");
-            }
+            } catch (err) { console.error(err); }
         };
-
         loadData();
+        if (isGithubConnected && repos.length === 0) fetchRepos();
+    }, [user, isGithubConnected, fetchRepos]);
 
-        // If connected but no repos yet, trigger a fetch
-        if (isGithubConnected && repos.length === 0) {
-            fetchRepos();
-        }
-    }, [user, isGithubConnected, showToast, fetchRepos]);
-
-    const handleDismissChecklist = () => {
-        localStorage.setItem('devflow_checklist_dismissed', 'true');
-        setChecklistDismissed(true);
-    };
-
+    // ── HANDLERS ──
+    const handleDismissChecklist = () => { localStorage.setItem('devflow_checklist_dismissed', 'true'); setChecklistDismissed(true); };
     const handleChecklistClick = (item) => {
         if (item.locked) return;
-        if (item.route) {
-            navigate(item.route);
-        } else {
+        if (item.route) navigate(item.route);
+        else {
             const updated = checklistItems.map(i => i.id === item.id ? { ...i, done: true } : i);
             setChecklistItems(updated);
-            if (updated.every(i => i.done || i.locked)) {
-                handleDismissChecklist();
-                showToast("You're all set. Welcome to DevFlow. 🚀", "success");
-            }
+            if (updated.every(i => i.done || i.locked)) { handleDismissChecklist(); showToast("Onboarding complete.", "success"); }
         }
     };
-
-    // ── File upload / commit handlers ────────────────────────────────────
     const handleDrop = useCallback((e) => {
-        e.preventDefault();
-        setIsDragOver(false);
+        e.preventDefault(); setIsDragOver(false);
         const dropped = Array.from(e.dataTransfer?.files || e.target?.files || []);
         setUploadFiles(prev => [...prev, ...dropped]);
     }, []);
@@ -175,512 +159,290 @@ const Dashboard = () => {
             for (const file of uploadFiles) {
                 const content = await file.text();
                 await apiFetch(API_ROUTES.githubSettings, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        repo_full_name: selectedRepo.full_name,
-                        path: file.name,
-                        content,
+                    method: 'POST', body: JSON.stringify({
+                        repo_full_name: selectedRepo.full_name, path: file.name, content,
                         message: commitMessage || `Add ${file.name} via DevFlow`
                     })
                 }, getAuthToken);
             }
-            showToast(`${uploadFiles.length} file(s) pushed to ${selectedRepo.full_name}`, 'success');
-            setUploadFiles([]);
-            setCommitMessage('');
-        } catch (err) {
-            showToast('Commit failed: ' + err.message, 'error');
-        } finally {
-            setIsCommitting(false);
-        }
+            showToast(`${uploadFiles.length} file(s) indexed.`, 'success');
+            setUploadFiles([]); setCommitMessage('');
+        } catch (err) { showToast('Indexing failed.', 'error'); } finally { setIsCommitting(false); }
     };
 
     const handleRunWorkflow = async (workflow) => {
-        if (!user) {
-            showToast('Log in to run.', 'error');
-            return;
-        }
         try {
-            showToast(`Running ${workflow.name}...`, 'info');
+            showToast(`Initializing ${workflow.name}...`, 'info');
             const result = await apiFetch(API_ROUTES.workflowRun, {
-                method: 'POST',
-                body: JSON.stringify({ workflow_id: workflow.id, workflow_name: workflow.name, snapshot: {} })
+                method: 'POST', body: JSON.stringify({ workflow_id: workflow.id, workflow_name: workflow.name, snapshot: {} })
             }, getAuthToken);
-            if (result.status === 'success') {
-                showToast(`${workflow.name} executed!`, 'success');
-            } else {
-                showToast(`${workflow.name} failed — check Logs`, 'error');
-            }
-        } catch (err) {
-            showToast('Run failed: ' + err.message, 'error');
-        }
+            if (result.status === 'success') showToast(`${workflow.name} deployed.`, 'success');
+            else showToast(`Execution error.`, 'error');
+        } catch (err) { showToast('Link failed.', 'error'); }
     };
 
     const handleDeleteWorkflow = async (workflow) => {
-        if (!confirm(`Delete "${workflow.name}"? This cannot be undone.`)) return;
+        if (!confirm(`Purge "${workflow.name}"?`)) return;
         try {
-            await apiFetch(`${API_ROUTES.workflows}${workflow.id}/`, {
-                method: 'DELETE'
-            }, getAuthToken);
+            await apiFetch(`${API_ROUTES.workflows}${workflow.id}/`, { method: 'DELETE' }, getAuthToken);
             setRecentWorkflows(prev => prev.filter(w => w.id !== workflow.id));
-            showToast(`"${workflow.name}" deleted`, 'success');
-        } catch (err) {
-            showToast('Failed to delete: ' + err.message, 'error');
-        }
+            showToast(`Registry purged.`, 'success');
+        } catch (err) { showToast('Purge failed.', 'error'); }
     };
 
     return (
-        <div className="flex h-[100dvh] bg-[#080808] overflow-hidden">
+        <div className="flex h-screen bg-[#080808] text-[#F1F5F9] overflow-hidden relative font-mono">
+            <div className="absolute inset-0 opacity-[0.01] pointer-events-none bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:24px_24px]" />
+
             <Sidebar />
-            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-                <TopBar title="Dashboard" />
-                <main className="flex-1 overflow-y-auto p-4 md:p-8">
-                    <div className="w-full max-w-6xl mx-auto space-y-6 md:space-y-8 pb-12">
-                        {/* Header & Actions */}
-                        <motion.div variants={containerVariants} initial="hidden" animate="show" className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                            <motion.div variants={itemVariants}>
-                                <h2 className="text-lg md:text-xl font-mono text-text-primary lowercase tracking-tight">dashboard</h2>
-                                <p className="text-text-secondary text-xs md:text-sm font-mono mt-1">overview_of_active_pipelines</p>
+
+            <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative z-10">
+                <TopBar title={<span className="text-[11px] tracking-[0.2em] uppercase font-bold text-[#64748B]">Dashboard</span>} />
+
+                <main className="flex-1 overflow-y-auto no-scrollbar p-6 md:p-10">
+                    <div className="max-w-7xl mx-auto space-y-10 pb-24">
+
+                        {/* ── HEADER ── */}
+                        <motion.div variants={containerVariants} initial="hidden" animate="show" className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+                            <motion.div variants={itemVariants} className="space-y-2">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-2 h-8 bg-[#6EE7B7] rounded-full shadow-[0_0_15px_#6EE7B7]" />
+                                    <h2 className="text-3xl font-bold lowercase tracking-tighter">Dashboard</h2>
+                                </div>
+                                <p className="text-[#64748B] text-xs lowercase tracking-wider">overview_of_production_environment</p>
                             </motion.div>
-                            <motion.div variants={itemVariants} className="flex flex-row gap-2 w-full md:w-auto">
-                                <Button variant="ghost" className="gap-2 flex-1 md:flex-none justify-center rounded-xl text-xs md:text-sm border border-[#1A1A1A] hover:border-[#333]" onClick={() => navigate('/templates')}>
-                                    <Layers className="w-4 h-4" /> <span className="hidden sm:inline">Browse</span> Templates
-                                </Button>
-                                <Button variant="primary" className="gap-2 flex-1 md:flex-none justify-center rounded-xl shadow-glow-primary text-xs md:text-sm" onClick={() => navigate('/workflows/new')}>
-                                    <Plus className="w-4 h-4" /> New Workflow
-                                </Button>
+
+                            <motion.div variants={itemVariants} className="flex gap-3 w-full md:w-auto">
+                                <button onClick={() => navigate('/templates')} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-[#111] border border-[#1A1A1A] rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:border-[#333] transition-all">
+                                    <Layers className="w-3.5 h-3.5" /> Library
+                                </button>
+                                <button onClick={() => navigate('/workflows/new')} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-[#6EE7B7] text-[#080808] rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-[#34D399] transition-all shadow-[0_0_20px_rgba(110,231,183,0.1)]">
+                                    <Plus className="w-4 h-4" /> Initialize_Flow
+                                </button>
                             </motion.div>
                         </motion.div>
 
-                        {/* Getting Started Checklist */}
-                        <AnimatePresence>
-                            {!checklistDismissed && (
-                                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, height: 0 }} className="w-full">
-                                    <div className="bg-[#0D0D0D] border border-[#1A1A1A] rounded-2xl overflow-hidden">
-                                        <div className="flex items-center justify-between px-5 py-4 border-b border-[#1A1A1A]">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-7 h-7 rounded-lg bg-[#6EE7B7]/10 border border-[#6EE7B7]/20 flex items-center justify-center">
-                                                    <Zap className="w-3.5 h-3.5 text-[#6EE7B7]" />
-                                                </div>
-                                                <div>
-                                                    <p className="font-mono text-xs font-bold text-[#F1F5F9]">Getting Started</p>
-                                                    <p className="font-mono text-[10px] text-[#64748B]">{checklistItems.filter(i => i.done).length} of {checklistItems.length} completed</p>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <div className="hidden sm:flex items-center gap-2">
-                                                    <div className="w-24 h-1.5 bg-[#1A1A1A] rounded-full overflow-hidden">
-                                                        <motion.div className="h-full bg-[#6EE7B7] rounded-full"
-                                                            initial={{ width: 0 }}
-                                                            animate={{ width: `${(checklistItems.filter(i => i.done).length / checklistItems.length) * 100}%` }}
-                                                            transition={{ duration: 0.5, ease: 'easeOut' }} />
-                                                    </div>
-                                                    <span className="font-mono text-[10px] text-[#64748B]">
-                                                        {Math.round((checklistItems.filter(i => i.done).length / checklistItems.length) * 100)}%
-                                                    </span>
-                                                </div>
-                                                <button onClick={handleDismissChecklist} className="text-[#64748B] hover:text-[#F1F5F9] transition-colors p-1">
-                                                    <X className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#1A1A1A]">
-                                            {checklistItems.map((item, idx) => {
-                                                const stepLabels = {
-                                                    create_account: { title: 'Create Account', desc: 'Sign up and get access' },
-                                                    connect_github: { title: 'Connect GitHub', desc: 'Link your repositories' },
-                                                    create_first_workflow: { title: 'Build Workflow', desc: 'Design your first pipeline' },
-                                                    run_first_pipeline: { title: 'Run Pipeline', desc: 'Execute and see results' },
-                                                };
-                                                const meta = stepLabels[item.id] || { title: item.label, desc: '' };
-                                                return (
-                                                    <div key={item.id} onClick={() => handleChecklistClick(item)}
-                                                        className={`p-4 flex items-start gap-3 transition-colors ${item.locked ? 'opacity-40 cursor-not-allowed' :
-                                                            item.done ? 'cursor-default' :
-                                                                'cursor-pointer hover:bg-[#111]'
-                                                            }`}>
-                                                        <div className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0 border transition-all ${item.done ? 'bg-[#6EE7B7]/15 border-[#6EE7B7]/40' : 'bg-[#111] border-[#333]'}`}>
-                                                            {item.done
-                                                                ? <CheckCircle2 className="w-3 h-3 text-[#6EE7B7]" />
-                                                                : <span className="font-mono text-[9px] text-[#444]">{idx + 1}</span>
-                                                            }
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className={`font-mono text-xs font-semibold truncate ${item.done ? 'text-[#6EE7B7]' : 'text-[#F1F5F9]'}`}>{meta.title}</p>
-                                                            <p className="font-mono text-[10px] text-[#64748B] mt-0.5">{meta.desc}</p>
-                                                        </div>
-                                                        {!item.done && !item.locked && <ChevronRight className="w-3.5 h-3.5 text-[#333] shrink-0 mt-0.5" />}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-
-                        {/* GitHub PAT Banner */}
-                        <AnimatePresence>
-                            {!isGithubConnected && !patBannerDismissed && (
-                                <motion.div
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    exit={{ opacity: 0 }}
-                                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
-                                    onClick={() => {
-                                        localStorage.setItem('devflow_pat_banner_dismissed', 'true');
-                                        setPatBannerDismissed(true);
-                                    }}
-                                >
-                                    <motion.div
-                                        initial={{ opacity: 0, scale: 0.92, y: 16 }}
-                                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                                        exit={{ opacity: 0, scale: 0.92, y: 16 }}
-                                        transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-                                        onClick={e => e.stopPropagation()}
-                                        className="relative w-full max-w-md bg-[#0D0D0D] border border-[#222] rounded-2xl overflow-hidden shadow-2xl"
-                                    >
-                                        <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-[#6EE7B7] to-transparent" />
-
-                                        <div className="p-6">
-                                            <button
-                                                onClick={() => {
-                                                    localStorage.setItem('devflow_pat_banner_dismissed', 'true');
-                                                    setPatBannerDismissed(true);
-                                                }}
-                                                className="absolute top-4 right-4 text-[#444] hover:text-[#F1F5F9] transition-colors"
-                                            >
-                                                <X className="w-4 h-4" />
-                                            </button>
-
-                                            <div className="w-12 h-12 rounded-xl bg-[#6EE7B7]/10 border border-[#6EE7B7]/20 flex items-center justify-center mb-4">
-                                                <Github className="w-6 h-6 text-[#6EE7B7]" />
-                                            </div>
-
-                                            <h3 className="font-mono text-base font-bold text-[#F1F5F9] mb-1">
-                                                One more step
-                                            </h3>
-                                            <p className="font-mono text-xs text-[#64748B] leading-relaxed mb-1">
-                                                You're signed in with{' '}
-                                                <span className="text-[#F1F5F9]">
-                                                    {user?.externalAccounts?.find(acc => acc.provider === 'google') ? 'Google' :
-                                                        user?.externalAccounts?.find(acc => acc.provider === 'github') ? 'GitHub' : 'email'}
-                                                </span>{' '}
-                                                — but DevFlow needs a{' '}
-                                                <span className="text-[#F1F5F9]">GitHub Personal Access Token</span> to read and write your repos.
-                                            </p>
-                                            <p className="font-mono text-[10px] text-[#444] mb-5">
-                                                OAuth login proves your identity. A PAT gives DevFlow permission to commit, push, and scan your code.
-                                            </p>
-
-                                            <div className="flex gap-3">
-                                                <button
-                                                    onClick={() => {
-                                                        localStorage.setItem('devflow_pat_banner_dismissed', 'true');
-                                                        setPatBannerDismissed(true);
-                                                    }}
-                                                    className="flex-1 font-mono text-xs text-[#64748B] border border-[#222] py-2.5 rounded-xl hover:border-[#333] transition-colors"
-                                                >
-                                                    Later
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        localStorage.setItem('devflow_pat_banner_dismissed', 'true');
-                                                        setPatBannerDismissed(true);
-                                                        navigate('/integrations');
-                                                    }}
-                                                    className="flex-1 font-mono text-xs font-bold bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] py-2.5 rounded-xl transition-colors"
-                                                >
-                                                    Connect PAT →
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </motion.div>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-
-                        {/* Stats */}
-                        <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                        {/* ── STATS MATRIX ── */}
+                        <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
                             {stats.map((stat, i) => (
-                                <motion.div key={i} variants={itemVariants} className="bg-[#111] rounded-xl p-4 md:p-5 border-l-2 border-[#6EE7B7] hover:bg-[#151515] transition-colors">
-                                    <p className="text-[#64748B] text-[10px] md:text-xs font-mono lowercase tracking-wider mb-1 md:mb-2 truncate">{stat.label}</p>
-                                    <h3 className="text-2xl md:text-3xl font-mono font-bold tracking-tight text-[#6EE7B7]">{stat.value}</h3>
+                                <motion.div key={i} variants={itemVariants} className="relative group bg-[#0D0D0D] border border-[#1A1A1A] hover:border-[#6EE7B7]/20 p-6 rounded-3xl transition-all duration-300">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#333] group-hover:text-[#444]">{stat.label}</span>
+                                        <stat.icon className="w-4 h-4 text-[#1A1A1A] group-hover:text-[#6EE7B7]/20 transition-colors" />
+                                    </div>
+                                    <h3 className="text-3xl font-bold tracking-tighter text-[#F1F5F9]">{stat.value}</h3>
                                 </motion.div>
                             ))}
                         </motion.div>
 
-                        {/* Active Repository + File Push */}
-                        <motion.div variants={containerVariants} initial="hidden" animate="show" className="pt-2 md:pt-4 relative" style={{ zIndex: 10 }}>
-                            <div className="flex items-center justify-between mb-3 md:mb-4">
-                                <h3 className="text-[10px] md:text-sm font-mono text-[#64748B] lowercase tracking-wider">active_repository</h3>
-                            </div>
+                        {/* ── ONBOARDING PROTOCOL ── */}
+                        <AnimatePresence>
+                            {!checklistDismissed && (
+                                <motion.div variants={itemVariants} initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, height: 0 }} className="w-full">
+                                    <div className="bg-[#0D0D0D] border border-[#1A1A1A] rounded-[32px] overflow-hidden shadow-2xl relative">
+                                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#6EE7B7]/20 via-[#6EE7B7] to-[#6EE7B7]/20 opacity-50" />
 
-                            <div className="bg-[#111] border border-[#222] rounded-xl overflow-visible">
-                                <div className="p-4 md:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 md:gap-6">
-                                    <div className="flex items-center gap-3 md:gap-4 w-full md:w-auto">
-                                        <div className="w-10 h-10 md:w-12 md:h-12 bg-[#0D0D0D] border border-[#222] flex items-center justify-center shrink-0 rounded-xl">
-                                            <Github className="w-5 h-5 md:w-6 md:h-6 text-[#F1F5F9]" />
+                                        <div className="flex items-center justify-between px-8 py-5 border-b border-[#1A1A1A]">
+                                            <div className="flex items-center gap-4">
+                                                <Terminal className="w-4 h-4 text-[#6EE7B7]" />
+                                                <span className="text-[10px] font-bold uppercase tracking-[0.25em]">Onboarding_Sequence</span>
+                                            </div>
+                                            <button onClick={handleDismissChecklist} className="p-2 hover:bg-[#1A1A1A] rounded-full transition-colors">
+                                                <X className="w-4 h-4 text-[#333]" />
+                                            </button>
                                         </div>
-                                        <div className="min-w-0 flex-1">
-                                            {githubLoading ? (
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-3 h-3 border-2 border-[#333] border-t-[#6EE7B7] rounded-full animate-spin" />
-                                                    <span className="font-mono text-xs text-[#64748B]">Connecting GitHub...</span>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-[#1A1A1A]">
+                                            {checklistItems.map((item, idx) => (
+                                                <div key={item.id} onClick={() => handleChecklistClick(item)}
+                                                    className={cn("p-6 flex flex-col gap-4 transition-all relative group/step",
+                                                        item.locked ? 'opacity-20 cursor-not-allowed' : item.done ? 'bg-[#6EE7B7]/[0.02]' : 'cursor-pointer hover:bg-[#111]')}>
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-[10px] text-[#333] font-bold">0{idx + 1}</span>
+                                                        {item.done ? <CheckCircle2 className="w-4 h-4 text-[#6EE7B7]" /> : <Fingerprint className="w-4 h-4 text-[#222]" />}
+                                                    </div>
+                                                    <p className={cn("text-[11px] font-bold uppercase tracking-widest leading-relaxed",
+                                                        item.done ? 'text-[#6EE7B7]' : 'text-[#64748B] group-hover/step:text-[#F1F5F9]')}>{item.label}</p>
                                                 </div>
-                                            ) : selectedRepo ? (
-                                                <>
-                                                    <h3 className="text-sm md:text-base font-mono font-semibold text-[#F1F5F9] mb-0.5 truncate">{selectedRepo.full_name}</h3>
-                                                    <span className="flex items-center gap-2 text-[10px] font-mono text-[#6EE7B7]">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-[#6EE7B7] animate-pulse"></span> connected
-                                                    </span>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <h3 className="text-sm md:text-base font-mono font-semibold text-[#F1F5F9] mb-0.5">No repository connected</h3>
-                                                    <span className="text-[10px] font-mono text-[#64748B]">Select a GitHub repository to get started.</span>
-                                                </>
-                                            )}
+                                            ))}
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
+                        {/* ── WORKSPACE ── */}
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-4">
+                            <motion.div variants={itemVariants} className="lg:col-span-8 space-y-5">
+                                <div className="flex items-center gap-2 px-2">
+                                    <Database size={14} className="text-[#333]" />
+                                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-[#444]">Active_Repository</h3>
+                                </div>
+                                <div className="bg-[#0D0D0D] border border-[#1A1A1A] rounded-[32px] p-8 space-y-8 relative group/repo">
+                                    <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+                                        <div className="flex items-center gap-6">
+                                            <div className="w-16 h-16 bg-[#111] border border-[#222] flex items-center justify-center rounded-[24px] shadow-inner group-hover/repo:border-[#6EE7B7]/40 transition-colors">
+                                                <Github className="w-8 h-8 text-[#F1F5F9]" />
+                                            </div>
+                                            <div>
+                                                {githubLoading ? (
+                                                    <div className="flex items-center gap-3">
+                                                        <Loader2 className="w-4 h-4 text-[#6EE7B7] animate-spin" />
+                                                        <span className="text-xs uppercase tracking-widest text-[#444]">Syncing...</span>
+                                                    </div>
+                                                ) : selectedRepo ? (
+                                                    <div className="space-y-1">
+                                                        <h3 className="text-xl font-bold tracking-tighter text-[#F1F5F9]">{selectedRepo.full_name}</h3>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-[#6EE7B7] animate-pulse" />
+                                                            <span className="text-[10px] uppercase font-bold text-[#6EE7B7] tracking-widest">Protocol_Established</span>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-1">
+                                                        <h3 className="text-lg font-bold text-[#333] lowercase">offline_workspace</h3>
+                                                        <p className="text-[10px] text-[#444] uppercase tracking-widest font-bold">Mount repository to begin</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-3 relative z-50">
+                                            <button onClick={() => setShowRepoSelector(!showRepoSelector)}
+                                                className="px-6 py-2.5 rounded-xl border border-[#1A1A1A] text-[10px] font-bold uppercase tracking-widest hover:text-[#F1F5F9] hover:bg-[#111] transition-all">
+                                                Mount_Repo
+                                            </button>
+                                            <AnimatePresence>
+                                                {showRepoSelector && (
+                                                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
+                                                        className="absolute right-0 top-full mt-4 w-72 bg-[#0D0D0D] border border-[#222] rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[100] overflow-hidden p-2">
+                                                        <div className="max-h-64 overflow-y-auto no-scrollbar space-y-1">
+                                                            {repos.map(r => (
+                                                                <button key={r.id} onClick={() => { saveSelectedRepo({ name: r.name, full_name: r.full_name }); setShowRepoSelector(false); }}
+                                                                    className={cn("w-full text-left px-4 py-3 rounded-xl font-mono text-[10px] font-bold uppercase transition-all flex items-center justify-between",
+                                                                        selectedRepo?.full_name === r.full_name ? "bg-[#6EE7B7]/5 text-[#6EE7B7]" : "text-[#444] hover:bg-[#111] hover:text-[#64748B]")}>
+                                                                    <span className="truncate">{r.name}</span>
+                                                                    {selectedRepo?.full_name === r.full_name && <CheckCircle2 size={12} />}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
                                         </div>
                                     </div>
 
-                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto relative" style={{ zIndex: 20 }}>
-                                        {isGithubConnected ? (
-                                            <>
-                                                <Button variant="ghost"
-                                                    onClick={() => setShowRepoSelector(!showRepoSelector)}
-                                                    className="font-mono text-xs border border-[#222] text-[#F1F5F9] rounded-xl w-full sm:w-auto justify-center">
-                                                    {selectedRepo ? 'Change Repo' : 'Select Repo →'}
-                                                </Button>
-                                                {selectedRepo && (
-                                                    <Button variant="primary"
-                                                        className="gap-2 bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] border-none font-bold rounded-xl text-xs w-full sm:w-auto justify-center"
-                                                        onClick={() => navigate('/workflows/new')}>
-                                                        New Workflow →
-                                                    </Button>
-                                                )}
-                                            </>
-                                        ) : (
-                                            <Button variant="primary"
-                                                className="gap-2 bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] border-none font-bold rounded-xl w-full sm:w-auto justify-center text-xs"
-                                                onClick={() => navigate('/integrations')}>
-                                                Connect GitHub →
-                                            </Button>
-                                        )}
-
-                                        <AnimatePresence>
-                                            {showRepoSelector && (
-                                                <motion.div
-                                                    initial={{ opacity: 0, height: 0, scale: 0.97 }}
-                                                    animate={{ opacity: 1, height: 'auto', scale: 1 }}
-                                                    exit={{ opacity: 0, height: 0, scale: 0.97 }}
-                                                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                                                    className="absolute right-0 left-0 md:left-auto top-full mt-2 w-full md:w-72 bg-[#0D0D0D] border border-[#333] rounded-xl overflow-hidden shadow-2xl z-[50]"
-                                                >
-                                                    {githubLoading ? (
-                                                        <div className="p-4 flex items-center gap-2">
-                                                            <div className="w-3 h-3 border-2 border-[#333] border-t-[#6EE7B7] rounded-full animate-spin" />
-                                                            <span className="font-mono text-[10px] text-[#64748B]">Loading repos...</span>
-                                                        </div>
-                                                    ) : repos.length === 0 ? (
-                                                        <div className="p-4 text-center space-y-2">
-                                                            <p className="font-mono text-[11px] text-[#64748B]">No repositories found.</p>
-                                                            <p className="font-mono text-[10px] text-[#444]">Make sure GitHub is connected in Integrations.</p>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="p-2 max-h-56 overflow-y-auto space-y-0.5">
-                                                            <p className="font-mono text-[9px] text-[#444] uppercase tracking-widest px-2 pb-1">Your repositories</p>
-                                                            {repos.map(r => (
-                                                                <motion.button
-                                                                    key={r.id}
-                                                                    whileHover={{ x: 3 }}
-                                                                    transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                                                                    onClick={() => {
-                                                                        saveSelectedRepo({ name: r.name, full_name: r.full_name });
-                                                                        setShowRepoSelector(false);
-                                                                    }}
-                                                                    className={`w-full text-left px-3 py-2.5 rounded-lg font-mono text-xs transition-colors flex items-center gap-2 ${selectedRepo?.full_name === r.full_name
-                                                                        ? 'bg-[#6EE7B7]/10 text-[#6EE7B7] border border-[#6EE7B7]/20'
-                                                                        : 'text-[#94A3B8] hover:bg-[#1A1A1A] border border-transparent'
-                                                                        }`}
-                                                                >
-                                                                    <span className="text-[#444] shrink-0">/</span>
-                                                                    <span className="truncate flex-1">{r.full_name || r.name}</span>
-                                                                    {selectedRepo?.full_name === r.full_name && (
-                                                                        <span className="text-[#6EE7B7] text-[10px] shrink-0">✓</span>
-                                                                    )}
-                                                                </motion.button>
-                                                            ))}
-                                                        </div>
-                                                    )}
+                                    {isGithubConnected && selectedRepo && (
+                                        <div className="pt-8 border-t border-[#1A1A1A] space-y-5">
+                                            <div className="flex items-center justify-between">
+                                                <p className="text-[10px] font-bold text-[#333] uppercase tracking-[0.25em]">Source_Indexer</p>
+                                                {uploadFiles.length > 0 && <span className="text-[10px] text-[#6EE7B7] font-bold uppercase tracking-tighter">{uploadFiles.length}_objects_queued</span>}
+                                            </div>
+                                            <div onDragOver={e => { e.preventDefault(); setIsDragOver(true); }} onDragLeave={() => setIsDragOver(false)} onDrop={handleDrop}
+                                                onClick={() => document.getElementById('dash-file-input').click()}
+                                                className={cn("cursor-pointer border border-dashed rounded-[24px] p-10 flex flex-col items-center justify-center gap-4 transition-all duration-500",
+                                                    isDragOver ? "border-[#6EE7B7] bg-[#6EE7B7]/5 scale-[0.99]" : "border-[#1A1A1A] hover:border-[#333] bg-[#080808]")}>
+                                                <input id="dash-file-input" type="file" multiple className="hidden" onChange={handleDrop} />
+                                                <div className="w-12 h-12 rounded-2xl bg-[#111] border border-[#1A1A1A] flex items-center justify-center">
+                                                    <Upload size={20} className={isDragOver ? "text-[#6EE7B7]" : "text-[#222]"} />
+                                                </div>
+                                                <p className="text-[10px] font-bold text-[#333] uppercase tracking-[0.2em]">Drop_Payload_Here</p>
+                                            </div>
+                                            {uploadFiles.length > 0 && (
+                                                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
+                                                    <div className="max-h-32 overflow-y-auto no-scrollbar space-y-2">
+                                                        {uploadFiles.map((file, i) => (
+                                                            <div key={i} className="flex items-center justify-between bg-[#080808] border border-[#1A1A1A] px-4 py-3 rounded-xl">
+                                                                <div className="flex items-center gap-3">
+                                                                    <FileCode size={14} className="text-[#444]" />
+                                                                    <span className="text-[11px] font-bold text-[#64748B] truncate">{file.name}</span>
+                                                                </div>
+                                                                <button onClick={(e) => { e.stopPropagation(); setUploadFiles(p => p.filter((_, idx) => idx !== i)); }} className="text-[#222] hover:text-[#F87171] transition-colors"><X size={14} /></button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        <input type="text" value={commitMessage} onChange={e => setCommitMessage(e.target.value)}
+                                                            placeholder="commit_message..." className="flex-1 bg-[#080808] border border-[#1A1A1A] rounded-xl px-4 py-3 text-[11px] font-bold text-[#F1F5F9] focus:border-[#6EE7B7]/30 outline-none placeholder:text-[#222]" />
+                                                        <button onClick={handleCommitFiles} disabled={isCommitting} className="px-8 bg-[#6EE7B7] text-[#080808] rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-[#34D399] transition-all flex items-center gap-2">
+                                                            {isCommitting ? <div className="w-3 h-3 border-2 border-[#080808] border-t-transparent animate-spin rounded-full" /> : <GitCommit size={14} />}
+                                                            Push
+                                                        </button>
+                                                    </div>
                                                 </motion.div>
                                             )}
-                                        </AnimatePresence>
-                                    </div>
+                                        </div>
+                                    )}
                                 </div>
+                            </motion.div>
 
-                                {/* File upload / commit section */}
-                                {isGithubConnected && !githubLoading && (
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 8 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: 0.2, duration: 0.3 }}
-                                        className="border-t border-[#1A1A1A] p-4 md:p-6 space-y-3"
-                                    >
-                                        {!selectedRepo?.full_name && (
-                                            <div className="bg-[#0A0A0A] border border-dashed border-[#222] rounded-xl p-4 text-center">
-                                                <p className="font-mono text-xs text-[#64748B]">Select a repository above to push files</p>
-                                            </div>
-                                        )}
-                                        {selectedRepo?.full_name && (
-                                            <>
-                                                <p className="font-mono text-[10px] text-[#64748B] uppercase tracking-widest">Push Files to Repo</p>
-                                                <div
-                                                    onDragOver={e => { e.preventDefault(); setIsDragOver(true); }}
-                                                    onDragLeave={e => { e.preventDefault(); setIsDragOver(false); }}
-                                                    onDrop={handleDrop}
-                                                    onClick={() => document.getElementById('dash-file-input').click()}
-                                                    className={`cursor-pointer border-2 border-dashed rounded-xl p-5 flex flex-col items-center justify-center gap-2 transition-all ${isDragOver ? 'border-[#6EE7B7]/50 bg-[#6EE7B7]/5' : 'border-[#222] hover:border-[#6EE7B7]/25 bg-[#0A0A0A]'}`}
-                                                >
-                                                    <input id="dash-file-input" type="file" multiple className="hidden" onChange={handleDrop} />
-                                                    <Upload className={`w-4 h-4 transition-colors ${isDragOver ? 'text-[#6EE7B7]' : 'text-[#333]'}`} />
-                                                    <p className="font-mono text-xs text-[#64748B]">{isDragOver ? 'Drop files to add' : 'Drag files or click to browse'}</p>
+                            <motion.div variants={itemVariants} className="lg:col-span-4 space-y-5">
+                                <div className="flex items-center gap-2 px-2">
+                                    <Zap size={14} className="text-[#333]" />
+                                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-[#444]">Archetype_Launch</h3>
+                                </div>
+                                <div className="grid grid-cols-1 gap-3">
+                                    {[
+                                        { title: 'CI_Deploy', desc: 'Auto-deploy on merge', icon: GitFork, prompt: 'When a PR is merged to main, run tests and deploy' },
+                                        { title: 'Monitor_Log', desc: 'Alert on failures', icon: Bell, prompt: 'When a deployment fails, rollback and alert the team' },
+                                        { title: 'Triage_Bot', desc: 'Auto-assign issues', icon: Terminal, prompt: 'When a new issue is created, assign it and send email' }
+                                    ].map((box, i) => (
+                                        <div key={i} onClick={() => navigate(`/workflows/new?prompt=${encodeURIComponent(box.prompt)}`)}
+                                            className="group bg-[#0D0D0D] border border-[#1A1A1A] hover:border-[#6EE7B7]/20 p-5 rounded-[24px] cursor-pointer transition-all duration-300">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-10 h-10 rounded-xl bg-[#111] border border-[#222] flex items-center justify-center group-hover:border-[#6EE7B7]/30 transition-colors">
+                                                    <box.icon size={16} className="text-[#333] group-hover:text-[#6EE7B7] transition-colors" />
                                                 </div>
+                                                <div className="min-w-0">
+                                                    <p className="text-[11px] font-bold uppercase tracking-widest text-[#F1F5F9] group-hover:text-[#6EE7B7] transition-colors">{box.title}</p>
+                                                    <p className="text-[10px] text-[#444] lowercase tracking-tighter mt-0.5">{box.desc}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </motion.div>
+                        </div>
 
-                                                <AnimatePresence>
-                                                    {uploadFiles.length > 0 && (
-                                                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="space-y-2">
-                                                            {uploadFiles.map((file, i) => (
-                                                                <motion.div key={i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
-                                                                    className="flex items-center gap-3 bg-[#0D0D0D] border border-[#1A1A1A] rounded-xl px-3 py-2">
-                                                                    <FileCode className="w-3.5 h-3.5 text-[#6EE7B7] shrink-0" />
-                                                                    <span className="font-mono text-xs text-[#F1F5F9] flex-1 truncate">{file.name}</span>
-                                                                    <span className="font-mono text-[10px] text-[#444]">{(file.size / 1024).toFixed(1)}kb</span>
-                                                                    <button onClick={() => setUploadFiles(p => p.filter((_, idx) => idx !== i))} className="text-[#333] hover:text-[#F87171] transition-colors">
-                                                                        <X className="w-3.5 h-3.5" />
-                                                                    </button>
-                                                                </motion.div>
-                                                            ))}
-                                                            <input
-                                                                type="text"
-                                                                value={commitMessage}
-                                                                onChange={e => setCommitMessage(e.target.value)}
-                                                                placeholder={`Add ${uploadFiles.length} file(s) via DevFlow`}
-                                                                className="w-full bg-[#0D0D0D] border border-[#1A1A1A] rounded-xl px-3 py-2 font-mono text-xs text-[#F1F5F9] outline-none focus:border-[#6EE7B7]/40 placeholder:text-[#333]"
-                                                            />
-                                                            <button
-                                                                onClick={handleCommitFiles}
-                                                                disabled={isCommitting}
-                                                                className="w-full flex items-center justify-center gap-2 font-mono text-xs font-bold bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] py-2.5 rounded-xl disabled:opacity-50 transition-all"
-                                                            >
-                                                                {isCommitting ? <div className="w-3.5 h-3.5 border-2 border-[#080808]/40 border-t-[#080808] rounded-full animate-spin" /> : <GitCommit className="w-3.5 h-3.5" />}
-                                                                {isCommitting ? 'Pushing...' : `Push ${uploadFiles.length} file(s) → ${selectedRepo.full_name}`}
-                                                            </button>
-                                                        </motion.div>
-                                                    )}
-                                                </AnimatePresence>
-                                            </>
-                                        )}
-                                    </motion.div>
-                                )}
+                        <motion.div variants={itemVariants} className="space-y-5">
+                            <div className="flex items-center justify-between px-2">
+                                <div className="flex items-center gap-2">
+                                    <Clock size={14} className="text-[#333]" />
+                                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-[#444]">Recent_Deployments</h3>
+                                </div>
+                                <button onClick={() => navigate('/workflows')} className="text-[10px] font-bold text-[#6EE7B7] uppercase tracking-tighter hover:underline">View_Registry →</button>
                             </div>
-                        </motion.div>
-
-                        {/* Quick Start */}
-                        <motion.div variants={containerVariants} initial="hidden" animate="show" className="pt-6 md:pt-8 mt-2 border-t border-[#1A1A1A]">
-                            <div className="flex items-center justify-between mb-3 md:mb-4">
-                                <h3 className="text-[10px] md:text-sm font-mono text-[#6EE7B7] lowercase tracking-widest">quick_start</h3>
+                            <div className="bg-[#0D0D0D] border border-[#1A1A1A] rounded-[32px] overflow-hidden shadow-2xl">
+                                <table className="w-full text-left">
+                                    <thead className="bg-[#111]/50 border-b border-[#1A1A1A]">
+                                        <tr>
+                                            {['Sequence', 'Context', 'Timestamp', 'Control'].map((h, i) => (
+                                                <th key={i} className="px-8 py-4 font-mono text-[9px] font-bold text-[#3A3A4A] uppercase tracking-[0.2em]">{h}</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-[#111]">
+                                        {recentWorkflows.map((w) => (
+                                            <tr key={w.id} className="group hover:bg-[#111]/30 transition-colors">
+                                                <td className="px-8 py-5">
+                                                    <div className="flex items-center gap-3">
+                                                        <Activity size={14} className="text-[#222] group-hover:text-[#6EE7B7] transition-colors" />
+                                                        <span className="text-xs font-bold text-[#F1F5F9] truncate max-w-[200px]">{w.name}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-8 py-5"><StatusBadge status={w.status} /></td>
+                                                <td className="px-8 py-5 text-[10px] text-[#333] font-bold uppercase tracking-tighter">{w.lastRun}</td>
+                                                <td className="px-8 py-5 text-right">
+                                                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button onClick={() => navigate(`/workflows/new?id=${w.id}`)} className="p-2 text-[#444] hover:text-[#6EE7B7] hover:bg-[#6EE7B7]/5 rounded-lg"><FileEdit size={14} /></button>
+                                                        <button onClick={() => handleRunWorkflow(w)} className="p-2 text-[#444] hover:text-[#6EE7B7] hover:bg-[#6EE7B7]/5 rounded-lg"><Play size={14} className="fill-current" /></button>
+                                                        <button onClick={() => handleDeleteWorkflow(w)} className="p-2 text-[#444] hover:text-[#F87171] hover:bg-[#F87171]/5 rounded-lg"><Trash2 size={14} /></button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
-                                <div onClick={() => navigate('/workflows/new?prompt=When a PR is merged to main, run tests and deploy')} className="bg-[#111] border border-[#1A1A1A] rounded-xl p-3 md:p-4 cursor-pointer hover:border-[#6EE7B7] transition-all group">
-                                    <div className="text-xl md:text-2xl mb-1.5 md:mb-2">🔀</div>
-                                    <h4 className="font-mono text-xs md:text-sm text-[#F1F5F9] mb-0.5 md:mb-1 group-hover:text-[#6EE7B7] transition-colors">PR Pipeline</h4>
-                                    <p className="font-mono text-[10px] md:text-xs text-[#64748B]">Auto-test and deploy</p>
-                                </div>
-                                <div onClick={() => navigate('/workflows/new?prompt=When a deployment fails, rollback and alert the team')} className="bg-[#111] border border-[#1A1A1A] rounded-xl p-3 md:p-4 cursor-pointer hover:border-[#6EE7B7] transition-all group">
-                                    <div className="text-xl md:text-2xl mb-1.5 md:mb-2">🔔</div>
-                                    <h4 className="font-mono text-xs md:text-sm text-[#F1F5F9] mb-0.5 md:mb-1 group-hover:text-[#6EE7B7] transition-colors">Alert System</h4>
-                                    <p className="font-mono text-[10px] md:text-xs text-[#64748B]">Notify when things break</p>
-                                </div>
-                                <div onClick={() => navigate('/workflows/new?prompt=When a new issue is created, assign it and send email')} className="bg-[#111] border border-[#1A1A1A] rounded-xl p-3 md:p-4 cursor-pointer hover:border-[#6EE7B7] transition-all group">
-                                    <div className="text-xl md:text-2xl mb-1.5 md:mb-2">📋</div>
-                                    <h4 className="font-mono text-xs md:text-sm text-[#F1F5F9] mb-0.5 md:mb-1 group-hover:text-[#6EE7B7] transition-colors">Issue Tracker</h4>
-                                    <p className="font-mono text-[10px] md:text-xs text-[#64748B]">Auto-assign new issues</p>
-                                </div>
-                            </div>
-                        </motion.div>
-
-                        {/* Recent Workflows */}
-                        <motion.div variants={containerVariants} initial="hidden" animate="show" className="pt-6 md:pt-8 mt-2 border-t border-[#1A1A1A]">
-                            <div className="flex items-center justify-between mb-3 md:mb-4">
-                                <h3 className="text-[10px] md:text-sm font-mono text-[#64748B] lowercase tracking-wider">recent workflows</h3>
-                            </div>
-
-                            {recentWorkflows.length > 0 ? (
-                                <div className="w-full overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-                                    <div className="min-w-[600px]">
-                                        <table className="w-full text-left border-collapse">
-                                            <thead>
-                                                <tr className="border-b border-[#1A1A1A]">
-                                                    <th className="py-2 pr-4 md:py-3 md:pr-6 text-[10px] md:text-xs font-mono font-semibold text-[#64748B] lowercase tracking-wider">name</th>
-                                                    <th className="px-4 py-2 md:px-6 md:py-3 text-[10px] md:text-xs font-mono font-semibold text-[#64748B] lowercase tracking-wider">status</th>
-                                                    <th className="px-4 py-2 md:px-6 md:py-3 text-[10px] md:text-xs font-mono font-semibold text-[#64748B] lowercase tracking-wider">last_run</th>
-                                                    <th className="pl-4 py-2 md:pl-6 md:py-3 text-[10px] md:text-xs font-mono font-semibold text-[#64748B] lowercase tracking-wider text-right">actions</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-[#1A1A1A]">
-                                                {recentWorkflows.map((workflow) => (
-                                                    <motion.tr key={workflow.id} variants={itemVariants} className="hover:bg-[#111] transition-colors group">
-                                                        <td className="py-3 pr-4 md:py-4 md:pr-6 whitespace-nowrap">
-                                                            <span className="text-xs md:text-sm font-mono text-text-primary group-hover:text-primary transition-colors cursor-pointer">{workflow.name}</span>
-                                                        </td>
-                                                        <td className="px-4 py-3 md:px-6 md:py-4 whitespace-nowrap">
-                                                            {getStatusBadge(workflow.status)}
-                                                        </td>
-                                                        <td className="px-4 py-3 md:px-6 md:py-4 whitespace-nowrap text-xs md:text-sm font-mono text-[#64748B]">
-                                                            {workflow.lastRun}
-                                                        </td>
-                                                        <td className="pl-4 py-3 md:pl-6 md:py-4 whitespace-nowrap text-right">
-                                                            <div className="flex justify-end items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                                                                <Link to={`/workflows/${workflow.id}`}
-                                                                    className="flex items-center gap-1.5 font-mono text-[10px] text-[#64748B] hover:text-[#6EE7B7] hover:bg-[#6EE7B7]/8 border border-transparent hover:border-[#6EE7B7]/20 px-2.5 py-1.5 rounded-lg transition-all"
-                                                                    title="Open in builder">
-                                                                    <FileEdit className="w-3 h-3" />
-                                                                    <span className="hidden lg:inline">Edit</span>
-                                                                </Link>
-                                                                <button onClick={() => handleRunWorkflow(workflow)}
-                                                                    className="flex items-center gap-1.5 font-mono text-[10px] text-[#64748B] hover:text-[#6EE7B7] hover:bg-[#6EE7B7]/8 border border-transparent hover:border-[#6EE7B7]/20 px-2.5 py-1.5 rounded-lg transition-all"
-                                                                    title="Run this pipeline now">
-                                                                    <Play className="w-3 h-3 fill-current" />
-                                                                    <span className="hidden lg:inline">Run</span>
-                                                                </button>
-                                                                <button onClick={() => handleDeleteWorkflow(workflow)}
-                                                                    className="flex items-center gap-1.5 font-mono text-[10px] text-[#64748B] hover:text-[#F87171] hover:bg-[#F87171]/8 border border-transparent hover:border-[#F87171]/20 px-2.5 py-1.5 rounded-lg transition-all"
-                                                                    title="Delete workflow">
-                                                                    <X className="w-3 h-3" />
-                                                                    <span className="hidden lg:inline">Delete</span>
-                                                                </button>
-                                                            </div>
-                                                        </td>
-                                                    </motion.tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="w-full py-16 md:py-24 flex flex-col items-center justify-center border border-[#1A1A1A] border-dashed rounded-xl bg-[#0A0A0A]/50 gap-4 md:gap-6 px-4">
-                                    <div className="font-mono text-[#64748B] text-xs md:text-sm text-center">&gt;_ no workflows yet</div>
-                                    <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-                                        <Button variant="primary" className="bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] font-mono rounded-xl px-4 md:px-6 shadow-none border-none font-bold text-xs md:text-sm w-full sm:w-auto justify-center" onClick={() => navigate('/workflows/new')}>
-                                            Create from scratch
-                                        </Button>
-                                        <Button variant="ghost" className="font-mono rounded-xl px-4 md:px-6 text-xs md:text-sm w-full sm:w-auto justify-center border border-[#1A1A1A]" onClick={() => navigate('/templates')}>
-                                            Browse templates
-                                        </Button>
-                                    </div>
-                                </div>
-                            )}
                         </motion.div>
                     </div>
                 </main>

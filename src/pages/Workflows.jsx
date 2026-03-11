@@ -1,53 +1,50 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, Filter, Play, FileEdit, Trash2, Activity, Clock, MoreVertical } from 'lucide-react';
+import {
+    Plus, Search, Filter, Play, FileEdit, Trash2,
+    Activity, Clock, MoreVertical, Zap, Layers,
+    Fingerprint, Terminal, AlertCircle, X, ArrowRight
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import TopBar from '../components/TopBar';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { apiFetch } from '../lib/api';
 import { API_ROUTES } from '../lib/apiRoutes';
+import { cn } from '../lib/utils';
 
-const containerVariants = {
-    hidden: { opacity: 0 },
-    show: { opacity: 1, transition: { staggerChildren: 0.05 } }
-};
-
-const itemVariants = {
-    hidden: { opacity: 0, y: 10 },
-    show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: "easeOut" } }
-};
-
-// Premium Status Badge Component
+// ── STATUS BADGE (UPGRADED) ──────────────────────────────────────────────────
 const StatusBadge = ({ status }) => {
     const s = (status || 'draft').toLowerCase();
-    if (s === 'active' || s === 'success') {
-        return (
-            <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-xl bg-[#6EE7B7]/10 border border-[#6EE7B7]/20 text-[#6EE7B7] text-[10px] md:text-xs font-mono font-medium">
-                <span className="relative flex h-1.5 w-1.5 md:h-2 md:w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#6EE7B7] opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 md:h-2 md:w-2 bg-[#6EE7B7]"></span>
-                </span>
-                Active
-            </span>
-        );
-    }
-    if (s === 'paused') {
-        return (
-            <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[10px] md:text-xs font-mono font-medium">
-                <span className="h-1.5 w-1.5 md:h-2 md:w-2 rounded-full bg-amber-500"></span>
-                Paused
-            </span>
-        );
-    }
+
+    const configs = {
+        active: { color: '#6EE7B7', bg: 'bg-[#6EE7B7]/5', border: 'border-[#6EE7B7]/10', label: 'LIVE' },
+        success: { color: '#6EE7B7', bg: 'bg-[#6EE7B7]/5', border: 'border-[#6EE7B7]/10', label: 'LIVE' },
+        paused: { color: '#F59E0B', bg: 'bg-[#F59E0B]/5', border: 'border-[#F59E0B]/10', label: 'PAUSED' },
+        draft: { color: '#64748B', bg: 'bg-[#1A1A1A]', border: 'border-[#222]', label: 'DRAFT' }
+    };
+
+    const cfg = configs[s] || configs.draft;
+
     return (
-        <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-xl bg-[#1A1A1A] border border-[#333] text-[#64748B] text-[10px] md:text-xs font-mono font-medium">
-            <span className="h-1.5 w-1.5 md:h-2 md:w-2 rounded-full bg-[#64748B]"></span>
-            Draft
+        <span className={cn(
+            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border font-mono text-[9px] font-bold uppercase tracking-widest",
+            cfg.bg, cfg.border
+        )} style={{ color: cfg.color }}>
+            {s === 'active' || s === 'success' ? (
+                <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#6EE7B7] opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#6EE7B7]"></span>
+                </span>
+            ) : (
+                <div className="w-1 h-1 rounded-full" style={{ backgroundColor: cfg.color }} />
+            )}
+            {cfg.label}
         </span>
     );
 };
 
+// ── MAIN VIEW ──
 const Workflows = () => {
     const navigate = useNavigate();
     const { user, getAuthToken } = useAuth();
@@ -59,40 +56,38 @@ const Workflows = () => {
 
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
+    // Fixed layout proportions
+    const gridLayout = "64px minmax(200px, 3fr) 120px 140px 140px 100px";
+
     useEffect(() => {
         const fetchWorkflows = async () => {
             if (!user) return;
             try {
                 const dataObj = await apiFetch(API_ROUTES.workflows, {}, getAuthToken);
                 const data = dataObj.workflows || [];
-
                 const formatted = data.map(w => ({
                     id: w.id,
                     name: w.name,
-                    status: (w.status || 'draft').charAt(0).toUpperCase() + (w.status || 'draft').slice(1),
+                    status: w.status || 'draft',
                     nodesCount: w.nodes ? w.nodes.length : 0,
                     updatedAt: new Date(w.updated_at || w.created_at).toLocaleDateString()
                 }));
-
                 setWorkflows(formatted);
             } catch (err) {
-                console.error(err);
-                showToast("Failed to load workflows", "error");
+                showToast("Failed to sync registry", "error");
             } finally {
                 setIsLoading(false);
             }
         };
         fetchWorkflows();
-    }, [user, showToast, getAuthToken, API_URL]);
+    }, [user?.id]);
 
     const confirmDelete = async () => {
         if (!workflowToDelete) return;
         try {
-            await apiFetch(`${API_ROUTES.workflows}${workflowToDelete.id}/`, {
-                method: 'DELETE'
-            }, getAuthToken);
+            await apiFetch(`${API_ROUTES.workflows}${workflowToDelete.id}/`, { method: 'DELETE' }, getAuthToken);
             setWorkflows(prev => prev.filter(w => w.id !== workflowToDelete.id));
-            showToast("Workflow deleted", "success");
+            showToast("Workflow purged", "success");
         } catch (err) {
             showToast("Failed to delete", "error");
         } finally {
@@ -103,164 +98,186 @@ const Workflows = () => {
     const filteredWorkflows = workflows.filter(w => w.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
     return (
-        <div className="flex flex-col h-screen bg-[#080808] transition-colors duration-300 overflow-hidden">
-            <TopBar title={<span className="font-mono text-xs md:text-sm text-[#6EE7B7]">~ / workflows</span>} />
+        <div className="h-screen flex flex-col bg-[#080808] text-[#F1F5F9] overflow-hidden">
+            <TopBar title={<span className="font-mono text-xs text-[#6EE7B7] tracking-widest uppercase">/ pipeline_registry</span>} />
 
-            <div className="flex-1 overflow-y-auto p-4 md:p-8">
-                <div className="max-w-6xl mx-auto space-y-6 md:space-y-8 pb-12">
+            <div className="flex-1 overflow-y-auto no-scrollbar">
+                <div className="max-w-7xl mx-auto px-6 py-10 space-y-10 pb-20">
 
-                    {/* Header Controls */}
-                    <motion.div variants={containerVariants} initial="hidden" animate="show" className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                        <motion.div variants={itemVariants}>
-                            <h2 className="text-lg md:text-xl font-mono text-[#F1F5F9] lowercase tracking-tight font-bold">your_pipelines</h2>
-                            <p className="text-[#64748B] text-[10px] md:text-xs font-mono mt-1">Manage, edit, and monitor your automation logic.</p>
-                        </motion.div>
-
-                        <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-                            <div className="relative flex-1 sm:flex-none">
-                                <Search className="w-3.5 h-3.5 md:w-4 md:h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#64748B]" />
-                                <input
-                                    type="text"
-                                    placeholder="Search workflows..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full sm:w-64 pl-9 pr-4 py-2 bg-[#111] border border-[#222] rounded-xl font-mono text-[10px] md:text-xs text-[#F1F5F9] outline-none focus:border-[#6EE7B7] transition-colors shadow-sm"
-                                />
+                    {/* ── HEADER ── */}
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-3">
+                                <div className="w-2 h-8 bg-[#6EE7B7] rounded-full shadow-[0_0_15px_#6EE7B7]" />
+                                <h2 className="text-3xl font-mono font-bold lowercase tracking-tighter">Your Pipelines</h2>
                             </div>
-                            <button onClick={() => navigate('/workflows/new')} className="px-4 py-2 bg-[#6EE7B7] hover:bg-[#34D399] text-[#080808] rounded-xl font-mono text-[10px] md:text-xs font-bold transition-colors flex items-center justify-center gap-2 w-full sm:w-auto shadow-sm">
-                                <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" /> create_new
-                            </button>
-                        </motion.div>
-                    </motion.div>
+                            <p className="text-[#64748B] font-mono text-xs leading-relaxed max-w-lg">
+                                Manage and monitor your active automation sequences. Click a pipeline to enter the development environment.
+                            </p>
+                        </div>
 
-                    {/* The Elite Table */}
-                    {isLoading ? (
-                        <div className="py-24 text-center text-[#64748B] font-mono text-sm">loading workflows...</div>
-                    ) : filteredWorkflows.length === 0 ? (
-                        <motion.div variants={containerVariants} initial="hidden" animate="show" className="pt-16 md:pt-24 flex flex-col items-center justify-center text-center space-y-6 md:space-y-8 pb-12 border border-dashed border-[#1A1A1A] bg-[#0A0A0A]/50 rounded-xl shadow-sm">
-                            <motion.div variants={itemVariants} className="text-[#64748B] font-mono text-sm md:text-base">
-                                {`>_`} no workflows found
-                            </motion.div>
-                            <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto px-4">
-                                <button onClick={() => navigate('/workflows/new')} className="bg-[#6EE7B7] text-[#080808] hover:bg-[#34D399] rounded-xl px-6 py-2.5 font-mono shadow-sm font-bold text-xs w-full sm:w-auto transition-colors">
-                                    Create your first workflow
-                                </button>
-                                <button onClick={() => navigate('/templates')} className="px-6 py-2.5 font-mono rounded-xl text-[#F1F5F9] border border-[#222] hover:bg-[#111] text-xs w-full sm:w-auto transition-colors shadow-sm">
-                                    Browse templates &rarr;
-                                </button>
-                            </motion.div>
-                        </motion.div>
-                    ) : (
-                        <motion.div variants={containerVariants} initial="hidden" animate="show" className="w-full bg-[#111] border border-[#222] rounded-xl shadow-sm overflow-hidden">
-                            <div className="w-full overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-                                <div className="min-w-[700px]">
+                        {/* Summary Pills */}
+                        <div className="flex gap-2 p-1 bg-[#111]/50 border border-[#1A1A1A] rounded-2xl">
+                            <div className="px-4 py-2 border-r border-[#1A1A1A] text-center">
+                                <p className="text-[8px] font-mono text-[#444] uppercase tracking-widest mb-1">Total</p>
+                                <p className="text-sm font-mono font-bold">{workflows.length}</p>
+                            </div>
+                            <div className="px-4 py-2 text-center">
+                                <Activity className="w-3 h-3 text-[#6EE7B7] mx-auto mb-1" />
+                                <p className="text-sm font-mono font-bold text-[#6EE7B7]">
+                                    {workflows.filter(w => w.status === 'active' || w.status === 'success').length}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
 
-                                    {/* Table Header */}
-                                    <div style={{ display: 'grid', gridTemplateColumns: '2.5fr 1fr 1fr 1fr 100px' }} className="py-3 px-4 border-b border-[#222] bg-[#0D0D0D]">
-                                        <div className="font-mono text-[9px] md:text-[10px] tracking-widest uppercase text-[#64748B]">NAME</div>
-                                        <div className="font-mono text-[9px] md:text-[10px] tracking-widest uppercase text-[#64748B]">STATUS</div>
-                                        <div className="font-mono text-[9px] md:text-[10px] tracking-widest uppercase text-[#64748B]">COMPLEXITY</div>
-                                        <div className="font-mono text-[9px] md:text-[10px] tracking-widest uppercase text-[#64748B]">LAST UPDATED</div>
-                                        <div className="font-mono text-[9px] md:text-[10px] tracking-widest uppercase text-[#64748B] text-right">ACTIONS</div>
-                                    </div>
+                    {/* ── TOOLBAR ── */}
+                    <div className="flex flex-col md:flex-row gap-4">
+                        <div className="relative flex-1">
+                            <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-[#333]" />
+                            <input
+                                type="text"
+                                placeholder="filter_by_name..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full pl-12 pr-4 py-3 bg-[#0D0D0D] border border-[#1A1A1A] hover:border-[#6EE7B7]/20 rounded-2xl font-mono text-xs focus:outline-none transition-all placeholder:text-[#222]"
+                            />
+                        </div>
+                        <button
+                            onClick={() => navigate('/workflows/new')}
+                            className="flex items-center gap-3 px-6 py-3 bg-[#6EE7B7] text-[#080808] rounded-2xl font-mono text-[10px] font-bold uppercase tracking-widest hover:bg-[#34D399] transition-all shadow-[0_0_20px_rgba(110,231,183,0.1)]"
+                        >
+                            <Plus className="w-4 h-4" />
+                            Create_Sequence
+                        </button>
+                    </div>
 
-                                    {/* Data Rows */}
-                                    <div className="flex flex-col divide-y divide-[#1A1A1A]">
-                                        {filteredWorkflows.map((workflow) => (
-                                            <motion.div
-                                                key={workflow.id}
-                                                variants={itemVariants}
-                                                className="group transition-colors hover:bg-[#161616]"
-                                                style={{ display: 'grid', gridTemplateColumns: '2.5fr 1fr 1fr 1fr 100px' }}
-                                            >
-                                                {/* Name */}
-                                                <div className="py-4 px-4 flex items-center gap-3 overflow-hidden">
-                                                    <div className="w-8 h-8 rounded-xl bg-[#0A0A0A] border border-[#222] flex items-center justify-center shrink-0">
-                                                        <Activity className="w-4 h-4 text-[#6EE7B7]" />
-                                                    </div>
-                                                    <span
-                                                        onClick={() => navigate(`/workflows/new?id=${workflow.id}`)}
-                                                        className="text-xs md:text-sm font-mono font-medium text-[#F1F5F9] group-hover:text-[#6EE7B7] transition-colors cursor-pointer truncate"
-                                                    >
-                                                        {workflow.name}
-                                                    </span>
-                                                </div>
+                    {/* ── REGISTRY TABLE ── */}
+                    <div className="bg-[#0D0D0D] border border-[#1A1A1A] rounded-[32px] overflow-hidden shadow-2xl">
+                        {/* Table Header */}
+                        <div className="hidden md:grid border-b border-[#1A1A1A] px-6 py-4 bg-[#111]/30" style={{ gridTemplateColumns: gridLayout }}>
+                            {['', 'Sequence_Name', 'Status', 'Architecture', 'Last_Sync', ''].map((h, i) => (
+                                <div key={i} className="font-mono text-[9px] font-bold tracking-[0.2em] uppercase text-[#3A3A4A]">{h}</div>
+                            ))}
+                        </div>
 
-                                                {/* Status */}
-                                                <div className="py-4 px-4 flex items-center">
-                                                    <StatusBadge status={workflow.status} />
-                                                </div>
-
-                                                {/* Complexity (Nodes) */}
-                                                <div className="py-4 px-4 flex items-center gap-1.5 text-[10px] md:text-xs font-mono text-[#64748B]">
-                                                    <span className="font-bold text-[#F1F5F9]">{workflow.nodesCount}</span> steps
-                                                </div>
-
-                                                {/* Updated Date */}
-                                                <div className="py-4 px-4 flex items-center gap-1.5 text-[10px] md:text-xs font-mono text-[#64748B]">
-                                                    <Clock className="w-3.5 h-3.5" />
-                                                    {workflow.updatedAt}
-                                                </div>
-
-                                                {/* Actions */}
-                                                <div className="py-4 px-4 flex items-center justify-end gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                                                    <button onClick={() => navigate(`/workflows/new?id=${workflow.id}`)} className="p-1.5 text-[#64748B] hover:text-[#6EE7B7] transition-colors rounded-xl hover:bg-[#222]" title="Edit">
-                                                        <FileEdit className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                                                    </button>
-                                                    <button onClick={() => showToast('Manual run triggered', 'success')} className="p-1.5 text-[#64748B] hover:text-blue-400 transition-colors rounded-xl hover:bg-[#222]" title="Run Now">
-                                                        <Play className="w-3.5 h-3.5 md:w-4 md:h-4 fill-current" />
-                                                    </button>
-                                                    <button onClick={() => setWorkflowToDelete({ id: workflow.id, name: workflow.name })} className="p-1.5 text-[#64748B] hover:text-[#F87171] transition-colors rounded-xl hover:bg-[#222]" title="Delete">
-                                                        <Trash2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                                                    </button>
-                                                </div>
-                                            </motion.div>
-                                        ))}
-                                    </div>
+                        {isLoading ? (
+                            <div className="py-32 flex flex-col items-center gap-4">
+                                <div className="w-6 h-6 border-2 border-[#1A1A1A] border-t-[#6EE7B7] rounded-full animate-spin" />
+                                <span className="font-mono text-[9px] text-[#444] uppercase tracking-widest">Querying database...</span>
+                            </div>
+                        ) : filteredWorkflows.length === 0 ? (
+                            <div className="py-32 text-center space-y-6">
+                                <Terminal className="w-10 h-10 text-[#1A1A1A] mx-auto" />
+                                <div className="space-y-1">
+                                    <p className="font-mono text-sm font-bold text-[#333] uppercase">Registry_Empty</p>
+                                    <p className="font-mono text-[10px] text-[#222]">Start by building a custom sequence or use a template.</p>
+                                </div>
+                                <div className="flex justify-center gap-3">
+                                    <button onClick={() => navigate('/workflows/new')} className="px-5 py-2 rounded-xl bg-[#111] border border-[#222] font-mono text-[10px] font-bold hover:text-[#6EE7B7] transition-all">New Flow</button>
+                                    <button onClick={() => navigate('/templates')} className="px-5 py-2 rounded-xl border border-[#1A1A1A] font-mono text-[10px] text-[#444] hover:text-[#F1F5F9] transition-all">Templates</button>
                                 </div>
                             </div>
-                        </motion.div>
-                    )}
+                        ) : (
+                            <div className="divide-y divide-[#111]">
+                                {filteredWorkflows.map((workflow) => (
+                                    <div
+                                        key={workflow.id}
+                                        className="grid md:grid items-center px-6 py-5 cursor-pointer transition-all duration-300 hover:bg-[#111]/30 relative group"
+                                        style={{ gridTemplateColumns: gridLayout }}
+                                        onClick={() => navigate(`/workflows/new?id=${workflow.id}`)}
+                                    >
+                                        {/* Sub-grid texture */}
+                                        <div className="absolute inset-0 opacity-[0.01] pointer-events-none bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]" />
+
+                                        <div className="relative z-10 flex justify-center">
+                                            <div className="w-9 h-9 rounded-xl bg-[#080808] border border-[#1A1A1A] flex items-center justify-center group-hover:border-[#6EE7B7]/30 transition-all">
+                                                <Zap className="w-4 h-4 text-[#333] group-hover:text-[#6EE7B7]" />
+                                            </div>
+                                        </div>
+
+                                        <div className="relative z-10 min-w-0 pr-4">
+                                            <p className="font-mono text-sm font-bold text-[#E2E8F0] group-hover:text-white transition-colors truncate">
+                                                {workflow.name}
+                                            </p>
+                                            <p className="font-mono text-[9px] text-[#333] uppercase tracking-tighter mt-0.5">UID_{workflow.id.slice(0, 8)}</p>
+                                        </div>
+
+                                        <div className="relative z-10"><StatusBadge status={workflow.status} /></div>
+
+                                        <div className="relative z-10 flex items-center gap-2 font-mono text-[10px] text-[#444]">
+                                            <Layers size={12} />
+                                            <span>{workflow.nodesCount} segments</span>
+                                        </div>
+
+                                        <div className="relative z-10 flex items-center gap-2 font-mono text-[10px] text-[#444]">
+                                            <Clock size={12} />
+                                            <span>{workflow.updatedAt}</span>
+                                        </div>
+
+                                        <div className="relative z-10 flex justify-end items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); showToast('Deployment initiated', 'info'); }}
+                                                className="p-2 hover:bg-[#6EE7B7]/10 rounded-lg text-[#444] hover:text-[#6EE7B7] transition-all"
+                                                title="Run Now"
+                                            >
+                                                <Play size={14} className="fill-current" />
+                                            </button>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setWorkflowToDelete({ id: workflow.id, name: workflow.name }); }}
+                                                className="p-2 hover:bg-[#F87171]/10 rounded-lg text-[#444] hover:text-[#F87171] transition-all"
+                                                title="Purge"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
-            {/* Delete Confirmation Modal */}
+
+            {/* Purge Confirmation Modal */}
             <AnimatePresence>
                 {workflowToDelete && (
-                    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                            className="w-full max-w-sm bg-[#111] border border-[#F87171]/30 p-6 shadow-2xl relative rounded-xl"
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="w-full max-w-sm bg-[#0D0D0D] border border-[#222] rounded-[24px] p-8 shadow-2xl relative overflow-hidden"
                         >
-                            <div className="flex items-center gap-3 mb-5">
-                                <div className="w-10 h-10 bg-[#F87171]/10 flex items-center justify-center border border-[#F87171]/20 rounded-xl shrink-0">
-                                    <Trash2 className="w-5 h-5 text-[#F87171]" />
+                            <div className="absolute top-0 left-0 w-full h-1 bg-[#F87171]" />
+
+                            <div className="flex items-center gap-4 mb-6">
+                                <div className="w-12 h-12 bg-[#F87171]/10 border border-[#F87171]/20 rounded-2xl flex items-center justify-center shrink-0">
+                                    <AlertCircle className="w-6 h-6 text-[#F87171]" />
                                 </div>
                                 <div>
-                                    <h2 className="text-xs font-bold text-[#F87171] font-mono uppercase tracking-widest">delete_workflow</h2>
-                                    <p className="text-[10px] text-[#64748B] font-mono mt-0.5">This action is permanent.</p>
+                                    <h2 className="font-mono text-sm font-bold text-[#F1F5F9] uppercase tracking-widest">Confirm_Purge</h2>
+                                    <p className="font-mono text-[10px] text-[#64748B] mt-1 uppercase">Destructive action required</p>
                                 </div>
                             </div>
 
-                            <div className="bg-[#080808] border border-[#222] p-3 mb-6 rounded-xl">
-                                <span className="font-mono text-xs text-[#F1F5F9] truncate block">
-                                    {workflowToDelete.name}
-                                </span>
+                            <div className="bg-[#080808] border border-[#1A1A1A] p-4 rounded-xl mb-8">
+                                <span className="font-mono text-xs text-[#64748B] uppercase tracking-tighter block mb-1">Sequence:</span>
+                                <span className="font-mono text-xs text-[#F1F5F9] font-bold truncate block">{workflowToDelete.name}</span>
                             </div>
+
                             <div className="flex gap-3">
                                 <button
                                     onClick={() => setWorkflowToDelete(null)}
-                                    className="flex-1 border border-[#222] text-[#64748B] hover:text-[#F1F5F9] hover:bg-[#1A1A1A] font-mono text-xs py-2.5 transition-colors rounded-xl"
+                                    className="flex-1 border border-[#1A1A1A] text-[#444] font-mono text-[10px] font-bold py-3 rounded-xl hover:bg-[#111] transition-all uppercase tracking-widest"
                                 >
-                                    cancel
+                                    Abort
                                 </button>
                                 <button
                                     onClick={confirmDelete}
-                                    className="flex-1 bg-[#F87171] text-[#080808] hover:bg-[#EF4444] font-bold font-mono text-xs py-2.5 transition-colors rounded-xl"
+                                    className="flex-1 bg-[#F87171] text-[#080808] font-mono text-[10px] font-bold py-3 rounded-xl hover:bg-[#EF4444] transition-all uppercase tracking-widest shadow-[0_0_20px_rgba(248,113,113,0.15)]"
                                 >
-                                    confirm_delete
+                                    Purge
                                 </button>
                             </div>
                         </motion.div>

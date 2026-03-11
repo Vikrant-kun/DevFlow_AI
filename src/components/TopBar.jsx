@@ -101,7 +101,7 @@ const TopBar = ({ title, children }) => {
         <header className="h-14 md:h-16 flex items-center justify-between px-4 md:px-6 border-b border-[#222] bg-[#080808]/80 backdrop-blur-md sticky top-0 z-40 shrink-0 transition-colors duration-300">
 
             {/* Left Side */}
-            <div className="flex items-center min-w-0 flex-1 mr-2">{title}</div>
+            <div className="flex items-center min-w-0 flex-1 mr-2 ml-14 md:ml-0 font-mono">{title}</div>
 
             {/* Right Side */}
             <div className="flex items-center gap-2 md:gap-4 shrink-0 relative">

@@ -1,5 +1,7 @@
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { ToastProvider } from './contexts/ToastContext';
+import { AuthProvider } from './contexts/AuthContext';
+import { SidebarProvider } from './contexts/SidebarContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -67,9 +69,13 @@ const AnimatedRoutes = () => {
 
 function App() {
   return (
-    <ToastProvider>
-      <AnimatedRoutes />
-    </ToastProvider>
+    <AuthProvider>
+      <ToastProvider>
+        <SidebarProvider>
+          <AnimatedRoutes />
+        </SidebarProvider>
+      </ToastProvider>
+    </AuthProvider>
   );
 }
 

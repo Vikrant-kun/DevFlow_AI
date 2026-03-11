@@ -9,5 +9,8 @@ export const API_ROUTES = {
     githubRepos: "/github/repos/",
     githubSelectRepo: "/github/select-repo/",
     githubSelectedRepo: "/github/selected-repo/",
+    githubRepoTree: "/github/repo-tree/",
+    githubDisconnect: "/github/disconnect/",
+    githubPullRequests: "/github/pull-requests/",
     githubDisconnect: "/github/disconnect/"
 };

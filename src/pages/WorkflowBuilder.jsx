@@ -34,6 +34,9 @@ import {
     RefreshCw,
     Undo2,
     Redo2,
+    FolderOpen,
+    File,
+    ChevronRight,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Joyride, { STATUS } from 'react-joyride';
@@ -43,8 +46,10 @@ import { useLocation, useParams } from 'react-router-dom';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import { templateNodesData } from '../lib/templateNodes';
-import RepoFileTree from '../components/RepoFileTree';
+import { useRepoTree } from '../hooks/useRepoTree';
+import { cn } from '../lib/utils';
 import { API_ROUTES } from "../lib/apiRoutes";
+import RepoBranchPanel from '../components/RepoBranchPanel';
 
 const nodeTypes = { custom: CustomNode };
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -324,243 +329,6 @@ const CustomCanvasControls = ({ isLocked, setIsLocked, onUndo, onRedo, hasNodes 
 };
 
 
-// ── REPO + BRANCH PANEL ───────────────────────────────────────────────────────
-const RepoBranchPanel = ({ user, getAuthToken }) => {
-    const [repo, setRepo] = useState(null);
-    const [branches, setBranches] = useState([]);
-    const [defaultBranch, setDefaultBranch] = useState(null);
-    const [selectedBranch, setSelectedBranch] = useState(null);
-    const [showBranches, setShowBranches] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [isInitialLoading, setIsInitialLoading] = useState(true);
-    const panelRef = useRef(null);
-
-    useEffect(() => {
-        if (!user) {
-            setIsInitialLoading(false);
-            return;
-        }
-
-        let mounted = true;
-
-        const load = async () => {
-            try {
-                const token = await getAuthToken();
-
-                // Get selected repo
-                const repoRes = await fetch(`${API_URL}${API_ROUTES.githubSelectedRepo}`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                if (!repoRes.ok) throw new Error('Repo fetch failed');
-                const repoData = await repoRes.json();
-                if (!repoData?.repo?.full_name) throw new Error('No repo full name');
-
-                if (mounted) setRepo(repoData.repo.full_name);
-
-                // Fetch branches
-                const branchesRes = await fetch(`${API_URL}${API_ROUTES.githubBranches}`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                if (!branchesRes.ok) throw new Error('Failed to fetch branches');
-                const branchesData = await branchesRes.json();
-
-                if (mounted) {
-                    setRepo(branchesData.repo || repoData.repo.full_name);
-                    setBranches(branchesData.branches || []);
-                    setDefaultBranch(branchesData.default_branch);
-                    if (!selectedBranch && branchesData.default_branch) {
-                        setSelectedBranch(branchesData.default_branch);
-                    }
-                }
-            } catch (err) {
-                console.error('Repo/branch loading error:', err);
-            } finally {
-                if (mounted) setIsInitialLoading(false);
-            }
-        };
-
-        load();
-
-        return () => {
-            mounted = false;
-        };
-    }, [user, getAuthToken]);
-
-    const fetchBranches = async () => {
-        if (!repo) return;
-        setLoading(true);
-        try {
-            const token = await getAuthToken();
-            const res = await fetch(`${API_URL}${API_ROUTES.githubBranches}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            if (!res.ok) throw new Error('Failed to fetch branches');
-            const data = await res.json();
-            setRepo(data.repo);
-            setBranches(data.branches || []);
-            setDefaultBranch(data.default_branch);
-            if (!selectedBranch && data.default_branch) setSelectedBranch(data.default_branch);
-        } catch (err) {
-            console.error('Refresh branches failed:', err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        const handler = (e) => {
-            if (panelRef.current && !panelRef.current.contains(e.target)) setShowBranches(false);
-        };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
-    }, []);
-
-    // Sleek skeleton loader for initial mount
-    // Sleek skeleton loader for initial mount
-    if (isInitialLoading || (!repo && user)) {
-        return (
-            <Panel position="top-left" className="ml-3 mt-3 z-10 tour-repo">
-
-                {/* Desktop Wide Skeleton */}
-                <div className="hidden md:flex items-center bg-[#0D0D0D] border border-[#222] rounded-xl overflow-hidden shadow-xl w-[180px] h-[38px]">
-                    <div className="flex items-center justify-center w-[38px] h-full border-r border-[#1A1A1A] shrink-0">
-                        <div className="w-3.5 h-3.5 border-2 border-[#333] border-t-[#6EE7B7] rounded-full animate-spin" />
-                    </div>
-                    <div className="flex flex-col justify-center px-3 gap-1.5 w-full">
-                        <div className="h-1.5 w-8 bg-[#1A1A1A] rounded animate-pulse" />
-                        <div className="h-2 w-16 bg-[#222] rounded animate-pulse" />
-                    </div>
-                </div>
-
-                {/* Mobile Hamburger Skeleton */}
-                <div className="md:hidden flex items-center justify-center w-10 h-10 bg-[#0D0D0D]/90 backdrop-blur-md border border-[#222] rounded-xl shadow-2xl">
-                    <div className="w-4 h-4 border-2 border-[#333] border-t-[#6EE7B7] rounded-full animate-spin" />
-                </div>
-
-            </Panel>
-        );
-    }
-
-    if (!repo) return null;
-
-    const repoName = repo.split('/')[1];
-    const repoOwner = repo.split('/')[0];
-
-    return (
-        <Panel position="top-left" className="ml-3 mt-3 z-10 tour-repo">
-            <div ref={panelRef} className="relative">
-
-                {/* --- DESKTOP VIEW --- */}
-                <div className="hidden md:flex items-center bg-[#0D0D0D] border border-[#222] rounded-xl overflow-hidden shadow-xl">
-                    <div className="flex items-center gap-2 px-3 py-2 border-r border-[#1A1A1A]">
-                        <Github className="w-3.5 h-3.5 text-[#64748B] shrink-0" />
-                        <div className="flex flex-col leading-none">
-                            <span className="font-mono text-[9px] text-[#444] uppercase tracking-widest">repo</span>
-                            <span className="font-mono text-[11px] text-[#F1F5F9] font-semibold">{repoName}</span>
-                        </div>
-                    </div>
-                    <button onClick={() => setShowBranches(!showBranches)} className="flex items-center gap-2 px-3 py-2 hover:bg-[#111] transition-colors group">
-                        <GitBranch className="w-3.5 h-3.5 text-[#6EE7B7] shrink-0" />
-                        <div className="flex flex-col leading-none text-left">
-                            <span className="font-mono text-[9px] text-[#444] uppercase tracking-widest">branch</span>
-                            <span className="font-mono text-[11px] text-[#6EE7B7] font-semibold">{selectedBranch || '—'}</span>
-                        </div>
-                        <ChevronDown className={`w-3 h-3 text-[#444] transition-transform duration-200 ${showBranches ? 'rotate-180' : ''}`} />
-                    </button>
-                    <button
-                        onClick={fetchBranches}
-                        disabled={loading}
-                        className="px-2 py-2 border-l border-[#1A1A1A] text-[#444] hover:text-[#6EE7B7] transition-colors"
-                        title="Refresh branches"
-                    >
-                        <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin text-[#6EE7B7]' : ''}`} />
-                    </button>
-                </div>
-
-                {/* --- MOBILE COMPACT VIEW (PRO HAMBURGER) --- */}
-                <div className="md:hidden relative z-[60]">
-                    <button
-                        onClick={() => setShowBranches(!showBranches)}
-                        className="w-10 h-10 flex items-center justify-center bg-[#0D0D0D]/90 backdrop-blur-md border border-[#222] rounded-xl shadow-2xl hover:bg-[#111] hover:border-[#6EE7B7]/40 transition-colors"
-                        title="Repo & Branch Options"
-                    >
-                        <div className="relative flex flex-col justify-between w-4 h-3">
-                            <motion.span
-                                animate={showBranches ? { rotate: 45, y: 5.25 } : { rotate: 0, y: 0 }}
-                                transition={{ duration: 0.3, ease: "easeInOut" }}
-                                className="w-full h-[1.5px] bg-[#6EE7B7] rounded-full origin-center"
-                            />
-                            <motion.span
-                                animate={showBranches ? { opacity: 0, scale: 0.5 } : { opacity: 1, scale: 1 }}
-                                transition={{ duration: 0.2 }}
-                                className="w-full h-[1.5px] bg-[#6EE7B7] rounded-full"
-                            />
-                            <motion.span
-                                animate={showBranches ? { rotate: -45, y: -5.25 } : { rotate: 0, y: 0 }}
-                                transition={{ duration: 0.3, ease: "easeInOut" }}
-                                className="w-full h-[1.5px] bg-[#6EE7B7] rounded-full origin-center"
-                            />
-                        </div>
-                    </button>
-                </div>
-
-                <AnimatePresence>
-                    {showBranches && (
-                        <motion.div
-                            initial={{ opacity: 0, y: -4, scale: 0.97 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: -4, scale: 0.97 }}
-                            transition={{ duration: 0.15, ease: 'easeOut' }}
-                            className="absolute left-0 top-[calc(100%+6px)] w-[220px] bg-[#0D0D0D] border border-[#222] rounded-xl shadow-2xl overflow-hidden z-50"
-                        >
-                            <div className="px-3 py-2 border-b border-[#1A1A1A] flex items-center justify-between">
-                                <span className="font-mono text-[9px] text-[#444] uppercase tracking-widest">
-                                    {repoOwner}/{repoName}
-                                </span>
-                                <span className="font-mono text-[9px] text-[#444]">{branches.length} branches</span>
-                            </div>
-                            <div className="max-h-48 overflow-y-auto p-1">
-                                {loading ? (
-                                    <div className="flex items-center gap-2 px-3 py-3">
-                                        <div className="w-3 h-3 border-2 border-[#333] border-t-[#6EE7B7] rounded-full animate-spin" />
-                                        <span className="font-mono text-[10px] text-[#64748B]">Loading...</span>
-                                    </div>
-                                ) : branches.length === 0 ? (
-                                    <div className="px-3 py-3 font-mono text-[10px] text-[#444]">No branches found</div>
-                                ) : (
-                                    branches.map((branch) => (
-                                        <button
-                                            key={branch.name}
-                                            onClick={() => {
-                                                setSelectedBranch(branch.name);
-                                                setShowBranches(false);
-                                            }}
-                                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors text-left ${selectedBranch === branch.name ? 'bg-[#6EE7B7]/10 border border-[#6EE7B7]/20' : 'hover:bg-[#111] border border-transparent'
-                                                }`}
-                                        >
-                                            <div className="flex items-center gap-2 min-w-0">
-                                                <GitBranch className="w-3 h-3 text-[#444] shrink-0" />
-                                                <span className={`font-mono text-[11px] truncate ${selectedBranch === branch.name ? 'text-[#6EE7B7]' : 'text-[#94A3B8]'}`}>
-                                                    {branch.name}
-                                                </span>
-                                            </div>
-                                            <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                                                {branch.is_default && <span className="font-mono text-[8px] text-[#6EE7B7] bg-[#6EE7B7]/10 border border-[#6EE7B7]/20 px-1.5 py-0.5 rounded-full">default</span>}
-                                                {branch.protected && <span className="font-mono text-[8px] text-[#F59E0B] bg-[#F59E0B]/10 border border-[#F59E0B]/20 px-1.5 py-0.5 rounded-full">protected</span>}
-                                                {selectedBranch === branch.name && <Check className="w-3 h-3 text-[#6EE7B7]" />}
-                                            </div>
-                                        </button>
-                                    ))
-                                )}
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-            </div>
-        </Panel>
-    );
-};
-
 // ── AGENT SELECTOR ────────────────────────────────────────────────────────────
 const AgentSelector = ({ value, onChange, disabled }) => {
     const [open, setOpen] = useState(false);
@@ -807,6 +575,85 @@ const EdgeConditionMenu = ({ edge, position, onSelect, onClose }) => {
     );
 };
 
+// ── OPTIMIZED FILE TREE SHUTTER ─────────────────────────────────────────────
+const FileTreeShutter = ({ isOpen, setIsOpen, nestedTree, isLoading }) => {
+    // Convert object-based nested tree to array for mapping 
+    const treeArray = Object.values(nestedTree);
+
+    const renderTreeNodes = (nodes, level = 0) => {
+        return nodes.map((node) => (
+            <TreeItem
+                key={node.path}
+                nodeId={node.path}
+                label={node.name}
+                hasChildren={Object.keys(node.children).length > 0}
+                level={level}
+                data={node}
+            >
+                {Object.keys(node.children).length > 0 &&
+                    renderTreeNodes(Object.values(node.children), level + 1)}
+            </TreeItem>
+        ));
+    };
+
+    return (
+        <div className="fixed left-0 top-[85px] z-[40] flex h-auto max-h-[65vh] pointer-events-none">
+            {/* The Shutter Handle - "The Trigger" */}
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="pointer-events-auto w-4 h-16 my-auto bg-[#0D0D0D] border border-l-0 border-[#222] rounded-r-xl flex items-center justify-center hover:bg-[#111] hover:border-[#6EE7B7]/40 transition-all group shadow-2xl"
+            >
+                <motion.div
+                    animate={{ rotate: isOpen ? 180 : 0 }}
+                    transition={{ duration: 0.4, ease: [0.32, 0.72, 0, 1] }}
+                >
+                    <ChevronRight className={cn("w-3 h-3", isOpen ? "text-[#6EE7B7]" : "text-[#444] group-hover:text-[#64748B]")} />
+                </motion.div>
+            </button>
+
+            {/* The Explorer Panel */}
+            <AnimatePresence mode="wait">
+                {isOpen && (
+                    <motion.div
+                        initial={{ x: -300, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        exit={{ x: -300, opacity: 0 }}
+                        transition={{ duration: 0.4, ease: [0.32, 0.72, 0, 1] }}
+                        className="pointer-events-auto ml-2 w-[280px] bg-[#0D0D0D]/95 backdrop-blur-xl border border-[#222] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col will-change-transform"
+                    >
+                        <div className="px-4 py-3 border-b border-[#1A1A1A] flex items-center justify-between bg-[#111]/50 shrink-0">
+                            <div className="flex items-center gap-2">
+                                <FolderOpen className="w-3.5 h-3.5 text-[#6EE7B7]" />
+                                <span className="font-mono text-[10px] text-[#F1F5F9] uppercase tracking-widest font-bold">Explorer</span>
+                            </div>
+                            {isLoading && (
+                                <div className="w-3 h-3 border-2 border-[#333] border-t-[#6EE7B7] rounded-full animate-spin" />
+                            )}
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-2 no-scrollbar scroll-smooth">
+                            <TreeProvider multiSelect={true} animateExpand={true} indent={12}>
+                                <Tree>
+                                    {treeArray.length > 0 ? (
+                                        renderTreeNodes(treeArray)
+                                    ) : (
+                                        <div className="p-8 text-center flex flex-col items-center gap-2">
+                                            <div className="w-8 h-8 rounded-full bg-[#111] border border-[#222] flex items-center justify-center">
+                                                <File className="w-3.5 h-3.5 text-[#333]" />
+                                            </div>
+                                            <p className="font-mono text-[9px] text-[#333] uppercase tracking-tighter">No files indexed</p>
+                                        </div>
+                                    )}
+                                </Tree>
+                            </TreeProvider>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+};
+
 // ── MAIN COMPONENT ────────────────────────────────────────────────────────────
 function WorkflowBuilderContent() {
     const [title, setTitle] = useState('Untitled Workflow');
@@ -832,7 +679,6 @@ function WorkflowBuilderContent() {
     const [showDraftBanner, setShowDraftBanner] = useState(false);
     const [draftData, setDraftData] = useState(null);
     const [selectedFiles, setSelectedFiles] = useState([]);
-
     const { getViewport } = useReactFlow();
 
     const handleManualAdd = useCallback((cfg) => {
@@ -882,7 +728,9 @@ function WorkflowBuilderContent() {
 
     const location = useLocation();
     const { id: routeId } = useParams();
-    const { user, getAuthToken } = useAuth();
+    const { user, getAuthToken, selectedRepo } = useAuth();
+    const { nestedTree, isLoading } = useRepoTree(getAuthToken, selectedRepo?.full_name);
+    const isMobile = window.innerWidth < 768;
 
     const pushHistory = useCallback((n, e) => {
         historyRef.current = historyRef.current.slice(0, historyIndexRef.current + 1);
@@ -1001,10 +849,10 @@ function WorkflowBuilderContent() {
     useEffect(() => {
         const workflowId = routeId || new URLSearchParams(location.search).get('id');
         if (workflowId && workflowId !== 'new') return; // loading existing workflow, skip draft
-        
+
         const draft = localStorage.getItem('devflow_canvas_draft');
         if (!draft) return;
-        
+
         try {
             const parsed = JSON.parse(draft);
             if (parsed.nodes?.length > 0) {
@@ -1185,6 +1033,7 @@ function WorkflowBuilderContent() {
                         nodes,
                         edges: edgesWithCondition,
                         snapshot: { title, nodes, edges, prompt: lastPrompt },
+                        selected_files: selectedFiles.map(f => f.path),
                     })
                 );
             };
@@ -1220,7 +1069,7 @@ function WorkflowBuilderContent() {
         }
     };
 
-    const handleGenerate = async () => {
+    const handleGenerate = useCallback(async () => {
         if (!prompt.trim()) return;
 
         const unsupported = checkUnsupportedFeatures(prompt);
@@ -1399,7 +1248,7 @@ Set edge condition to "errors_found" for failure notifications, "no_errors" for 
             setIsGenerating(false);
             showToast('Generation failed — try again or check API key', 'error');
         }
-    };
+    }, [prompt, checkUnsupportedFeatures, getAuthToken, showToast, title, lastPrompt, setNodes, setEdges, setIsGenerating, setTitle, setHasStarted, setIsRecipeOpen, setIsSuggestionsOpen, setSelectedNode, pushHistory]);
 
     const rearrangeLayout = useCallback(() => {
         if (nodes.length === 0) return;
@@ -1441,7 +1290,7 @@ Set edge condition to "errors_found" for failure notifications, "no_errors" for 
 
     useEffect(() => {
         let lastWidth = window.innerWidth;
-        
+
         const handleResize = () => {
             const currentWidth = window.innerWidth;
             const wasMobile = lastWidth < 768;
@@ -1449,14 +1298,14 @@ Set edge condition to "errors_found" for failure notifications, "no_errors" for 
 
             // Only trigger if we actually cross the mobile/desktop boundary
             if (wasMobile !== isNowMobile && nodes.length > 0) {
-                handleGenerate(); 
+                handleGenerate();
             }
             lastWidth = currentWidth;
         };
 
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
-    }, [nodes, handleGenerate]);
+    }, [nodes.length, handleGenerate]);
 
 
 
@@ -1824,17 +1673,11 @@ Set edge condition to "errors_found" for failure notifications, "no_errors" for 
                     >
                         <Background color="#1A1A1A" gap={25} size={1} />
                         <CustomCanvasControls isLocked={isCanvasLocked} setIsLocked={setIsCanvasLocked} onUndo={handleUndo} onRedo={handleRedo} hasNodes={nodes.length > 0} />
-                        <RepoBranchPanel user={user} getAuthToken={getAuthToken} />
-                        <RepoFileTree 
-                            selectedFiles={selectedFiles}
-                            onFileSelect={(file) => {
-                                setSelectedFiles(prev => 
-                                    prev.find(f => f.path === file.path)
-                                        ? prev.filter(f => f.path !== file.path)
-                                        : [...prev, file]
-                                );
-                            }}
+                        <RepoBranchPanel 
+                            selectedFiles={selectedFiles} 
+                            onSelectedFilesChange={setSelectedFiles} 
                         />
+
 
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none px-6">
                             <span className="font-mono font-extrabold uppercase text-center leading-none tracking-tighter text-[#111] opacity-50" style={{ fontSize: 'clamp(32px, 10vw, 120px)' }}>
