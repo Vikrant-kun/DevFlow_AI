@@ -20,10 +20,23 @@ import { cn } from '../lib/utils';
 import { useAuth } from '../contexts/AuthContext';
 
 const Sidebar = () => {
-    const [isExpanded, setIsExpanded] = useState(false);
+    // Initialize from localStorage so it stays open across page loads 
+    const [isExpanded, setIsExpanded] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('sidebar_expanded') === 'true';
+        }
+        return false;
+    });
+
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [hasTeam] = useState(false); // ← you can keep logic if you fetch it later
+
+    // Helper to save state 
+    const toggleSidebar = (val) => {
+        setIsExpanded(val);
+        localStorage.setItem('sidebar_expanded', val);
+    };
 
     const auth = useAuth() || {};
     const navigate = useNavigate();
@@ -57,19 +70,16 @@ const Sidebar = () => {
         { icon: Plug, label: 'Integrations', path: '/integrations' },
     ];
 
+    // ── UPDATED NAVBODY (Stable Animations) ──────────────────────────────────
     const NavBody = ({ onLinkClick, showLabels, isMobile }) => (
         <>
-            <nav className="flex flex-col overflow-y-auto hidden-scrollbar" style={{ flex: '1 1 0%' }}>
+            <nav className="flex flex-col overflow-y-auto hidden-scrollbar flex-1">
                 {isMobile && (
-                    <div className="p-4 border-b border-[#1A1A1A] shrink-0 flex flex-col gap-3 pointer-events-auto mb-2 bg-[#111]/50">
+                    <div className="p-4 border-b border-[#1A1A1A] shrink-0 flex flex-col gap-3 mb-2 bg-[#111]/50">
                         <div className="flex items-center gap-3">
                             <div className="h-10 w-10 rounded-lg bg-[#111] shrink-0 flex items-center justify-center border border-[#333] overflow-hidden">
                                 {user?.imageUrl ? (
-                                    <img
-                                        src={user.imageUrl}
-                                        alt="Avatar"
-                                        className="h-full w-full object-cover"
-                                    />
+                                    <img src={user.imageUrl} alt="Avatar" className="h-full w-full object-cover" />
                                 ) : (
                                     <span className="text-xs font-semibold text-[#6EE7B7]">{initial}</span>
                                 )}
@@ -106,9 +116,8 @@ const Sidebar = () => {
                         onClick={onLinkClick}
                         className={({ isActive }) =>
                             cn(
-                                'flex items-center h-11 px-4 mx-2 mb-1 rounded-lg relative transition-all duration-200 ease-out group',
-                                isActive ? 'bg-[#161616] text-[#F1F5F9]' : 'text-[#64748B] hover:bg-[#111] hover:text-[#F1F5F9]',
-                                item.isPremium && !isActive && 'opacity-80 hover:opacity-100'
+                                'flex items-center h-11 px-4 mx-2 mb-1 rounded-lg relative group transition-colors duration-200',
+                                isActive ? 'bg-[#161616] text-[#F1F5F9]' : 'text-[#64748B] hover:bg-[#111] hover:text-[#F1F5F9]'
                             )
                         }
                     >
@@ -117,7 +126,7 @@ const Sidebar = () => {
                                 {isActive && (
                                     <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-r-md bg-[#6EE7B7]" />
                                 )}
-                                <div className="relative shrink-0">
+                                <div className="relative shrink-0 flex items-center justify-center w-4">
                                     <item.icon
                                         className={cn(
                                             'h-4 w-4 transition-colors duration-200',
@@ -126,31 +135,21 @@ const Sidebar = () => {
                                     />
                                 </div>
 
-                                <AnimatePresence>
-                                    {showLabels && (
-                                        <motion.div
-                                            initial={{ opacity: 0 }}
-                                            animate={{ opacity: 1 }}
-                                            exit={{ opacity: 0 }}
-                                            transition={{ duration: 0.15 }}
-                                            className="ml-3 flex items-center justify-between w-full"
-                                        >
-                                            <span
-                                                className={cn(
-                                                    'font-mono text-xs whitespace-nowrap',
-                                                    isActive ? 'text-[#F1F5F9]' : 'text-[#64748B] group-hover:text-[#F1F5F9]'
-                                                )}
-                                            >
-                                                {item.label}
-                                            </span>
-                                            {item.isPremium && (
-                                                <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#A78BFA]/10 border border-[#A78BFA]/30 text-[9px] font-bold text-[#A78BFA] uppercase tracking-wider ml-2">
-                                                    <Lock className="w-2.5 h-2.5" /> Pro
-                                                </span>
-                                            )}
-                                        </motion.div>
+                                <div
+                                    className={cn(
+                                        "ml-3 flex items-center justify-between w-full transition-opacity duration-150",
+                                        showLabels ? "opacity-100" : "opacity-0 pointer-events-none"
                                     )}
-                                </AnimatePresence>
+                                >
+                                    <span className={cn('font-mono text-xs whitespace-nowrap', isActive ? 'text-[#F1F5F9]' : 'text-[#64748B] group-hover:text-[#F1F5F9]')}>
+                                        {item.label}
+                                    </span>
+                                    {item.isPremium && showLabels && (
+                                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#A78BFA]/10 border border-[#A78BFA]/30 text-[9px] font-bold text-[#A78BFA] uppercase tracking-wider">
+                                            <Lock className="w-2.5 h-2.5" /> Pro
+                                        </span>
+                                    )}
+                                </div>
                             </>
                         )}
                     </NavLink>
@@ -158,18 +157,19 @@ const Sidebar = () => {
             </nav>
 
             <div
-                className="flex flex-col border-t border-[#1A1A1A] shrink-0 pt-2 transition-all duration-200"
-                style={{ paddingBottom: isMobile ? 'calc(env(safe-area-inset-bottom, 32px) + 20px)' : '8px' }}
+                className="mt-auto px-2 pt-2 pb-2"
+                style={isMobile ? { paddingBottom: 'calc(env(safe-area-inset-bottom, 32px) + 20px)' } : {}}
             >
-                <NavLink
-                    to="/upgrade"
+                <div className="h-px bg-[#1A1A1A] mx-2 mb-2 opacity-50" />
+                <NavLink 
+                    to="/upgrade" 
                     onClick={onLinkClick}
                     className={({ isActive }) =>
                         cn(
-                            'flex items-center h-11 px-4 mx-2 mb-1 rounded-lg relative transition-all group',
-                            isActive ? 'bg-[#161616]' : 'hover:bg-[#111]'
+                          'flex items-center h-11 px-4 mx-2 mb-1 rounded-lg relative transition-colors group',
+                          isActive ? 'bg-[#161616]' : 'hover:bg-[#111]'
                         )
-                    }
+                      }
                 >
                     {({ isActive }) => (
                         <>
@@ -177,19 +177,7 @@ const Sidebar = () => {
                                 <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-r-lg bg-amber-500" />
                             )}
                             <Zap className="h-4 w-4 shrink-0 text-amber-500" />
-                            <AnimatePresence>
-                                {showLabels && (
-                                    <motion.span
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        exit={{ opacity: 0 }}
-                                        transition={{ duration: 0.15 }}
-                                        className="ml-3 font-mono text-xs text-amber-500 whitespace-nowrap font-bold"
-                                    >
-                                        Upgrade
-                                    </motion.span>
-                                )}
-                            </AnimatePresence>
+                            <span className={cn("ml-3 font-mono text-xs text-amber-500 font-bold transition-opacity", showLabels ? "opacity-100" : "opacity-0")}>Upgrade</span>
                         </>
                     )}
                 </NavLink>
@@ -199,10 +187,10 @@ const Sidebar = () => {
                     onClick={onLinkClick}
                     className={({ isActive }) =>
                         cn(
-                            'flex items-center h-11 px-4 mx-2 mb-1 rounded-lg relative transition-all group',
-                            isActive ? 'bg-[#161616] text-[#F1F5F9]' : 'text-[#64748B] hover:bg-[#111] hover:text-[#F1F5F9]'
+                          'flex items-center h-11 px-4 mx-2 mb-1 rounded-lg relative transition-colors group',
+                          isActive ? 'bg-[#161616] text-[#F1F5F9]' : 'text-[#64748B] hover:bg-[#111] hover:text-[#F1F5F9]'
                         )
-                    }
+                      }
                 >
                     {({ isActive }) => (
                         <>
@@ -215,22 +203,9 @@ const Sidebar = () => {
                                     isActive ? 'text-[#6EE7B7]' : 'text-[#64748B] group-hover:text-[#F1F5F9]'
                                 )}
                             />
-                            <AnimatePresence>
-                                {showLabels && (
-                                    <motion.span
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        exit={{ opacity: 0 }}
-                                        transition={{ duration: 0.15 }}
-                                        className={cn(
-                                            'ml-3 font-mono text-xs whitespace-nowrap',
-                                            isActive ? 'text-[#F1F5F9]' : 'text-[#64748B] group-hover:text-[#F1F5F9]'
-                                        )}
-                                    >
-                                        Settings
-                                    </motion.span>
-                                )}
-                            </AnimatePresence>
+                            <span className={cn("ml-3 font-mono text-xs whitespace-nowrap transition-opacity", showLabels ? "opacity-100" : "opacity-0", isActive ? 'text-[#F1F5F9]' : 'text-[#64748B] group-hover:text-[#F1F5F9]')}>
+                                Settings
+                            </span>
                         </>
                     )}
                 </NavLink>
@@ -243,30 +218,17 @@ const Sidebar = () => {
                         >
                             <div className="h-6 w-6 rounded-lg bg-[#1A1A1A] shrink-0 flex items-center justify-center border border-[#333] overflow-hidden">
                                 {user?.imageUrl ? (
-                                    <img
-                                        src={user.imageUrl}
-                                        alt="Avatar"
-                                        className="h-full w-full object-cover"
-                                    />
+                                    <img src={user.imageUrl} alt="Avatar" className="h-full w-full object-cover" />
                                 ) : (
                                     <span className="text-[10px] font-semibold text-[#F1F5F9]">{initial}</span>
                                 )}
                             </div>
-
-                            <AnimatePresence>
-                                {showLabels && (
-                                    <motion.span
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        exit={{ opacity: 0 }}
-                                        transition={{ duration: 0.15 }}
-                                        className="ml-3 font-mono text-xs text-[#F1F5F9] truncate"
-                                        style={{ maxWidth: '140px' }}
-                                    >
-                                        {userName}
-                                    </motion.span>
-                                )}
-                            </AnimatePresence>
+                            <span
+                                className={cn("ml-3 font-mono text-xs text-[#F1F5F9] truncate transition-opacity", showLabels ? "opacity-100" : "opacity-0")}
+                                style={{ maxWidth: '140px' }}
+                            >
+                                {userName}
+                            </span>
                         </div>
 
                         <AnimatePresence>
@@ -381,17 +343,17 @@ const Sidebar = () => {
                 className="fixed left-0 top-0 z-[999] h-[100dvh] bg-[#0D0D0D] border-r border-[#1A1A1A] flex-col hidden md:flex"
                 style={{
                     width: isExpanded ? '200px' : '56px',
-                    transition: 'width 200ms cubic-bezier(0.4, 0, 0.2, 1)',
+                    transition: 'width 250ms cubic-bezier(0.4, 0, 0.2, 1)',
                 }}
                 onMouseEnter={() => {
                     clearTimeout(hoverTimeout.current);
-                    setIsExpanded(true);
+                    toggleSidebar(true);
                 }}
                 onMouseLeave={() => {
                     hoverTimeout.current = setTimeout(() => {
-                        setIsExpanded(false);
+                        toggleSidebar(false);
                         setDropdownOpen(false);
-                    }, 150);
+                    }, 200);
                 }}
             >
                 <div className="h-14 flex items-center px-3 shrink-0 border-b border-[#1A1A1A]">

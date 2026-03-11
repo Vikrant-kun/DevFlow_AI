@@ -8,6 +8,10 @@ import {
     useNodesState,
     useEdgesState,
     addEdge,
+    BaseEdge,
+    EdgeLabelRenderer,
+    getSmoothStepPath,
+    ReactFlowProvider
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import {
@@ -39,6 +43,7 @@ import { useLocation, useParams } from 'react-router-dom';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import { templateNodesData } from '../lib/templateNodes';
+import RepoFileTree from '../components/RepoFileTree';
 import { API_ROUTES } from "../lib/apiRoutes";
 
 const nodeTypes = { custom: CustomNode };
@@ -219,92 +224,53 @@ const CONDITION_OPTIONS = [
     { value: 'errors_found', label: '🔴 If Errors Found', color: '#F87171' },
     { value: 'no_errors', label: '🟢 If No Errors', color: '#6EE7B7' },
 ];
+// ── CUSTOM EDGE LABEL ─────────────────────────────────────────────────────────
+const CustomEdge = ({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style = {}, markerEnd, data }) => {
+    const [edgePath, labelX, labelY] = getSmoothStepPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
 
-// ── ADD NODE PANEL ────────────────────────────────────────────────────────────
-const AddNodePanel = ({ setNodes, setIsDirty, showToast }) => {
-    const [open, setOpen] = useState(false);
-    const ref = useRef(null);
-    const { getViewport } = useReactFlow();
+    const condition = data?.condition || 'always';
 
-    useEffect(() => {
-        const handler = (e) => {
-            if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-        };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
-    }, []);
+    // If it's "always", just return the slick line with no badge
+    if (condition === 'always') {
+        return <BaseEdge path={edgePath} markerEnd={markerEnd} style={style} id={id} />;
+    }
 
-    const handleAdd = (cfg) => {
-        const viewport = getViewport();
-        const x = (-viewport.x + window.innerWidth / 2) / viewport.zoom - 140;
-        const y = (-viewport.y + window.innerHeight / 2) / viewport.zoom - 50;
-        const id = `node-${Date.now()}`;
-        const newNode = {
-            id,
-            type: 'custom',
-            position: { x, y },
-            data: { type: cfg.type, label: cfg.defaultLabel, description: cfg.defaultDesc, icon: cfg.icon, model: 'groq' },
-        };
-        setNodes((nds) => [...nds, newNode]);
-        setIsDirty(true);
-        showToast(`${cfg.label} node added — connect it to the pipeline`, 'success');
-        setOpen(false);
-    };
+    const isError = condition === 'errors_found';
+    const color = isError ? '#F87171' : '#6EE7B7';
+    const labelText = isError ? 'if errors' : 'if clean';
+    const shadowColor = isError ? 'rgba(248,113,113,0.2)' : 'rgba(110,231,183,0.2)';
 
     return (
-        <Panel position="bottom-right" className="mb-[100px] mr-4 tour-add-node">
-            <div ref={ref} className="relative flex flex-col items-end gap-2">
-                <AnimatePresence>
-                    {open && (
-                        <motion.div
-                            initial={{ opacity: 0, y: 8, scale: 0.96 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: 8, scale: 0.96 }}
-                            transition={{ duration: 0.15, ease: 'easeOut' }}
-                            className="bg-[#0D0D0D] border border-[#222] rounded-xl shadow-2xl overflow-hidden w-[200px]"
-                        >
-                            <div className="px-3 py-2 border-b border-[#1A1A1A]">
-                                <p className="font-mono text-[9px] text-[#444] uppercase tracking-widest">Add Node</p>
-                            </div>
-                            <div className="p-1">
-                                {NODE_TYPES_CONFIG.map((cfg) => (
-                                    <button
-                                        key={cfg.type}
-                                        onClick={() => handleAdd(cfg)}
-                                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-[#111] transition-colors text-left group"
-                                    >
-                                        <div
-                                            className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                                            style={{ background: `${cfg.color}15`, border: `1px solid ${cfg.color}30` }}
-                                        >
-                                            <div className="w-2 h-2 rounded-full" style={{ background: cfg.color }} />
-                                        </div>
-                                        <div className="flex flex-col leading-none">
-                                            <span className="font-mono text-xs text-[#F1F5F9] group-hover:text-white font-semibold">
-                                                {cfg.label}
-                                            </span>
-                                            <span className="font-mono text-[9px] text-[#444] mt-0.5">{cfg.desc}</span>
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-                <button
-                    onClick={() => setOpen(!open)}
-                    className={`w-10 h-10 rounded-xl border shadow-xl flex items-center justify-center transition-all duration-200 ${open
-                        ? 'bg-[#6EE7B7] border-[#6EE7B7] text-[#080808] rotate-45'
-                        : 'bg-[#111] border-[#222] text-[#64748B] hover:border-[#6EE7B7] hover:text-[#6EE7B7]'
-                        }`}
-                    title="Add node"
+        <>
+            <BaseEdge path={edgePath} markerEnd={markerEnd} style={style} id={id} />
+            <EdgeLabelRenderer>
+                <div
+                    style={{
+                        position: 'absolute',
+                        transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+                        pointerEvents: 'all',
+                    }}
+                    className="nodrag nopan z-50"
                 >
-                    <Plus className="w-4 h-4" />
-                </button>
-            </div>
-        </Panel>
+                    <div
+                        className="flex items-center gap-1.5 bg-[#0D0D0D]/90 backdrop-blur-md border rounded-full px-2.5 md:px-3 py-1 hover:scale-105 transition-transform duration-200 shadow-xl cursor-pointer"
+                        style={{
+                            borderColor: `${color}40`,
+                            boxShadow: `0 4px 12px ${shadowColor}`
+                        }}
+                    >
+                        <div className="w-1.5 h-1.5 rounded-full animate-pulse shrink-0" style={{ backgroundColor: color }} />
+                        <span className="font-mono text-[9px] md:text-[10px] font-bold tracking-widest uppercase mt-px select-none whitespace-nowrap" style={{ color: color }}>
+                            {labelText}
+                        </span>
+                    </div>
+                </div>
+            </EdgeLabelRenderer>
+        </>
     );
 };
+
+const edgeTypes = { customEdge: CustomEdge };
 
 // ── CUSTOM CANVAS CONTROLS ────────────────────────────────────────────────────
 const CustomCanvasControls = ({ isLocked, setIsLocked, onUndo, onRedo, hasNodes }) => {
@@ -333,31 +299,30 @@ const CustomCanvasControls = ({ isLocked, setIsLocked, onUndo, onRedo, hasNodes 
                 </button>
             </Panel>
 
-            {hasNodes && (
-                <>
-                    <Panel position="top-right" className="hidden md:flex flex-col gap-1.5 bg-[#111]/90 backdrop-blur-sm border border-[#222] rounded-xl p-3 shadow-xl mr-2 mt-2 tour-legend">
-                        <p className="font-mono text-[8px] text-[#3A3A4A] uppercase tracking-widest mb-0.5">Node Types</p>
-                        {NODE_LEGEND.map(({ color, label }) => (
-                            <div key={label} className="flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
-                                <span className="font-mono text-[10px] text-[#64748B]">{label}</span>
-                            </div>
-                        ))}
-                    </Panel>
+            {/* Always Visible Desktop Legend */}
+            <Panel position="top-right" className="hidden md:flex flex-col gap-1.5 bg-[#111]/90 backdrop-blur-sm border border-[#222] rounded-xl p-3 shadow-xl mr-2 mt-2 tour-legend">
+                <p className="font-mono text-[8px] text-[#3A3A4A] uppercase tracking-widest mb-0.5">Node Types</p>
+                {NODE_LEGEND.map(({ color, label }) => (
+                    <div key={label} className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+                        <span className="font-mono text-[10px] text-[#64748B]">{label}</span>
+                    </div>
+                ))}
+            </Panel>
 
-                    <Panel position="top-center" className="md:hidden flex items-center gap-3 bg-[#111]/90 backdrop-blur-sm border border-[#222] rounded-xl px-3 py-1.5 shadow-lg mt-2">
-                        {NODE_LEGEND.map(({ color, label }) => (
-                            <div key={label} className="flex items-center gap-1.5">
-                                <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: color }} />
-                                <span className="font-mono text-[9px] text-[#64748B]">{label}</span>
-                            </div>
-                        ))}
-                    </Panel>
-                </>
-            )}
+            {/* Always Visible Mobile Legend */}
+            <Panel position="top-center" className="md:hidden flex items-center gap-3 bg-[#111]/90 backdrop-blur-sm border border-[#222] rounded-xl px-3 py-1.5 shadow-lg mt-2">
+                {NODE_LEGEND.map(({ color, label }) => (
+                    <div key={label} className="flex items-center gap-1.5">
+                        <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: color }} />
+                        <span className="font-mono text-[9px] text-[#64748B]">{label}</span>
+                    </div>
+                ))}
+            </Panel>
         </>
     );
 };
+
 
 // ── REPO + BRANCH PANEL ───────────────────────────────────────────────────────
 const RepoBranchPanel = ({ user, getAuthToken }) => {
@@ -367,10 +332,14 @@ const RepoBranchPanel = ({ user, getAuthToken }) => {
     const [selectedBranch, setSelectedBranch] = useState(null);
     const [showBranches, setShowBranches] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [isInitialLoading, setIsInitialLoading] = useState(true);
     const panelRef = useRef(null);
 
     useEffect(() => {
-        if (!user) return;
+        if (!user) {
+            setIsInitialLoading(false);
+            return;
+        }
 
         let mounted = true;
 
@@ -382,9 +351,9 @@ const RepoBranchPanel = ({ user, getAuthToken }) => {
                 const repoRes = await fetch(`${API_URL}${API_ROUTES.githubSelectedRepo}`, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
-                if (!repoRes.ok) return;
+                if (!repoRes.ok) throw new Error('Repo fetch failed');
                 const repoData = await repoRes.json();
-                if (!repoData?.repo?.full_name) return;
+                if (!repoData?.repo?.full_name) throw new Error('No repo full name');
 
                 if (mounted) setRepo(repoData.repo.full_name);
 
@@ -405,6 +374,8 @@ const RepoBranchPanel = ({ user, getAuthToken }) => {
                 }
             } catch (err) {
                 console.error('Repo/branch loading error:', err);
+            } finally {
+                if (mounted) setIsInitialLoading(false);
             }
         };
 
@@ -420,7 +391,7 @@ const RepoBranchPanel = ({ user, getAuthToken }) => {
         setLoading(true);
         try {
             const token = await getAuthToken();
-            const branchesRes = await fetch(`${API_URL}${API_ROUTES.githubBranches}`, {
+            const res = await fetch(`${API_URL}${API_ROUTES.githubBranches}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (!res.ok) throw new Error('Failed to fetch branches');
@@ -444,6 +415,32 @@ const RepoBranchPanel = ({ user, getAuthToken }) => {
         return () => document.removeEventListener('mousedown', handler);
     }, []);
 
+    // Sleek skeleton loader for initial mount
+    // Sleek skeleton loader for initial mount
+    if (isInitialLoading || (!repo && user)) {
+        return (
+            <Panel position="top-left" className="ml-3 mt-3 z-10 tour-repo">
+
+                {/* Desktop Wide Skeleton */}
+                <div className="hidden md:flex items-center bg-[#0D0D0D] border border-[#222] rounded-xl overflow-hidden shadow-xl w-[180px] h-[38px]">
+                    <div className="flex items-center justify-center w-[38px] h-full border-r border-[#1A1A1A] shrink-0">
+                        <div className="w-3.5 h-3.5 border-2 border-[#333] border-t-[#6EE7B7] rounded-full animate-spin" />
+                    </div>
+                    <div className="flex flex-col justify-center px-3 gap-1.5 w-full">
+                        <div className="h-1.5 w-8 bg-[#1A1A1A] rounded animate-pulse" />
+                        <div className="h-2 w-16 bg-[#222] rounded animate-pulse" />
+                    </div>
+                </div>
+
+                {/* Mobile Hamburger Skeleton */}
+                <div className="md:hidden flex items-center justify-center w-10 h-10 bg-[#0D0D0D]/90 backdrop-blur-md border border-[#222] rounded-xl shadow-2xl">
+                    <div className="w-4 h-4 border-2 border-[#333] border-t-[#6EE7B7] rounded-full animate-spin" />
+                </div>
+
+            </Panel>
+        );
+    }
+
     if (!repo) return null;
 
     const repoName = repo.split('/')[1];
@@ -452,7 +449,9 @@ const RepoBranchPanel = ({ user, getAuthToken }) => {
     return (
         <Panel position="top-left" className="ml-3 mt-3 z-10 tour-repo">
             <div ref={panelRef} className="relative">
-                <div className="flex items-center bg-[#0D0D0D] border border-[#222] rounded-xl overflow-hidden shadow-xl">
+
+                {/* --- DESKTOP VIEW --- */}
+                <div className="hidden md:flex items-center bg-[#0D0D0D] border border-[#222] rounded-xl overflow-hidden shadow-xl">
                     <div className="flex items-center gap-2 px-3 py-2 border-r border-[#1A1A1A]">
                         <Github className="w-3.5 h-3.5 text-[#64748B] shrink-0" />
                         <div className="flex flex-col leading-none">
@@ -475,6 +474,33 @@ const RepoBranchPanel = ({ user, getAuthToken }) => {
                         title="Refresh branches"
                     >
                         <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin text-[#6EE7B7]' : ''}`} />
+                    </button>
+                </div>
+
+                {/* --- MOBILE COMPACT VIEW (PRO HAMBURGER) --- */}
+                <div className="md:hidden relative z-[60]">
+                    <button
+                        onClick={() => setShowBranches(!showBranches)}
+                        className="w-10 h-10 flex items-center justify-center bg-[#0D0D0D]/90 backdrop-blur-md border border-[#222] rounded-xl shadow-2xl hover:bg-[#111] hover:border-[#6EE7B7]/40 transition-colors"
+                        title="Repo & Branch Options"
+                    >
+                        <div className="relative flex flex-col justify-between w-4 h-3">
+                            <motion.span
+                                animate={showBranches ? { rotate: 45, y: 5.25 } : { rotate: 0, y: 0 }}
+                                transition={{ duration: 0.3, ease: "easeInOut" }}
+                                className="w-full h-[1.5px] bg-[#6EE7B7] rounded-full origin-center"
+                            />
+                            <motion.span
+                                animate={showBranches ? { opacity: 0, scale: 0.5 } : { opacity: 1, scale: 1 }}
+                                transition={{ duration: 0.2 }}
+                                className="w-full h-[1.5px] bg-[#6EE7B7] rounded-full"
+                            />
+                            <motion.span
+                                animate={showBranches ? { rotate: -45, y: -5.25 } : { rotate: 0, y: 0 }}
+                                transition={{ duration: 0.3, ease: "easeInOut" }}
+                                className="w-full h-[1.5px] bg-[#6EE7B7] rounded-full origin-center"
+                            />
+                        </div>
                     </button>
                 </div>
 
@@ -597,8 +623,80 @@ const AgentSelector = ({ value, onChange, disabled }) => {
     );
 };
 
+// ── INTEGRATED ADD NODE SELECTOR (SHADCN-STYLE) ──────────────────────────────
+const AddNodeSelector = ({ onAdd, isOpen, setIsOpen }) => {
+    const ref = useRef(null);
+
+    // Close on outside click
+    useEffect(() => {
+        const handler = (e) => {
+            if (ref.current && !ref.current.contains(e.target)) setIsOpen(false);
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [setIsOpen]);
+
+    return (
+        <div className="relative" ref={ref}>
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className={`flex h-8 w-8 items-center justify-center rounded-full border transition-all duration-200 ${isOpen
+                    ? 'bg-[#6EE7B7] border-[#6EE7B7] text-[#080808] rotate-45'
+                    : 'border-transparent bg-[#0D0D0D] border-[#222] text-[#64748B] hover:bg-[#1A1A1A] hover:text-[#F1F5F9]'
+                    }`}
+                title="Add Node"
+            >
+                <Plus className="h-4 w-4" />
+            </button>
+
+            <AnimatePresence>
+                {isOpen && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        className="absolute bottom-full left-0 mb-3 w-52 bg-[#0D0D0D]/95 backdrop-blur-xl border border-[#222] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden z-[100]"
+                    >
+                        <div className="px-3 py-2 border-b border-[#1A1A1A]">
+                            <p className="font-mono text-[9px] text-[#444] uppercase tracking-widest font-bold">Manual Add</p>
+                        </div>
+                        <div className="p-1">
+                            {NODE_TYPES_CONFIG.map((cfg) => (
+                                <button
+                                    key={cfg.type}
+                                    onClick={() => {
+                                        onAdd(cfg);
+                                        setIsOpen(false);
+                                    }}
+                                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-[#1A1A1A] transition-all group text-left"
+                                >
+                                    <div
+                                        className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border"
+                                        style={{ background: `${cfg.color}15`, borderColor: `${cfg.color}30` }}
+                                    >
+                                        <div className="w-1.5 h-1.5 rounded-full" style={{ background: cfg.color }} />
+                                    </div>
+                                    <div className="flex flex-col leading-none">
+                                        <span className="font-mono text-[11px] text-[#F1F5F9] group-hover:text-white font-bold">{cfg.label}</span>
+                                        <span className="font-mono text-[8px] text-[#444] mt-0.5">{cfg.desc}</span>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+};
+
 // ── UNIFIED PROMPT BOX ────────────────────────────────────────────────────────
-const UnifiedPromptBox = ({ prompt, setPrompt, model, setModel, isGenerating, handleGenerate, onToggleRecipes, isRecipeOpen, onToggleSuggestions, isSuggestionsOpen, hasStarted }) => {
+const UnifiedPromptBox = ({
+    prompt, setPrompt, model, setModel, isGenerating, handleGenerate,
+    onToggleRecipes, isRecipeOpen, onToggleSuggestions, isSuggestionsOpen,
+    onAddNode, isAddNodeOpen, setIsAddNodeOpen, // Updated props
+    hasStarted
+}) => {
     const textareaRef = useRef(null);
     const [placeholderIndex, setPlaceholderIndex] = useState(0);
     const placeholders = [
@@ -645,16 +743,27 @@ const UnifiedPromptBox = ({ prompt, setPrompt, model, setModel, isGenerating, ha
             <div className="flex items-center justify-between px-1 pt-1.5 border-t border-[#222]/80 mt-1 shrink-0">
                 <div className="flex items-center gap-2">
                     <AgentSelector value={model} onChange={setModel} disabled={isGenerating} />
+
+                    {/* THE NEW INTEGRATED SELECTOR */}
+                    <AddNodeSelector
+                        onAdd={onAddNode}
+                        isOpen={isAddNodeOpen}
+                        setIsOpen={setIsAddNodeOpen}
+                    />
+
                     <button
                         onClick={onToggleRecipes}
-                        className={`tour-recipes flex h-8 w-8 items-center justify-center rounded-full border transition-all ${isRecipeOpen ? 'bg-[#6EE7B7]/10 border-[#6EE7B7]/30 text-[#6EE7B7]' : 'border-transparent bg-[#0D0D0D] border-[#222] text-[#64748B] hover:bg-[#1A1A1A] hover:text-[#F1F5F9]'
+                        className={`tour-recipes flex h-8 w-8 items-center justify-center rounded-full border transition-all ${isRecipeOpen ?
+                            'bg-[#6EE7B7]/10 border-[#6EE7B7]/30 text-[#6EE7B7]' : 'border-transparent bg-[#0D0D0D] border-[#222] text-[#64748B] hover:bg-[#1A1A1A] hover:text-[#F1F5F9]'
                             }`}
                     >
                         <BookOpen className="h-3.5 w-3.5" />
                     </button>
+
                     <button
                         onClick={onToggleSuggestions}
-                        className={`tour-suggestions flex h-8 w-8 items-center justify-center rounded-full border transition-all ${isSuggestionsOpen ? 'bg-[#6EE7B7]/10 border-[#6EE7B7]/30 text-[#6EE7B7]' : 'border-transparent bg-[#0D0D0D] border-[#222] text-[#64748B] hover:bg-[#1A1A1A] hover:text-[#F1F5F9]'
+                        className={`tour-suggestions flex h-8 w-8 items-center justify-center rounded-full border transition-all ${isSuggestionsOpen ?
+                            'bg-[#6EE7B7]/10 border-[#6EE7B7]/30 text-[#6EE7B7]' : 'border-transparent bg-[#0D0D0D] border-[#222] text-[#64748B] hover:bg-[#1A1A1A] hover:text-[#F1F5F9]'
                             }`}
                     >
                         <Lightbulb className="h-3.5 w-3.5" />
@@ -699,13 +808,15 @@ const EdgeConditionMenu = ({ edge, position, onSelect, onClose }) => {
 };
 
 // ── MAIN COMPONENT ────────────────────────────────────────────────────────────
-export default function WorkflowBuilder() {
+function WorkflowBuilderContent() {
     const [title, setTitle] = useState('Untitled Workflow');
+    const { showToast } = useToast();
     const [nodes, setNodes, onNodesChange] = useNodesState([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
     const [prompt, setPrompt] = useState('');
     const [model, setModel] = useState('groq');
     const [isGenerating, setIsGenerating] = useState(false);
+    const [isAddNodeOpen, setIsAddNodeOpen] = useState(false);
     const [hasStarted, setHasStarted] = useState(false);
     const [isRecipeOpen, setIsRecipeOpen] = useState(false);
     const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
@@ -718,6 +829,37 @@ export default function WorkflowBuilder() {
     const [unsupportedFeature, setUnsupportedFeature] = useState(null);
     const [showRerunModal, setShowRerunModal] = useState(false);
     const [edgeMenu, setEdgeMenu] = useState({ edge: null, position: { x: 0, y: 0 } });
+    const [showDraftBanner, setShowDraftBanner] = useState(false);
+    const [draftData, setDraftData] = useState(null);
+    const [selectedFiles, setSelectedFiles] = useState([]);
+
+    const { getViewport } = useReactFlow();
+
+    const handleManualAdd = useCallback((cfg) => {
+        const viewport = getViewport();
+        const x = (-viewport.x + window.innerWidth / 2) / viewport.zoom - 140;
+        const y = (-viewport.y + window.innerHeight / 2) / viewport.zoom - 50;
+        const id = `node-${Date.now()}`;
+        const newNode = {
+            id,
+            type: 'custom',
+            position: { x, y },
+            data: {
+                type: cfg.type,
+                label: cfg.defaultLabel,
+                description: cfg.defaultDesc,
+                icon: cfg.icon,
+                model: 'groq',
+            },
+
+
+        };
+        setNodes((nds) => [...nds, newNode]);
+        setIsAddNodeOpen(false);
+        setHasStarted(true);
+        setIsDirty(true);
+        showToast(`${cfg.label} added to canvas`, 'success');
+    }, [getViewport, setNodes, showToast]);
 
     // Tour
     const [tourRunning, setTourRunning] = useState(false);
@@ -738,7 +880,6 @@ export default function WorkflowBuilder() {
     const historyIndexRef = useRef(-1);
     const autoSaveTimer = useRef(null);
 
-    const { showToast } = useToast();
     const location = useLocation();
     const { id: routeId } = useParams();
     const { user, getAuthToken } = useAuth();
@@ -766,6 +907,19 @@ export default function WorkflowBuilder() {
         }, 1500);
         return () => clearTimeout(autoSaveTimer.current);
     }, [nodes, isDirty, currentWorkflowId]);
+
+    // Auto-save to localStorage on every change
+    useEffect(() => {
+        if (nodes.length === 0) return; // don't save empty canvas
+        const draft = {
+            nodes,
+            edges,
+            title,
+            prompt,
+            savedAt: new Date().toISOString()
+        };
+        localStorage.setItem('devflow_canvas_draft', JSON.stringify(draft));
+    }, [nodes, edges, title, prompt]);
 
     const handleUndo = useCallback(() => {
         if (historyIndexRef.current <= 0) return;
@@ -822,7 +976,15 @@ export default function WorkflowBuilder() {
                 const w = await res.json();
                 setTitle(w.name);
                 setNodes(w.nodes || []);
-                setEdges(w.edges || []);
+
+                // FORCE UPGRADE OLD EDGES: Strip old labels and enforce custom UI
+                const upgradedEdges = (w.edges || []).map(e => ({
+                    ...e,
+                    type: 'customEdge',
+                    label: undefined
+                }));
+                setEdges(upgradedEdges);
+
                 setCurrentWorkflowId(workflowId);
                 setHasStarted(true);
                 setIsDirty(false);
@@ -834,6 +996,26 @@ export default function WorkflowBuilder() {
         };
         loadWorkflow();
     }, [routeId, location.search, getAuthToken, setNodes, setEdges, showToast]);
+
+    // Restore draft on mount if no workflow ID in URL
+    useEffect(() => {
+        const workflowId = routeId || new URLSearchParams(location.search).get('id');
+        if (workflowId && workflowId !== 'new') return; // loading existing workflow, skip draft
+        
+        const draft = localStorage.getItem('devflow_canvas_draft');
+        if (!draft) return;
+        
+        try {
+            const parsed = JSON.parse(draft);
+            if (parsed.nodes?.length > 0) {
+                // Show restore banner
+                setShowDraftBanner(true);
+                setDraftData(parsed);
+            }
+        } catch (e) {
+            console.error("Draft parse error:", e);
+        }
+    }, [routeId, location.search]);
 
     // Load template from query param
     useEffect(() => {
@@ -867,7 +1049,7 @@ export default function WorkflowBuilder() {
                         ...params,
                         animated: false,
                         style: { stroke: '#444', strokeWidth: 2 },
-                        type: 'smoothstep',
+                        type: 'customEdge',
                         data: { condition: 'always' },
                     },
                     eds
@@ -888,7 +1070,7 @@ export default function WorkflowBuilder() {
                     ? {
                         ...e,
                         data: { ...e.data, condition },
-                        label: condition === 'always' ? '' : condition === 'errors_found' ? 'if errors' : 'if clean',
+                        type: 'customEdge',
                         style: {
                             stroke: condition === 'errors_found' ? '#F87171' : condition === 'no_errors' ? '#6EE7B7' : '#444',
                             strokeWidth: 2,
@@ -926,6 +1108,7 @@ export default function WorkflowBuilder() {
             const newId = data.id || data.workflow_id;
             setCurrentWorkflowId(newId);
             localStorage.setItem('devflow_has_workflow', 'true');
+            localStorage.removeItem('devflow_canvas_draft'); // Clear draft on save
             setIsDirty(false);
             return newId;
         } catch (err) {
@@ -1062,11 +1245,11 @@ export default function WorkflowBuilder() {
             if (res.ok) {
                 const { repo: selectedRepo } = await res.json();
                 if (selectedRepo?.full_name) {
-                    const res = await fetch(`${API_URL}${API_ROUTES.githubBranches}`, {
+                    const branchesRes = await fetch(`${API_URL}${API_ROUTES.githubBranches}`, {
                         headers: { Authorization: `Bearer ${token}` }
                     });
-                    if (treeRes.ok) {
-                        const treeData = await treeRes.json();
+                    if (branchesRes.ok) {
+                        const treeData = await branchesRes.json();
                         repoContext = `\nCurrent repo: "${selectedRepo.full_name}" — files: ${treeData.files?.slice(0, 30)?.join(', ') || '...'}`;
                     }
                 }
@@ -1104,9 +1287,17 @@ Set edge condition to "errors_found" for failure notifications, "no_errors" for 
             if (!res.ok) throw new Error('Groq API error');
 
             const data = await res.json();
-            let raw = data.choices[0].message.content;
-            const cleaned = raw.replace(/```json|```/g, '').trim();
-            const parsed = JSON.parse(cleaned);
+            const raw = data.choices?.[0]?.message?.content || "";
+            const cleaned = raw.replace(/```json\n?|```\n?/g, '').replace(/^[^{[]*/, '').replace(/[^}\]]*$/, '').trim();
+            let parsed;
+            try {
+                parsed = JSON.parse(cleaned);
+            } catch (e) {
+                console.error("Raw AI response:", raw);
+                showToast("AI returned invalid format. Please try again.", "error");
+                setIsGenerating(false);
+                return;
+            }
 
             if (parsed.name) setTitle(parsed.name);
 
@@ -1131,13 +1322,30 @@ Set edge condition to "errors_found" for failure notifications, "no_errors" for 
                 if (positions[nodeId]) return;
                 const parentId = parentMap[nodeId]?.[0];
                 const parentPos = positions[parentId];
-                const yOffset = totalSiblings > 1 ? (branchIndex - (totalSiblings - 1) / 2) * nodeSpacingY : 0;
-                const baseY = parentPos ? parentPos.y + yOffset : 200;
-                positions[nodeId] = { x: 60 + depth * nodeSpacingX, y: baseY };
+
+                if (isMobile) {
+                    // VERTICAL FLOW (Mobile)
+                    // Branches (Error/Clean) spread horizontally, pipeline moves DOWN
+                    const xSpread = totalSiblings > 1 ? (branchIndex - (totalSiblings - 1) / 2) * 320 : 0;
+                    const baseY = parentPos ? parentPos.y + 220 : 100;
+                    const baseX = parentPos ? parentPos.x + xSpread : window.innerWidth / 2 - 140;
+                    positions[nodeId] = { x: baseX, y: baseY };
+                } else {
+                    // HORIZONTAL FLOW (Desktop)
+                    // Branches spread vertically, pipeline moves RIGHT
+                    const ySpread = totalSiblings > 1 ? (branchIndex - (totalSiblings - 1) / 2) * 200 : 0;
+                    const baseX = parentPos ? parentPos.x + 350 : 60;
+                    const baseY = parentPos ? parentPos.y + ySpread : 250;
+                    positions[nodeId] = { x: baseX, y: baseY };
+                }
 
                 const children = childrenMap[nodeId] || [];
                 children.forEach((childId, idx) => assignPosition(childId, depth + 1, idx, children.length));
             };
+
+
+
+
 
             const rootNodes = parsed.nodes.filter((n) => !parentMap[n.id]);
             rootNodes.forEach((n, idx) => assignPosition(n.id, 0, idx, rootNodes.length));
@@ -1153,20 +1361,25 @@ Set edge condition to "errors_found" for failure notifications, "no_errors" for 
                 data: { ...n, model: n.model || 'groq' },
             }));
 
+
+
+
             const formattedEdges = (parsed.edges || []).map((e) => {
                 const condition = e.condition || 'always';
                 return {
                     id: `e${e.source}-${e.target}-${Math.random().toString(36).slice(2, 7)}`,
                     source: e.source,
                     target: e.target,
-                    condition,
+                    // FORCE the connection to the correct physical dot
+                    sourceHandle: isMobile ? 'bottom' : 'right',
+                    targetHandle: isMobile ? 'top' : 'left',
+                    type: 'customEdge',
                     animated: false,
                     style: { stroke: condition === 'errors_found' ? '#F87171' : condition === 'no_errors' ? '#6EE7B7' : '#444', strokeWidth: 2 },
-                    type: 'smoothstep',
-                    label: condition === 'always' ? '' : condition === 'errors_found' ? 'if errors' : 'if clean',
                     data: { condition },
                 };
             });
+
 
             spacedNodes.forEach((node, idx) => {
                 setTimeout(() => {
@@ -1187,6 +1400,65 @@ Set edge condition to "errors_found" for failure notifications, "no_errors" for 
             showToast('Generation failed — try again or check API key', 'error');
         }
     };
+
+    const rearrangeLayout = useCallback(() => {
+        if (nodes.length === 0) return;
+        const isMobile = window.innerWidth < 768;
+        const positions = {};
+
+        // Find the trigger node (the one with no incoming edges)
+        const rootNode = nodes.find(n => !edges.some(e => e.target === n.id));
+        if (!rootNode) return;
+
+        const assign = (nodeId, depth = 0, branchIndex = 0, totalSiblings = 1) => {
+            if (positions[nodeId]) return;
+            const parentEdge = edges.find(e => e.target === nodeId);
+            const parentPos = parentEdge ? positions[parentEdge.source] : null;
+
+            if (isMobile) {
+                const xSpread = totalSiblings > 1 ? (branchIndex - (totalSiblings - 1) / 2) * 320 : 0;
+                const baseY = parentPos ? parentPos.y + 220 : 100;
+                const baseX = parentPos ? parentPos.x + xSpread : window.innerWidth / 2 - 140;
+                positions[nodeId] = { x: baseX, y: baseY };
+            } else {
+                const ySpread = totalSiblings > 1 ? (branchIndex - (totalSiblings - 1) / 2) * 200 : 0;
+                const baseX = parentPos ? parentPos.x + 350 : 60;
+                const baseY = parentPos ? parentPos.y + ySpread : 250;
+                positions[nodeId] = { x: baseX, y: baseY };
+            }
+
+            const children = edges.filter(e => e.source === nodeId);
+            children.forEach((edge, idx) => assign(edge.target, depth + 1, idx, children.length));
+        };
+
+        assign(rootNode.id);
+
+        setNodes(nds => nds.map(n => ({
+            ...n,
+            position: positions[n.id] || n.position
+        })));
+    }, [nodes, edges, setNodes]);
+
+    useEffect(() => {
+        let lastWidth = window.innerWidth;
+        
+        const handleResize = () => {
+            const currentWidth = window.innerWidth;
+            const wasMobile = lastWidth < 768;
+            const isNowMobile = currentWidth < 768;
+
+            // Only trigger if we actually cross the mobile/desktop boundary
+            if (wasMobile !== isNowMobile && nodes.length > 0) {
+                handleGenerate(); 
+            }
+            lastWidth = currentWidth;
+        };
+
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, [nodes, handleGenerate]);
+
+
 
     return (
         <div className="h-[100dvh] flex flex-col w-full overflow-hidden bg-[#080808]">
@@ -1246,6 +1518,49 @@ Set edge condition to "errors_found" for failure notifications, "no_errors" for 
             </TopBar>
 
             <div className="flex-1 flex overflow-hidden relative">
+                {/* Draft Restoration Banner */}
+                <AnimatePresence>
+                    {showDraftBanner && draftData && (
+                        <motion.div
+                            initial={{ opacity: 0, y: -20, x: '-50%' }}
+                            animate={{ opacity: 1, y: 0, x: '-50%' }}
+                            exit={{ opacity: 0, y: -20, x: '-50%' }}
+                            className="absolute top-4 left-1/2 z-[150] flex items-center gap-3 bg-[#111] border border-[#6EE7B7]/30 rounded-xl px-4 py-2.5 shadow-2xl"
+                        >
+                            <span className="font-mono text-xs text-[#6EE7B7]">⚡ Unsaved draft found</span>
+                            <span className="hidden sm:inline font-mono text-[10px] text-[#444]">
+                                {new Date(draftData.savedAt).toLocaleTimeString()}
+                            </span>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => {
+                                        setNodes(draftData.nodes);
+                                        setEdges(draftData.edges);
+                                        if (draftData.title) setTitle(draftData.title);
+                                        if (draftData.prompt) setPrompt(draftData.prompt);
+                                        setHasStarted(true);
+                                        setShowDraftBanner(false);
+                                        localStorage.removeItem('devflow_canvas_draft');
+                                        showToast('Draft restored', 'success');
+                                    }}
+                                    className="font-mono text-[10px] md:text-xs font-bold text-[#080808] bg-[#6EE7B7] px-3 py-1 rounded-lg hover:bg-[#34D399] transition-all"
+                                >
+                                    Restore
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setShowDraftBanner(false);
+                                        localStorage.removeItem('devflow_canvas_draft');
+                                    }}
+                                    className="font-mono text-[10px] md:text-xs text-[#64748B] hover:text-[#F1F5F9] transition-all"
+                                >
+                                    Discard
+                                </button>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
                 {/* Recipe Drawer */}
                 <AnimatePresence>
                     {isRecipeOpen && (
@@ -1495,6 +1810,7 @@ Set edge condition to "errors_found" for failure notifications, "no_errors" for 
                             setEdgeMenu({ edge: null, position: { x: 0, y: 0 } });
                         }}
                         nodeTypes={nodeTypes}
+                        edgeTypes={edgeTypes}
                         fitView
                         fitViewOptions={{ padding: 0.3, minZoom: 0.4, maxZoom: 1.2 }}
                         defaultEdgeOptions={{ animated: false, style: { stroke: '#444', strokeWidth: 2 }, type: 'smoothstep' }}
@@ -1509,7 +1825,16 @@ Set edge condition to "errors_found" for failure notifications, "no_errors" for 
                         <Background color="#1A1A1A" gap={25} size={1} />
                         <CustomCanvasControls isLocked={isCanvasLocked} setIsLocked={setIsCanvasLocked} onUndo={handleUndo} onRedo={handleRedo} hasNodes={nodes.length > 0} />
                         <RepoBranchPanel user={user} getAuthToken={getAuthToken} />
-                        <AddNodePanel setNodes={setNodes} setIsDirty={setIsDirty} showToast={showToast} />
+                        <RepoFileTree 
+                            selectedFiles={selectedFiles}
+                            onFileSelect={(file) => {
+                                setSelectedFiles(prev => 
+                                    prev.find(f => f.path === file.path)
+                                        ? prev.filter(f => f.path !== file.path)
+                                        : [...prev, file]
+                                );
+                            }}
+                        />
 
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none px-6">
                             <span className="font-mono font-extrabold uppercase text-center leading-none tracking-tighter text-[#111] opacity-50" style={{ fontSize: 'clamp(32px, 10vw, 120px)' }}>
@@ -1529,10 +1854,12 @@ Set edge condition to "errors_found" for failure notifications, "no_errors" for 
 
             {/* Prompt Input Bar */}
             <div
-                className={`fixed left-0 right-0 z-[50] px-4 md:px-8 flex justify-center pointer-events-none transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] ${hasStarted ? 'bottom-6 md:bottom-10 pb-[env(safe-area-inset-bottom,0px)]' : 'top-1/2 -translate-y-1/2'
+                className={`fixed left-0 right-0 z-[50] px-4 md:px-8 flex justify-center pointer-events-none transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] ${hasStarted
+                    ? 'bottom-5 md:bottom-8 pb-[env(safe-area-inset-bottom,0px)]'
+                    : 'bottom-5 md:bottom-auto md:top-1/2 md:-translate-y-1/2 pb-[env(safe-area-inset-bottom,0px)]'
                     }`}
             >
-                <div className="w-full max-w-2xl pointer-events-auto">
+                <div className="w-full max-w-2xl pointer-events-auto flex flex-col items-center">
                     <AnimatePresence>
                         {!hasStarted && (
                             <motion.div initial={{ opacity: 1 }} exit={{ opacity: 0, y: 10 }} className="w-full flex flex-wrap justify-center gap-2 mb-3 px-2">
@@ -1549,19 +1876,35 @@ Set edge condition to "errors_found" for failure notifications, "no_errors" for 
                         )}
                     </AnimatePresence>
 
-                    <UnifiedPromptBox
-                        prompt={prompt}
-                        setPrompt={setPrompt}
-                        model={model}
-                        setModel={setModel}
-                        isGenerating={isGenerating}
-                        handleGenerate={handleGenerate}
-                        onToggleRecipes={() => setIsRecipeOpen(!isRecipeOpen)}
-                        isRecipeOpen={isRecipeOpen}
-                        onToggleSuggestions={() => setIsSuggestionsOpen(!isSuggestionsOpen)}
-                        isSuggestionsOpen={isSuggestionsOpen}
-                        hasStarted={hasStarted}
-                    />
+                    <div className="w-full">
+                        <UnifiedPromptBox
+                            prompt={prompt}
+                            setPrompt={setPrompt}
+                            model={model}
+                            setModel={setModel}
+                            isGenerating={isGenerating}
+                            handleGenerate={handleGenerate}
+                            onAddNode={handleManualAdd}
+                            isAddNodeOpen={isAddNodeOpen}
+                            setIsAddNodeOpen={setIsAddNodeOpen}
+                            onToggleRecipes={() => { setIsRecipeOpen(!isRecipeOpen); setIsAddNodeOpen(false); setIsSuggestionsOpen(false); }}
+                            isRecipeOpen={isRecipeOpen}
+                            onToggleSuggestions={() => { setIsSuggestionsOpen(!isSuggestionsOpen); setIsAddNodeOpen(false); setIsRecipeOpen(false); }}
+                            isSuggestionsOpen={isSuggestionsOpen}
+                            hasStarted={hasStarted}
+                        />
+                    </div>
+
+                    {/* AI Disclaimer */}
+                    <motion.p
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.8, delay: 0.3 }}
+                        className="font-mono text-[9px] md:text-[10px] text-[#555] mt-2.5 md:mt-3 text-center tracking-wide select-none"
+                    >
+                        <span className="text-[#F59E0B] mr-1.5">⚡</span>
+                        AI pipelines may make mistakes — review before running in production
+                    </motion.p>
                 </div>
             </div>
 
@@ -1659,5 +2002,13 @@ Set edge condition to "errors_found" for failure notifications, "no_errors" for 
                 )}
             </AnimatePresence>
         </div>
+    );
+}
+
+export default function WorkflowBuilder() {
+    return (
+        <ReactFlowProvider>
+            <WorkflowBuilderContent />
+        </ReactFlowProvider>
     );
 }

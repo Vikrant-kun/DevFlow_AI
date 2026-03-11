@@ -303,7 +303,9 @@ const Logs = () => {
             setIsLoading(false);
         };
         fetchLogs();
-    }, [user, getAuthToken]);
+        // Fix: Only re-run if the user ID changes. getAuthToken is removed to stop the loop.
+    }, [user?.id]);
+
 
     const handleReplay = (run) => {
         setReplayRun(null);

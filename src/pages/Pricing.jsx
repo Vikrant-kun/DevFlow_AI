@@ -168,7 +168,7 @@ const tableRows = [
     { label: 'Runs / month', free: '50', pro: '5,000', team: '15,000', enterprise: 'Unlimited' },
     { label: 'Integrations', free: 'GitHub only', pro: 'All', team: 'All', enterprise: 'All + Custom' },
     { label: 'AI models', free: 'Claude only', pro: 'All models', team: 'All models', enterprise: 'All models' },
-    { label: 'Team members', free: '—', pro: '1', team: 'Up to 15', enterprise: 'Unlimited' },
+    { label: 'Team members', free: '—', pro: '5', team: 'Up to 15', enterprise: 'Unlimited' },
     { label: 'Custom webhooks', free: false, pro: true, team: true, enterprise: true },
     { label: 'Analytics', free: false, pro: true, team: true, enterprise: true },
     { label: 'SSO / SAML', free: false, pro: false, team: false, enterprise: true },

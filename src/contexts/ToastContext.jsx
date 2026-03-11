@@ -17,14 +17,13 @@ export const ToastProvider = ({ children }) => {
     const [toasts, setToasts] = useState([]);
 
     const showToast = useCallback((message, type = 'success') => {
-        // Dedupe — don't show same message twice in a row
         setToasts(prev => {
             if (prev.length > 0 && prev[prev.length - 1].message === message) return prev;
             const id = Date.now() + Math.random();
             setTimeout(() => {
                 setToasts(p => p.filter(t => t.id !== id));
             }, TOAST_DURATION[type] || 3000);
-            return [...prev.slice(-4), { id, message, type }]; // max 5 toasts
+            return [...prev.slice(-4), { id, message, type }];
         });
     }, []);
 
@@ -35,20 +34,29 @@ export const ToastProvider = ({ children }) => {
     return (
         <ToastContext.Provider value={{ showToast }}>
             {children}
-            <div className="fixed bottom-6 right-4 md:right-6 z-[999] flex flex-col gap-2 max-w-[320px] w-full pointer-events-none">
+            {/* Responsive Container:
+                Mobile: Top-Center (top-6 left-1/2 -translate-x-1/2)
+                Desktop: Bottom-Right (md:top-auto md:bottom-6 md:right-6 md:left-auto md:translate-x-0)
+            */}
+            <div className="fixed top-6 left-1/2 -translate-x-1/2 md:top-auto md:bottom-6 md:right-6 md:left-auto md:translate-x-0 z-[999] flex flex-col gap-2 max-w-[90vw] sm:max-w-[320px] w-full pointer-events-none">
                 <AnimatePresence mode="popLayout">
                     {toasts.map(toast => {
                         const style = toastStyles[toast.type] || toastStyles.success;
                         const Icon = style.icon;
+
+                        // Detect mobile for animation direction
+                        const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+
                         return (
                             <motion.div key={toast.id}
                                 layout
-                                initial={{ opacity: 0, y: 16, scale: 0.95 }}
+                                // On mobile: Enter from top (-20). On Desktop: Enter from bottom (20).
+                                initial={{ opacity: 0, y: isMobile ? -20 : 20, scale: 0.95 }}
                                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                                exit={{ opacity: 0, y: 8, scale: 0.95 }}
-                                transition={{ duration: 0.2, ease: 'easeOut' }}
-                                className="pointer-events-auto flex items-start gap-3 px-4 py-3 rounded-xl font-mono text-xs border bg-[#0D0D0D] shadow-2xl"
-                                style={{ borderColor: style.border, color: style.text }}>
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                transition={{ duration: 0.25, ease: 'easeOut' }}
+                                className="pointer-events-auto flex items-start gap-3 px-4 py-3 rounded-xl font-mono text-xs border bg-[#0D0D0D]/90 backdrop-blur-md shadow-2xl"
+                                style={{ borderColor: `${style.border}40`, color: style.text, boxShadow: `0 10px 30px rgba(0,0,0,0.5)` }}>
                                 <Icon className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                                 <span className="flex-1 leading-relaxed" style={{ color: '#F1F5F9' }}>{toast.message}</span>
                                 <button onClick={() => dismiss(toast.id)}

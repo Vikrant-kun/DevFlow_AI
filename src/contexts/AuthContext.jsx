@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useEffect } from 'react';
-import { useUser, useAuth as useClerkAuth } from '@clerk/clerk-react';
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { useUser, useAuth as useClerkAuth, useSession } from '@clerk/clerk-react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../lib/api';
 import { API_ROUTES } from '../lib/apiRoutes';
@@ -10,6 +10,7 @@ const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 export const AuthProvider = ({ children }) => {
     const { user, isLoaded, isSignedIn } = useUser();
     const { getToken, signOut } = useClerkAuth();
+    const { session } = useSession();
     const navigate = useNavigate();
 
     const [isGithubConnected, setIsGithubConnected] = useState(false);
@@ -30,8 +31,22 @@ export const AuthProvider = ({ children }) => {
         }
     }, [isLoaded, isSignedIn]);
 
+    const cachedToken = useRef(null);
+    const tokenExpiry = useRef(0);
+
     const getAuthToken = async () => {
-        return await getToken();
+        const now = Date.now();
+
+        if (cachedToken.current && now < tokenExpiry.current) {
+            return cachedToken.current;
+        }
+
+        const token = await session?.getToken({ template: undefined, skipCache: true });
+        
+        cachedToken.current = token;
+        tokenExpiry.current = now + 60000; // cache for 60 seconds
+
+        return token;
     };
 
     const checkGithubConnection = async () => {

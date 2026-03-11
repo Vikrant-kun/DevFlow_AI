@@ -33,8 +33,12 @@ const CustomNode = ({ data, selected }) => {
     const description = data?.description || '';
     const icon = data?.icon;
     const IconComponent = iconMap[icon] || iconMap[type] || Zap;
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+
+
 
     return (
+
         <div
             className={cn(
                 'relative w-[260px] bg-[#111] border rounded-xl overflow-visible transition-all duration-300 cursor-pointer',
@@ -100,12 +104,32 @@ const CustomNode = ({ data, selected }) => {
                 </div>
             </div>
 
+            {/* Target Handle (Input) */}
             {type !== 'trigger' && (
-                <Handle type="target" position={Position.Left}
-                    className="!w-3 !h-3 !bg-[#1A1A1A] !border-2 !border-[#333]" />
+                <Handle
+                    type="target"
+                    position={isMobile ? Position.Top : Position.Left}
+                    // ID must match the AI generation logic below
+                    id={isMobile ? "top" : "left"}
+                    className="!w-2 !h-2 !bg-[#222] !border-2 !border-[#444]"
+                />
             )}
-            <Handle type="source" position={Position.Right}
-                className="!w-3 !h-3 !bg-[#1A1A1A] !border-2 !border-[#333]" />
+
+            {/* Source Handle (Output) */}
+            <Handle
+                type="source"
+                position={isMobile ? Position.Bottom : Position.Right}
+                // ID must match the AI generation logic below
+                id={isMobile ? "bottom" : "right"}
+                className="!w-2 !h-2 !bg-[#222] !border-2 !border-[#444]"
+            />
+
+
+
+
+
+
+
         </div>
     );
 };
