@@ -347,7 +347,7 @@ const Landing = () => {
                                     <div className="flex flex-col gap-3">
                                         {[
                                             'Groq Llama 3.3 70B — default engine',
-                                            'GPT-4o & Gemini available',
+                                            'GPT-4o & Gemini coming soon',
                                             'Auto-fallback if a provider is down',
                                         ].map((f, i) => (
                                             <div key={i} className="flex items-center gap-2.5 text-sm text-[#94A3B8]">

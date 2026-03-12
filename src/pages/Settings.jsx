@@ -154,7 +154,7 @@ const Settings = () => {
     };
 
     const handleModelRestriction = () => {
-        showToast(`Access Denied: i dont have billing money to get API.`, 'error');
+        showToast(`Access Denied: Will be coming soon.`, 'error');
     };
 
     const modelOptions = [
