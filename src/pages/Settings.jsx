@@ -154,7 +154,7 @@ const Settings = () => {
     };
 
     const handleModelRestriction = () => {
-        showToast(`Access Denied: i dont have billing money to get API, chill.`, 'error');
+        showToast(`Access Denied: i dont have billing money to get API.`, 'error');
     };
 
     const modelOptions = [
@@ -299,7 +299,7 @@ const Settings = () => {
 
                     <div className="flex flex-col md:flex-row items-center justify-between p-6 bg-[#0D0D0D] border border-[#F87171]/10 rounded-2xl gap-4">
                         <div className="space-y-1">
-                            <p className="font-mono text-xs font-bold text-[#F1F5F9] lowercase">terminate_identity_matrix</p>
+                            <p className="font-mono text-xs font-bold text-[#F1F5F9] lowercase">terminate_identity</p>
                             <p className="font-mono text-[10px] text-[#444] leading-relaxed uppercase tracking-tighter">De-authorize account and delete all user metadata from the shard.</p>
                         </div>
                         <button onClick={() => navigate('/team')} className="w-full md:w-auto px-5 py-2.5 rounded-xl bg-[#F87171] text-[#080808] font-mono text-[10px] font-bold hover:bg-[#EF4444] transition-all uppercase tracking-widest shadow-[0_0_20px_rgba(248,113,113,0.15)]">Terminate</button>
