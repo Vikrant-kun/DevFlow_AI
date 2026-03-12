@@ -22,7 +22,7 @@ async function getCachedToken(getAuthToken) {
 
 // ── API FETCH ───────────────────────────────────────────────────────────────
 export async function apiFetch(path, options = {}, getAuthToken) {
-    const normalizedPath = path.endsWith("/") ? path : path + "/";
+    const normalizedPath = path.startsWith("/") ? path : `/${path}`;
 
     const makeRequest = async () => {
         const token = getAuthToken ? await getCachedToken(getAuthToken) : null;
@@ -42,6 +42,7 @@ export async function apiFetch(path, options = {}, getAuthToken) {
     // retry once if token expired
     if (res.status === 401 && getAuthToken) {
         console.warn("Token expired, refreshing");
+        console.log("API Request:", options.method || "GET", `${API_URL}${normalizedPath}`);
 
         _tokenCache = { value: null, expiry: 0 };
 
