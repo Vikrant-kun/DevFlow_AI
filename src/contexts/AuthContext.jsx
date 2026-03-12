@@ -42,7 +42,7 @@ export const AuthProvider = ({ children }) => {
         }
 
         const token = await session?.getToken({ template: undefined, skipCache: true });
-        
+
         cachedToken.current = token;
         tokenExpiry.current = now + 60000; // cache for 60 seconds
 
@@ -65,7 +65,9 @@ export const AuthProvider = ({ children }) => {
                 setIsGithubConnected(false);
             }
         } catch (err) {
-            console.error('GitHub connection check failed:', err);
+            if (!err.message.includes("GitHub not connected")) {
+                console.error("GitHub check failed:", err);
+            }
             setIsGithubConnected(false);
         } finally {
             setGithubLoading(false);
@@ -95,7 +97,7 @@ export const AuthProvider = ({ children }) => {
             });
             if (!test.ok) throw new Error('Invalid PAT');
 
-            await apiFetch('/github/token', {
+            await apiFetch('/github/token/', {
                 method: 'POST',
                 body: JSON.stringify({ token: pat.trim() })
             }, getAuthToken);
