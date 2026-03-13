@@ -988,6 +988,13 @@ function WorkflowBuilderContent() {
             showToast('Log in to run.', 'error');
             return;
         }
+        const fileActionNode = nodes.find(
+            n => n.data?.type === "action" && n.data?.description?.toLowerCase().includes("file")
+        );
+        if (fileActionNode && selectedFiles.length === 0) {
+            showToast("Select a file from the repo panel first", "error");
+            return;
+        }
         if (nodes.length === 0) {
             showToast('Build a pipeline first', 'error');
             return;
@@ -1025,15 +1032,27 @@ function WorkflowBuilderContent() {
 
             socket.onopen = () => {
                 showToast('Pipeline started...', 'info');
+                const fileHint = selectedFiles.length
+                    ? `Target file: ${selectedFiles[0].path}`
+                    : "";
+
+                const enhancedPrompt = `${lastPrompt}\n${fileHint}`;
                 const edgesWithCondition = edges.map((e) => ({ ...e, condition: e.data?.condition || 'always' }));
+                const nodesWithFiles = nodes.map(n => ({
+                    ...n,
+                    data: {
+                        ...n.data,
+                        selected_files: selectedFiles.map(f => ({ path: f.path }))
+                    }
+                }));
                 socket.send(
                     JSON.stringify({
                         workflow_id: workflowId,
                         workflow_name: title,
-                        nodes,
+                        nodes: nodesWithFiles,
                         edges: edgesWithCondition,
-                        snapshot: { title, nodes, edges, prompt: lastPrompt },
-                        selected_files: selectedFiles.map(f => f.path),
+                        snapshot: { title, nodes, edges, prompt: enhancedPrompt },
+                        selected_files: selectedFiles.length ? selectedFiles.map(f => f.path) : undefined,
                     })
                 );
             };
@@ -1107,12 +1126,18 @@ function WorkflowBuilderContent() {
             console.warn('Repo context fetch failed', e);
         }
 
-        const systemPrompt = `You are a workflow automation expert. Convert the user's description into a structured pipeline. Return ONLY valid JSON, no markdown:
-{"name":"Short workflow name","nodes":[{"id":"1","type":"trigger|action|ai|notification","label":"Short Name","description":"What this step does","icon":"git-branch|zap|sparkles|bell|code|database|mail"}],"edges":[{"source":"1","target":"2","condition":"always|errors_found|no_errors"}]}
-Rules: first node always trigger, max 8 nodes, labels 2-4 words short.
-For github/fix/commit nodes, include real file paths in description.${repoContext}
-For notification nodes: success = "All Clear" / "Pipeline Succeeded", failure = "Error Alert" / "Issues Detected".
-Set edge condition to "errors_found" for failure notifications, "no_errors" for success ones.`;
+        const systemPrompt = `You are a workflow pipeline planner. Your ONLY job is to map the user's request into a JSON graph. DO NOT write code. DO NOT explain yourself. DO NOT perform the task.
+Return ONLY valid JSON, no markdown:
+{"name":"Short name","nodes":[{"id":"1","type":"trigger|action|notification","label":"Short Name","description":"What this step does","icon":"git-branch|zap|bell"}],"edges":[{"source":"1","target":"2","condition":"always|errors_found|no_errors"}]}
+
+CRITICAL RULES:
+1. FIRST NODE: Always 'trigger'. Max 6 nodes total. Labels 2-3 words.
+2. THE AI SURGEON (Code Edits): If the user wants to edit, update, fix, or create code, create a SINGLE 'action' node. 
+3. NO CODING: The description of that 'action' node MUST just be the instruction + the file path (e.g., "Update src/database/redis.js to use 20 connections"). DO NOT write the actual code. The backend AI Surgeon will do the coding later.
+4. ONE STEP: DO NOT split editing and committing into two steps. The backend AI handles the full edit-and-commit cycle automatically.
+5. NOTIFICATIONS: Use 'notification' type for emails. Set edge condition to "errors_found" for failures, "no_errors" for successes.
+
+Repo Context: ${repoContext}`;
 
         try {
             const apiKey = import.meta.env.VITE_GROQ_API_KEY;
@@ -1673,9 +1698,9 @@ Set edge condition to "errors_found" for failure notifications, "no_errors" for 
                     >
                         <Background color="#1A1A1A" gap={25} size={1} />
                         <CustomCanvasControls isLocked={isCanvasLocked} setIsLocked={setIsCanvasLocked} onUndo={handleUndo} onRedo={handleRedo} hasNodes={nodes.length > 0} />
-                        <RepoBranchPanel 
-                            selectedFiles={selectedFiles} 
-                            onSelectedFilesChange={setSelectedFiles} 
+                        <RepoBranchPanel
+                            selectedFiles={selectedFiles}
+                            onSelectedFilesChange={setSelectedFiles}
                         />
 
 
