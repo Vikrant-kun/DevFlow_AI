@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, useLocation, Outlet } from 'react-router-dom';
 import { ToastProvider } from './contexts/ToastContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { SidebarProvider } from './contexts/SidebarContext';
@@ -22,57 +22,122 @@ import Settings from './pages/Settings';
 import Upgrade from './pages/Upgrade';
 import Profile from './pages/Profile';
 import Team from './pages/Team';
-import SSOCallback from './pages/SSOCallback'
+import SSOCallback from './pages/SSOCallback';
 
-const pageTransition = {
-  initial: { opacity: 0, y: 10 },
+// ─────────────────────────────────────────────────────────────────────────────
+// Page transition wrapper
+// ─────────────────────────────────────────────────────────────────────────────
+const transition = { duration: 0.22, ease: 'easeOut' };
+const variants = {
+  initial: { opacity: 0, y: 8 },
   animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -10 },
-  transition: { duration: 0.3, ease: 'easeOut' }
+  exit: { opacity: 0, y: -8 },
 };
 
-const AnimatedRoutes = () => {
+const Page = ({ children }) => (
+  <motion.div variants={variants} initial="initial" animate="animate" exit="exit" transition={transition} className="h-full">
+    {children}
+  </motion.div>
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AnimatedOutlet — sits INSIDE Layout, so only page content fades.
+// The sidebar (also inside Layout) is completely untouched by this.
+// ─────────────────────────────────────────────────────────────────────────────
+const AnimatedOutlet = () => {
+  const location = useLocation();
+  return (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={location.pathname}
+        variants={variants}
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        transition={transition}
+        className="h-full"
+      >
+        <Outlet />
+      </motion.div>
+    </AnimatePresence>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Public shell — AnimatePresence only for public pages
+// ─────────────────────────────────────────────────────────────────────────────
+const PublicShell = () => {
   const location = useLocation();
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
-        <Route path="/" element={<motion.div {...pageTransition} className="h-full"><Landing /></motion.div>} />
-        <Route path="/auth" element={<motion.div {...pageTransition} className="h-full"><Auth /></motion.div>} />
-        <Route path="/about" element={<motion.div {...pageTransition} className="h-full"><About /></motion.div>} />
-        <Route path="/docs" element={<motion.div {...pageTransition} className="h-full"><Docs /></motion.div>} />
-        <Route path="/pricing" element={<motion.div {...pageTransition} className="h-full"><Pricing /></motion.div>} />
-
+        <Route path="/" element={<Page><Landing /></Page>} />
+        <Route path="/auth" element={<Page><Auth /></Page>} />
+        <Route path="/about" element={<Page><About /></Page>} />
+        <Route path="/docs" element={<Page><Docs /></Page>} />
+        <Route path="/pricing" element={<Page><Pricing /></Page>} />
+        <Route path="/sso-callback" element={<SSOCallback />} />
         <Route path="/onboarding" element={
-          <ProtectedRoute>
-            <motion.div {...pageTransition} className="h-full"><Onboarding /></motion.div>
-          </ProtectedRoute>
+          <ProtectedRoute><Page><Onboarding /></Page></ProtectedRoute>
         } />
-
-        <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-          <Route path="/dashboard" element={<motion.div key="dashboard" {...pageTransition} className="h-full"><Dashboard /></motion.div>} />
-          <Route path="/workflows" element={<motion.div key="workflows" {...pageTransition} className="h-full bg-background min-h-screen"><Workflows /></motion.div>} />
-          <Route path="/workflows/:id" element={<motion.div key="workflow" {...pageTransition} className="h-full"><WorkflowBuilder /></motion.div>} />
-          <Route path="/workflows/new" element={<motion.div key="new-workflow" {...pageTransition} className="h-full"><WorkflowBuilder /></motion.div>} />
-          <Route path="/templates" element={<motion.div key="templates" {...pageTransition} className="h-full bg-background min-h-screen"><Templates /></motion.div>} />
-          <Route path="/logs" element={<motion.div key="logs" {...pageTransition} className="h-full bg-background min-h-screen"><Logs /></motion.div>} />
-          <Route path="/integrations" element={<motion.div key="integrations" {...pageTransition} className="h-full bg-background min-h-screen"><Integrations /></motion.div>} />
-          <Route path="/settings" element={<motion.div key="settings" {...pageTransition} className="h-full bg-background min-h-screen"><Settings /></motion.div>} />
-          <Route path="/profile" element={<motion.div key="profile" {...pageTransition} className="h-full bg-background min-h-screen"><Profile /></motion.div>} />
-          <Route path="/upgrade" element={<motion.div key="upgrade" {...pageTransition} className="h-full bg-background min-h-screen"><Upgrade /></motion.div>} />
-          <Route path="/team" element={<motion.div key="team" {...pageTransition} className="h-full bg-background min-h-screen"><Team /></motion.div>} />
-          <Route path="/sso-callback" element={<SSOCallback />} />
-        </Route>
       </Routes>
     </AnimatePresence>
   );
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Root router — splits public vs app routes so Layout never remounts
+// ─────────────────────────────────────────────────────────────────────────────
+const AppRoutes = () => (
+  <Routes>
+    {/* ── Public (no sidebar) ── */}
+    <Route path="/" element={<Page><Landing /></Page>} />
+    <Route path="/auth" element={<Page><Auth /></Page>} />
+    <Route path="/about" element={<Page><About /></Page>} />
+    <Route path="/docs" element={<Page><Docs /></Page>} />
+    <Route path="/pricing" element={<Page><Pricing /></Page>} />
+    <Route path="/sso-callback" element={<SSOCallback />} />
+    <Route path="/onboarding" element={
+      <ProtectedRoute><Page><Onboarding /></Page></ProtectedRoute>
+    } />
+
+    {/*
+         * ── App shell (sidebar lives here) ──
+         *
+         * The key insight: <Layout /> is the element on this route, so React
+         * keeps the SAME Layout instance mounted for all child routes.
+         * Sidebar (rendered inside Layout) never remounts or refreshes.
+         *
+         * AnimatedOutlet sits inside Layout and handles ONLY the page-content
+         * fade — the sidebar is invisible to that AnimatePresence.
+         */}
+    <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+      <Route element={<AnimatedOutlet />}>
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/workflows" element={<Workflows />} />
+        <Route path="/workflows/new" element={<WorkflowBuilder />} />
+        <Route path="/workflows/:id" element={<WorkflowBuilder />} />
+        <Route path="/templates" element={<Templates />} />
+        <Route path="/logs" element={<Logs />} />
+        <Route path="/integrations" element={<Integrations />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/upgrade" element={<Upgrade />} />
+        <Route path="/team" element={<Team />} />
+      </Route>
+    </Route>
+  </Routes>
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// App root
+// ─────────────────────────────────────────────────────────────────────────────
 function App() {
   return (
     <AuthProvider>
       <ToastProvider>
         <SidebarProvider>
-          <AnimatedRoutes />
+          <AppRoutes />
         </SidebarProvider>
       </ToastProvider>
     </AuthProvider>

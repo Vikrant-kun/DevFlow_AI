@@ -12,7 +12,6 @@ import { Button } from '../components/ui/Button';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import TopBar from '../components/TopBar';
-import Sidebar from '../components/Sidebar';
 import { apiFetch } from '../lib/api';
 import { API_ROUTES } from '../lib/apiRoutes';
 import { cn } from '../lib/utils';
@@ -199,7 +198,7 @@ const Dashboard = () => {
         <div className="flex h-screen bg-[#080808] text-[#F1F5F9] overflow-hidden relative font-mono">
             <div className="absolute inset-0 opacity-[0.01] pointer-events-none bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:24px_24px]" />
 
-            <Sidebar />
+
 
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative z-10">
                 <TopBar title={<span className="text-[11px] tracking-[0.2em] uppercase font-bold text-[#64748B]">Dashboard</span>} />
