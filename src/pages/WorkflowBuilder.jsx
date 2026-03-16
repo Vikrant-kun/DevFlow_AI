@@ -1036,7 +1036,7 @@ function WorkflowBuilderContent() {
                     ? `Target file: ${selectedFiles[0].path}`
                     : "";
 
-                const enhancedPrompt = `${lastPrompt}\n${fileHint}`;
+                const enhancedPrompt = `${prompt}\n${fileHint}`;
                 const edgesWithCondition = edges.map((e) => ({ ...e, condition: e.data?.condition || 'always' }));
                 const nodesWithFiles = nodes.map(n => ({
                     ...n,
@@ -1091,6 +1091,12 @@ function WorkflowBuilderContent() {
     const handleGenerate = useCallback(async () => {
         if (!prompt.trim()) return;
 
+        // FIX 1: Hard block — always require a file to be selected before generating
+        if (selectedFiles.length === 0) {
+            showToast("⚠️ Select a file from the repo panel before generating.", "error");
+            return;
+        }
+
         const unsupported = checkUnsupportedFeatures(prompt);
         if (unsupported) {
             setUnsupportedFeature(unsupported);
@@ -1104,74 +1110,34 @@ function WorkflowBuilderContent() {
         setSelectedNode(null);
         setLastPrompt(prompt);
 
-        let repoContext = '';
         try {
+            // FIX 2: Route through backend instead of calling Groq directly
+            // This ensures file enforcement, repo context, and hallucination scrubbing all run
             const token = await getAuthToken();
-            const res = await fetch(`${API_URL}${API_ROUTES.githubSelectedRepo}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            if (res.ok) {
-                const { repo: selectedRepo } = await res.json();
-                if (selectedRepo?.full_name) {
-                    const branchesRes = await fetch(`${API_URL}${API_ROUTES.githubBranches}`, {
-                        headers: { Authorization: `Bearer ${token}` }
-                    });
-                    if (branchesRes.ok) {
-                        const treeData = await branchesRes.json();
-                        repoContext = `\nCurrent repo: "${selectedRepo.full_name}" — files: ${treeData.files?.slice(0, 30)?.join(', ') || '...'}`;
-                    }
-                }
-            }
-        } catch (e) {
-            console.warn('Repo context fetch failed', e);
-        }
-
-        const systemPrompt = `You are a workflow pipeline planner. Your ONLY job is to map the user's request into a JSON graph. DO NOT write code. DO NOT explain yourself. DO NOT perform the task.
-Return ONLY valid JSON, no markdown:
-{"name":"Short name","nodes":[{"id":"1","type":"trigger|action|notification","label":"Short Name","description":"What this step does","icon":"git-branch|zap|bell"}],"edges":[{"source":"1","target":"2","condition":"always|errors_found|no_errors"}]}
-
-CRITICAL RULES:
-1. FIRST NODE: Always 'trigger'. Max 6 nodes total. Labels 2-3 words.
-2. THE AI SURGEON (Code Edits): If the user wants to edit, update, fix, or create code, create a SINGLE 'action' node. 
-3. NO CODING: The description of that 'action' node MUST just be the instruction + the file path (e.g., "Update src/database/redis.js to use 20 connections"). DO NOT write the actual code. The backend AI Surgeon will do the coding later.
-4. ONE STEP: DO NOT split editing and committing into two steps. The backend AI handles the full edit-and-commit cycle automatically.
-5. NOTIFICATIONS: Use 'notification' type for emails. Set edge condition to "errors_found" for failures, "no_errors" for successes.
-
-Repo Context: ${repoContext}`;
-
-        try {
-            const apiKey = import.meta.env.VITE_GROQ_API_KEY;
-            const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            const res = await fetch(`${API_URL}/workflows/generate`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    Authorization: `Bearer ${apiKey}`,
+                    Authorization: `Bearer ${token}`,
                 },
                 body: JSON.stringify({
-                    model: 'llama-3.3-70b-versatile',
-                    messages: [
-                        { role: 'system', content: systemPrompt },
-                        { role: 'user', content: prompt },
-                    ],
-                    max_tokens: 1024,
-                    temperature: 0.7,
+                    prompt,
+                    model,
+                    selected_files: selectedFiles.map(f => ({ path: f.path, name: f.name || f.path.split('/').pop() })),
                 }),
             });
 
-            if (!res.ok) throw new Error('Groq API error');
-
-            const data = await res.json();
-            const raw = data.choices?.[0]?.message?.content || "";
-            const cleaned = raw.replace(/```json\n?|```\n?/g, '').replace(/^[^{[]*/, '').replace(/[^}\]]*$/, '').trim();
-            let parsed;
-            try {
-                parsed = JSON.parse(cleaned);
-            } catch (e) {
-                console.error("Raw AI response:", raw);
-                showToast("AI returned invalid format. Please try again.", "error");
+            // FIX 3: Handle the 400 "no file selected" error from backend gracefully
+            if (res.status === 400) {
+                const err = await res.json();
+                showToast(err.detail || "Please select a file first.", "error");
                 setIsGenerating(false);
                 return;
             }
+
+            if (!res.ok) throw new Error(`Generate failed: ${res.status}`);
+
+            const parsed = await res.json();
 
             if (parsed.name) setTitle(parsed.name);
 
@@ -1187,93 +1153,64 @@ Repo Context: ${repoContext}`;
             (parsed.edges || []).forEach((e) => {
                 childrenMap[e.source] = childrenMap[e.source] || [];
                 childrenMap[e.source].push(e.target);
-                parentMap[e.target] = parentMap[e.target] || [];
-                parentMap[e.target].push(e.source);
+                parentMap[e.target] = e.source;
             });
 
-            const positions = {};
-            const assignPosition = (nodeId, depth = 0, branchIndex = 0, totalSiblings = 1) => {
-                if (positions[nodeId]) return;
-                const parentId = parentMap[nodeId]?.[0];
-                const parentPos = positions[parentId];
-
-                if (isMobile) {
-                    // VERTICAL FLOW (Mobile)
-                    // Branches (Error/Clean) spread horizontally, pipeline moves DOWN
-                    const xSpread = totalSiblings > 1 ? (branchIndex - (totalSiblings - 1) / 2) * 320 : 0;
-                    const baseY = parentPos ? parentPos.y + 220 : 100;
-                    const baseX = parentPos ? parentPos.x + xSpread : window.innerWidth / 2 - 140;
-                    positions[nodeId] = { x: baseX, y: baseY };
-                } else {
-                    // HORIZONTAL FLOW (Desktop)
-                    // Branches spread vertically, pipeline moves RIGHT
-                    const ySpread = totalSiblings > 1 ? (branchIndex - (totalSiblings - 1) / 2) * 200 : 0;
-                    const baseX = parentPos ? parentPos.x + 350 : 60;
-                    const baseY = parentPos ? parentPos.y + ySpread : 250;
-                    positions[nodeId] = { x: baseX, y: baseY };
-                }
-
-                const children = childrenMap[nodeId] || [];
-                children.forEach((childId, idx) => assignPosition(childId, depth + 1, idx, children.length));
-            };
-
-
-
-
-
-            const rootNodes = parsed.nodes.filter((n) => !parentMap[n.id]);
-            rootNodes.forEach((n, idx) => assignPosition(n.id, 0, idx, rootNodes.length));
-
-            parsed.nodes.forEach((n) => {
-                if (!positions[n.id]) positions[n.id] = { x: 60 + Math.random() * 400, y: 200 };
-            });
-
-            const spacedNodes = parsed.nodes.map((n) => ({
-                id: n.id,
-                type: 'custom',
-                position: positions[n.id],
-                data: { ...n, model: n.model || 'groq' },
-            }));
-
-
-
-
-            const formattedEdges = (parsed.edges || []).map((e) => {
-                const condition = e.condition || 'always';
+            // Position nodes in a left-to-right tree layout (keep your existing layout logic)
+            const positioned = (parsed.nodes || []).map((node, idx) => {
+                const col = idx;
+                const siblings = Object.values(childrenMap).flat().filter(t => parentMap[t] === parentMap[node.id]);
+                const row = siblings.indexOf(node.id);
                 return {
-                    id: `e${e.source}-${e.target}-${Math.random().toString(36).slice(2, 7)}`,
-                    source: e.source,
-                    target: e.target,
-                    // FORCE the connection to the correct physical dot
-                    sourceHandle: isMobile ? 'bottom' : 'right',
-                    targetHandle: isMobile ? 'top' : 'left',
-                    type: 'customEdge',
-                    animated: false,
-                    style: { stroke: condition === 'errors_found' ? '#F87171' : condition === 'no_errors' ? '#6EE7B7' : '#444', strokeWidth: 2 },
-                    data: { condition },
+                    id: node.id,
+                    type: 'custom',
+                    position: {
+                        x: col * nodeSpacingX + 80,
+                        y: (row - Math.floor(siblings.length / 2)) * nodeSpacingY + 300,
+                    },
+                    data: {
+                        type: node.type,
+                        label: node.label,
+                        description: node.description,
+                        icon: node.icon,
+                        model: 'groq',
+                        selected_files: selectedFiles.map(f => ({ path: f.path })),
+                    },
                 };
             });
 
+            const builtEdges = (parsed.edges || []).map((e, i) => ({
+                id: `e${i}`,
+                source: e.source,
+                target: e.target,
+                animated: false,
+                type: 'customEdge',
+                style: {
+                    stroke: e.condition === 'errors_found' ? '#F87171' : e.condition === 'no_errors' ? '#6EE7B7' : '#444',
+                    strokeWidth: 2,
+                },
+                data: { condition: e.condition || 'always' },
+            }));
 
-            spacedNodes.forEach((node, idx) => {
+            // Animate nodes onto canvas one by one
+            positioned.forEach((node, idx) => {
                 setTimeout(() => {
                     setNodes((nds) => [...nds, node]);
-                    if (idx > 0 && formattedEdges[idx - 1]) {
-                        setEdges((eds) => [...eds, formattedEdges[idx - 1]]);
+                    if (idx > 0 && builtEdges[idx - 1]) {
+                        setEdges((eds) => [...eds, builtEdges[idx - 1]]);
                     }
-                }, idx * 140);
+                }, idx * 150);
             });
 
-            showToast(`Generated pipeline — ${spacedNodes.length} steps`, 'success');
-            setIsGenerating(false);
+            setIsDirty(true);
 
-            setTimeout(() => pushHistory(spacedNodes, formattedEdges), spacedNodes.length * 140 + 200);
         } catch (err) {
-            console.error('Pipeline generation failed:', err);
+            console.error('Generate error:', err);
+            showToast('Generation failed. Please try again.', 'error');
+        } finally {
             setIsGenerating(false);
-            showToast('Generation failed — try again or check API key', 'error');
         }
-    }, [prompt, checkUnsupportedFeatures, getAuthToken, showToast, title, lastPrompt, setNodes, setEdges, setIsGenerating, setTitle, setHasStarted, setIsRecipeOpen, setIsSuggestionsOpen, setSelectedNode, pushHistory]);
+    }, [prompt, model, selectedFiles, getAuthToken, showToast, checkUnsupportedFeatures, setNodes, setEdges]);
 
     const rearrangeLayout = useCallback(() => {
         if (nodes.length === 0) return;
