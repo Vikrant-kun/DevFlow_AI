@@ -132,8 +132,13 @@ const Dashboard = () => {
             } catch (err) { console.error(err); }
         };
         loadData();
-        if (isGithubConnected && repos.length === 0) fetchRepos();
-    }, [user, isGithubConnected, fetchRepos]);
+    }, [user, isGithubConnected]);
+    // REPO FETCHER
+    useEffect(() => {
+        if (isGithubConnected && repos.length === 0) {
+            fetchRepos();
+        }
+    }, [isGithubConnected, repos.length]);
 
     // ── HANDLERS ──
     const handleDismissChecklist = () => { localStorage.setItem('devflow_checklist_dismissed', 'true'); setChecklistDismissed(true); };
