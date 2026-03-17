@@ -356,6 +356,7 @@ export default function Upgrade() {
     const [activePlan, setActivePlan] = useState('free');
     const [checkoutPlan, setCheckoutPlan] = useState(null);
     const [showCompare, setShowCompare] = useState(false);
+    const [mobileComparePlan, setMobileComparePlan] = useState('pro');
     const [mouse, setMouse] = useState({ x: null, y: null });
     const containerRef = useRef(null);
     const stars = useRef(Array.from({ length: 100 }, (_, i) => i));
@@ -626,8 +627,28 @@ export default function Upgrade() {
                                     className="overflow-hidden"
                                 >
                                     <div className="bg-[#0D0D0D] border border-[#1A1A1A] rounded-3xl overflow-hidden">
-                                        {/* Table header */}
-                                        <div className="grid grid-cols-5 border-b border-[#111]">
+
+                                        {/* ── MOBILE PLAN SELECTOR (Visible only on small screens) ── */}
+                                        <div className="md:hidden flex items-center gap-2 p-4 bg-[#080808] border-b border-[#111] overflow-x-auto no-scrollbar">
+                                            {PLANS.map((p) => (
+                                                <button
+                                                    key={p.id}
+                                                    onClick={() => setMobileComparePlan(p.id)}
+                                                    className={cn(
+                                                        "flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl border font-mono text-[10px] uppercase transition-all",
+                                                        mobileComparePlan === p.id
+                                                            ? "bg-[#111] border-[#333] text-white"
+                                                            : "border-transparent text-[#333]"
+                                                    )}
+                                                >
+                                                    <p.icon size={10} style={{ color: mobileComparePlan === p.id ? p.iconColor : '#333' }} />
+                                                    {p.name}
+                                                </button>
+                                            ))}
+                                        </div>
+
+                                        {/* ── DESKTOP TABLE HEADER (Hidden on mobile) ── */}
+                                        <div className="hidden md:grid grid-cols-5 border-b border-[#111]">
                                             <div className="px-6 py-4 font-mono text-[8px] text-[#2A2A2A] uppercase tracking-widest">feature</div>
                                             {PLANS.map(p => (
                                                 <div key={p.id} className="px-4 py-4 flex items-center gap-2">
@@ -637,7 +658,8 @@ export default function Upgrade() {
                                             ))}
                                         </div>
 
-                                        {COMPARE_SECTIONS.map((section, si) => (
+                                        {/* ── TABLE CONTENT ── */}
+                                        {COMPARE_SECTIONS.map((section) => (
                                             <div key={section.title}>
                                                 <div className="px-6 py-3 bg-[#080808] border-y border-[#0F0F0F]">
                                                     <span className="font-mono text-[8px] text-[#2A2A2A] uppercase tracking-[0.2em]">{section.title}</span>
@@ -646,25 +668,26 @@ export default function Upgrade() {
                                                     <div
                                                         key={row.feature}
                                                         className={cn(
-                                                            "grid grid-cols-5 hover:bg-[#0F0F0F] transition-colors",
+                                                            "grid grid-cols-2 md:grid-cols-5 hover:bg-[#0F0F0F] transition-colors",
                                                             ri < section.rows.length - 1 && "border-b border-[#0A0A0A]"
                                                         )}
                                                     >
-                                                        <div className="px-6 py-3.5 font-mono text-[10px] text-[#666]">{row.feature}</div>
-                                                        {PLANS.map(p => {
-                                                            const val = row[p.id];
-                                                            return (
-                                                                <div key={p.id} className="px-4 py-3.5 flex items-center">
-                                                                    {typeof val === 'boolean' ? (
-                                                                        val
-                                                                            ? <Check size={12} className="text-[#6EE7B7]" />
-                                                                            : <Minus size={12} className="text-[#1A1A1A]" />
-                                                                    ) : (
-                                                                        <span className="font-mono text-[9px] text-[#555]">{val}</span>
-                                                                    )}
-                                                                </div>
-                                                            );
-                                                        })}
+                                                        {/* Feature Name */}
+                                                        <div className="px-6 py-3.5 font-mono text-[10px] text-[#666] flex items-center">
+                                                            {row.feature}
+                                                        </div>
+
+                                                        {/* Mobile View: Only show the selected plan's value */}
+                                                        <div className="md:hidden px-6 py-3.5 flex justify-end items-center">
+                                                            {renderValue(row[mobileComparePlan])}
+                                                        </div>
+
+                                                        {/* Desktop View: Show all plans */}
+                                                        {PLANS.map(p => (
+                                                            <div key={p.id} className="hidden md:flex px-4 py-3.5 items-center">
+                                                                {renderValue(row[p.id])}
+                                                            </div>
+                                                        ))}
                                                     </div>
                                                 ))}
                                             </div>
@@ -699,3 +722,13 @@ export default function Upgrade() {
         </div>
     );
 }
+
+// Helper to keep the JSX clean
+const renderValue = (val) => {
+    if (typeof val === 'boolean') {
+        return val
+            ? <Check size={12} className="text-[#6EE7B7]" />
+            : <Minus size={12} className="text-[#1A1A1A]" />;
+    }
+    return <span className="font-mono text-[9px] text-[#555]">{val}</span>;
+};
