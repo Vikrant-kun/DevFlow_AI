@@ -337,7 +337,10 @@ function SlackPanel() {
     return (
         <div className="space-y-3">
             {/* Mobile: channel switcher as a dropdown-style row */}
-            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+            <div
+                className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
                 {SLACK_CHANNELS.map(ch => (
                     <button
                         key={ch.id}
@@ -691,53 +694,53 @@ export default function Team() {
 
                     {/* Integration Tabs + Panels */}
                     <div className="space-y-6">
-                    {/* Integration Tabs */}
-                    <div className="relative">
-                        {/* Right fade hint */}
-                        <div className="absolute right-0 top-0 h-full w-12 bg-gradient-to-l from-[#080808] to-transparent z-10 pointer-events-none rounded-r-2xl" />
-                        {/* Left fade hint */}
-                        <div className="absolute left-0 top-0 h-full w-6 bg-gradient-to-r from-[#080808] to-transparent z-10 pointer-events-none rounded-l-2xl" />
+                        {/* Integration Tabs */}
+                        <div className="relative">
+                            {/* Right fade hint */}
+                            <div className="absolute right-0 top-0 h-full w-12 bg-gradient-to-l from-[#080808] to-transparent z-10 pointer-events-none rounded-r-2xl" />
+                            {/* Left fade hint */}
+                            <div className="absolute left-0 top-0 h-full w-6 bg-gradient-to-r from-[#080808] to-transparent z-10 pointer-events-none rounded-l-2xl" />
 
-                        <div
-                            className="flex items-center gap-1.5 p-1.5 bg-[#0A0A0A] border border-[#111] rounded-2xl w-full overflow-x-auto no-scrollbar"
-                            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                        >
-                            {INTEGRATIONS.map(tab => {
-                                const Icon = tab.icon;
-                                const isActive = activeTab === tab.key;
-                                return (
-                                    <button
-                                        key={tab.key}
-                                        onClick={() => setActiveTab(tab.key)}
-                                        className={cn(
-                                            "relative flex items-center gap-2 px-4 py-2.5 rounded-xl font-mono text-[9px] uppercase tracking-wider transition-all duration-200 whitespace-nowrap shrink-0",
-                                            isActive
-                                                ? "bg-[#A78BFA] text-[#0D0D0D] shadow-[0_0_20px_rgba(167,139,250,0.3)]"
-                                                : "text-[#2A2A2A] hover:text-[#888] hover:bg-[#111]"
-                                        )}
-                                    >
-                                        <Icon
-                                            size={11}
-                                            className={isActive ? "text-[#0D0D0D]" : "text-[#2A2A2A]"}
-                                        />
-                                        <span className={cn(
-                                            "font-bold tracking-widest",
-                                            isActive ? "text-[#0D0D0D]" : ""
-                                        )}>
-                                            {tab.label}
-                                        </span>
-                                        {/* Active glow underline */}
-                                        {isActive && (
-                                            <motion.div
-                                                layoutId="activeTabIndicator"
-                                                className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-[#0D0D0D]/30 rounded-full"
+                            <div
+                                className="flex items-center gap-1.5 p-1.5 bg-[#0A0A0A] border border-[#111] rounded-2xl w-full overflow-x-auto no-scrollbar"
+                                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                            >
+                                {INTEGRATIONS.map(tab => {
+                                    const Icon = tab.icon;
+                                    const isActive = activeTab === tab.key;
+                                    return (
+                                        <button
+                                            key={tab.key}
+                                            onClick={() => setActiveTab(tab.key)}
+                                            className={cn(
+                                                "relative flex items-center gap-2 px-4 py-2.5 rounded-xl font-mono text-[9px] uppercase tracking-wider transition-all duration-200 whitespace-nowrap shrink-0",
+                                                isActive
+                                                    ? "bg-[#A78BFA] text-[#0D0D0D] shadow-[0_0_20px_rgba(167,139,250,0.3)]"
+                                                    : "text-[#2A2A2A] hover:text-[#888] hover:bg-[#111]"
+                                            )}
+                                        >
+                                            <Icon
+                                                size={11}
+                                                className={isActive ? "text-[#0D0D0D]" : "text-[#2A2A2A]"}
                                             />
-                                        )}
-                                    </button>
-                                );
-                            })}
+                                            <span className={cn(
+                                                "font-bold tracking-widest",
+                                                isActive ? "text-[#0D0D0D]" : ""
+                                            )}>
+                                                {tab.label}
+                                            </span>
+                                            {/* Active glow underline */}
+                                            {isActive && (
+                                                <motion.div
+                                                    layoutId="activeTabIndicator"
+                                                    className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-[#0D0D0D]/30 rounded-full"
+                                                />
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                            </div>
                         </div>
-                    </div>
 
                         <AnimatePresence mode="wait">
                             <motion.div
