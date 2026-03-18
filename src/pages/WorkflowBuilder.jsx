@@ -213,7 +213,6 @@ const AGENTS = [
     { id: 'groq', name: 'Groq', desc: 'Llama 3.3 70B', icon: '⚡️' },
     { id: 'gpt4', name: 'GPT-4o', desc: 'OpenAI', icon: '🤖' },
     { id: 'gemini', name: 'Gemini', desc: 'Flash 2.0', icon: '✨' },
-    { id: 'claude', name: 'Claude', desc: 'via Groq', icon: '🧠' },
 ];
 
 const NODE_LEGEND = [
