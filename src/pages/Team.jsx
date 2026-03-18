@@ -86,15 +86,15 @@ function NotionPanel() {
     const [selected, setSelected] = useState(null);
     return (
         <div className="space-y-3">
-            <div className="flex items-center justify-between px-1 mb-4">
+            <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 rounded bg-white flex items-center justify-center">
+                    <div className="w-5 h-5 rounded bg-white flex items-center justify-center shrink-0">
                         <span className="text-[9px] font-bold text-black">N</span>
                     </div>
                     <span className="font-mono text-[10px] text-[#A78BFA] uppercase tracking-widest">notion_workspace</span>
                 </div>
-                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#A78BFA]/10 border border-[#A78BFA]/20 text-[#A78BFA] font-mono text-[9px] uppercase tracking-wider hover:bg-[#A78BFA]/20 transition-colors">
-                    <Plus size={10} /> Link Page
+                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#A78BFA]/10 border border-[#A78BFA]/20 text-[#A78BFA] font-mono text-[9px] uppercase tracking-wider hover:bg-[#A78BFA]/20 transition-colors shrink-0">
+                    <Plus size={10} /> Link
                 </button>
             </div>
             {NOTION_PAGES.map((page, i) => (
@@ -105,29 +105,23 @@ function NotionPanel() {
                     transition={{ delay: i * 0.06 }}
                     onClick={() => setSelected(selected === page.id ? null : page.id)}
                     className={cn(
-                        "bg-[#0D0D0D] border rounded-2xl p-5 cursor-pointer transition-all",
-                        selected === page.id
-                            ? "border-[#A78BFA]/40 shadow-[inset_0_0_30px_rgba(167,139,250,0.03)]"
-                            : "border-[#1A1A1A] hover:border-[#2A2A2A]"
+                        "bg-[#0D0D0D] border rounded-2xl p-4 cursor-pointer transition-all",
+                        selected === page.id ? "border-[#A78BFA]/40" : "border-[#1A1A1A]"
                     )}
                 >
-                    <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-start gap-3">
-                            <span className="text-base leading-none mt-0.5">{page.icon}</span>
-                            <div>
-                                <p className="font-mono text-xs font-bold text-[#F1F5F9]">{page.title}</p>
-                                <div className="flex items-center gap-3 mt-1.5">
-                                    <span className="font-mono text-[8px] text-[#333] uppercase tracking-wider">{page.type}</span>
-                                    <span className="font-mono text-[8px] text-[#2A2A2A]">edited {page.lastEdit}</span>
-                                </div>
+                    <div className="flex items-start gap-3">
+                        <span className="text-base leading-none mt-0.5 shrink-0">{page.icon}</span>
+                        <div className="flex-1 min-w-0">
+                            <p className="font-mono text-[11px] font-bold text-[#F1F5F9] leading-snug">{page.title}</p>
+                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                <span className="font-mono text-[8px] text-[#333] uppercase tracking-wider">{page.type}</span>
+                                <span className="font-mono text-[8px] text-[#2A2A2A]">edited {page.lastEdit}</span>
+                                {page.shared && (
+                                    <span className="px-1.5 py-0.5 rounded bg-[#6EE7B7]/5 border border-[#6EE7B7]/15 font-mono text-[7px] text-[#6EE7B7] uppercase tracking-wider">shared</span>
+                                )}
                             </div>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                            {page.shared && (
-                                <span className="px-2 py-0.5 rounded-md bg-[#6EE7B7]/5 border border-[#6EE7B7]/15 font-mono text-[8px] text-[#6EE7B7] uppercase tracking-wider">shared</span>
-                            )}
-                            <ArrowUpRight size={12} className="text-[#333]" />
-                        </div>
+                        <ArrowUpRight size={12} className="text-[#333] shrink-0 mt-0.5" />
                     </div>
                     <AnimatePresence>
                         {selected === page.id && (
@@ -138,8 +132,8 @@ function NotionPanel() {
                                 transition={{ duration: 0.2 }}
                                 className="overflow-hidden"
                             >
-                                <div className="mt-4 pt-4 border-t border-[#1A1A1A] grid grid-cols-3 gap-2">
-                                    {['View in Notion', 'Share Link', 'Detach'].map(action => (
+                                <div className="mt-3 pt-3 border-t border-[#1A1A1A] grid grid-cols-3 gap-2">
+                                    {['View', 'Share', 'Detach'].map(action => (
                                         <button key={action} className="py-2 rounded-xl bg-[#111] border border-[#1A1A1A] font-mono text-[8px] text-[#444] uppercase tracking-wider hover:border-[#2A2A2A] hover:text-[#777] transition-all">
                                             {action}
                                         </button>
@@ -162,26 +156,28 @@ function LinearPanel() {
 
     return (
         <div className="space-y-4">
-            <div className="flex items-center justify-between px-1">
+            <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 rounded-full bg-[#5E6AD2] flex items-center justify-center">
+                    <div className="w-5 h-5 rounded-full bg-[#5E6AD2] flex items-center justify-center shrink-0">
                         <Zap size={10} className="text-white" fill="white" />
                     </div>
-                    <span className="font-mono text-[10px] text-[#A78BFA] uppercase tracking-widest">linear_project</span>
+                    <span className="font-mono text-[10px] text-[#A78BFA] uppercase tracking-widest">linear</span>
                 </div>
-                <div className="flex items-center gap-1">
+                {/* Mobile: scrollable pill row */}
+                <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
                     {filters.map(f => (
                         <button
                             key={f}
                             onClick={() => setFilter(f)}
                             className={cn(
-                                "px-2.5 py-1 rounded-lg font-mono text-[8px] uppercase tracking-wider transition-all",
+                                "px-2 py-1 rounded-lg font-mono text-[8px] uppercase tracking-wider transition-all whitespace-nowrap shrink-0",
                                 filter === f ? "bg-[#A78BFA]/15 border border-[#A78BFA]/30 text-[#A78BFA]" : "text-[#333] hover:text-[#777]"
                             )}
                         >{f.replace('_', ' ')}</button>
                     ))}
                 </div>
             </div>
+
             <div className="space-y-2">
                 <AnimatePresence mode="popLayout">
                     {filtered.map((issue, i) => (
@@ -192,33 +188,37 @@ function LinearPanel() {
                             animate={{ opacity: 1, x: 0 }}
                             exit={{ opacity: 0, x: 8 }}
                             transition={{ delay: i * 0.04 }}
-                            className="bg-[#0D0D0D] border border-[#1A1A1A] rounded-2xl px-5 py-4 hover:border-[#2A2A2A] transition-all"
+                            className="bg-[#0D0D0D] border border-[#1A1A1A] rounded-2xl px-4 py-3 hover:border-[#2A2A2A] transition-all"
                         >
-                            <div className="flex items-center gap-4">
-                                <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: PRIORITY_DOT[issue.priority] }} />
-                                <span className="font-mono text-[8px] text-[#2A2A2A] shrink-0">{issue.id}</span>
-                                <p className="font-mono text-xs text-[#C4C4D4] flex-1 truncate">{issue.title}</p>
-                                <div className="flex items-center gap-2 shrink-0">
-                                    <span className={cn("font-mono text-[8px] uppercase tracking-wider", STATUS_COLORS[issue.status])}>
-                                        {issue.status.replace('_', ' ')}
-                                    </span>
-                                    <span className="px-2 py-0.5 rounded-md bg-[#111] border border-[#1A1A1A] font-mono text-[7px] text-[#333] uppercase">{issue.label}</span>
-                                    <div className="w-6 h-6 rounded-lg bg-[#111] border border-[#1A1A1A] flex items-center justify-center font-mono text-[8px] text-[#555]">
-                                        {issue.assignee}
+                            {/* Mobile: stacked layout */}
+                            <div className="flex items-start gap-3">
+                                <div className="w-1.5 h-1.5 rounded-full shrink-0 mt-1.5" style={{ background: PRIORITY_DOT[issue.priority] }} />
+                                <div className="flex-1 min-w-0 space-y-1.5">
+                                    <p className="font-mono text-[11px] text-[#C4C4D4] leading-snug">{issue.title}</p>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="font-mono text-[8px] text-[#2A2A2A]">{issue.id}</span>
+                                        <span className={cn("font-mono text-[8px] uppercase tracking-wider", STATUS_COLORS[issue.status])}>
+                                            {issue.status.replace('_', ' ')}
+                                        </span>
+                                        <span className="px-1.5 py-0.5 rounded bg-[#111] border border-[#1A1A1A] font-mono text-[7px] text-[#333] uppercase">{issue.label}</span>
                                     </div>
+                                </div>
+                                <div className="w-6 h-6 rounded-lg bg-[#111] border border-[#1A1A1A] flex items-center justify-center font-mono text-[8px] text-[#555] shrink-0">
+                                    {issue.assignee}
                                 </div>
                             </div>
                         </motion.div>
                     ))}
                 </AnimatePresence>
             </div>
-            <div className="flex items-center gap-6 px-1 pt-2">
+
+            <div className="flex items-center gap-6 pt-2">
                 {[
                     { label: 'open', count: LINEAR_ISSUES.filter(i => i.status !== 'done').length, color: '#F59E0B' },
-                    { label: 'completed', count: LINEAR_ISSUES.filter(i => i.status === 'done').length, color: '#6EE7B7' },
+                    { label: 'done', count: LINEAR_ISSUES.filter(i => i.status === 'done').length, color: '#6EE7B7' },
                     { label: 'total', count: LINEAR_ISSUES.length, color: '#444' },
                 ].map(s => (
-                    <div key={s.label} className="flex items-baseline gap-2">
+                    <div key={s.label} className="flex items-baseline gap-1.5">
                         <span className="font-mono text-xl font-bold" style={{ color: s.color }}>{s.count}</span>
                         <span className="font-mono text-[8px] text-[#333] uppercase tracking-wider">{s.label}</span>
                     </div>
@@ -238,12 +238,12 @@ function JiraPanel() {
 
     return (
         <div className="space-y-4">
-            <div className="flex items-center justify-between px-1">
+            <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 rounded bg-[#0052CC] flex items-center justify-center">
+                    <div className="w-5 h-5 rounded bg-[#0052CC] flex items-center justify-center shrink-0">
                         <span className="text-[8px] font-bold text-white">J</span>
                     </div>
-                    <span className="font-mono text-[10px] text-[#A78BFA] uppercase tracking-widest">jira_board</span>
+                    <span className="font-mono text-[10px] text-[#A78BFA] uppercase tracking-widest">jira</span>
                 </div>
                 <div className="flex items-center gap-1">
                     {['list', 'board'].map(v => (
@@ -268,48 +268,51 @@ function JiraPanel() {
                                 initial={{ opacity: 0, y: 6 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: i * 0.05 }}
-                                className="bg-[#0D0D0D] border border-[#1A1A1A] rounded-2xl px-5 py-4 hover:border-[#2A2A2A] transition-all"
+                                className="bg-[#0D0D0D] border border-[#1A1A1A] rounded-2xl px-4 py-3 hover:border-[#2A2A2A] transition-all"
                             >
-                                <div className="flex items-center gap-4">
-                                    <span className="font-mono text-[9px] shrink-0" style={{ color: TYPE_COLORS[ticket.type] }}>{TYPE_ICONS[ticket.type]}</span>
-                                    <span className="font-mono text-[8px] text-[#2A2A2A] shrink-0">{ticket.id}</span>
-                                    <p className="font-mono text-xs text-[#C4C4D4] flex-1 truncate">{ticket.title}</p>
-                                    <div className="flex items-center gap-3 shrink-0">
-                                        <span className="font-mono text-[8px] text-[#333]">{ticket.sprint}</span>
-                                        <span className="w-5 h-5 rounded-md bg-[#111] border border-[#1A1A1A] flex items-center justify-center font-mono text-[7px] text-[#333]">{ticket.points}</span>
-                                        <span className={cn("font-mono text-[8px] uppercase", STATUS_COLORS[ticket.status])}>{ticket.status.replace('_', ' ')}</span>
+                                {/* Mobile: stacked */}
+                                <div className="flex items-start gap-3">
+                                    <span className="font-mono text-[9px] shrink-0 mt-0.5" style={{ color: TYPE_COLORS[ticket.type] }}>{TYPE_ICONS[ticket.type]}</span>
+                                    <div className="flex-1 min-w-0 space-y-1.5">
+                                        <p className="font-mono text-[11px] text-[#C4C4D4] leading-snug">{ticket.title}</p>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="font-mono text-[8px] text-[#2A2A2A]">{ticket.id}</span>
+                                            <span className="font-mono text-[8px] text-[#333]">{ticket.sprint}</span>
+                                            <span className={cn("font-mono text-[8px] uppercase", STATUS_COLORS[ticket.status])}>{ticket.status.replace('_', ' ')}</span>
+                                        </div>
                                     </div>
+                                    <span className="w-5 h-5 rounded-md bg-[#111] border border-[#1A1A1A] flex items-center justify-center font-mono text-[7px] text-[#333] shrink-0">{ticket.points}</span>
                                 </div>
                             </motion.div>
                         ))}
                     </motion.div>
                 ) : (
-                    <motion.div key="board" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="grid grid-cols-4 gap-3">
+                    /* Board: vertical stacked columns on mobile */
+                    <motion.div key="board" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
                         {JIRA_COLUMNS.map(col => (
                             <div key={col} className="space-y-2">
                                 <div className="flex items-center gap-2 px-1">
                                     <span className={cn("font-mono text-[8px] uppercase tracking-widest", STATUS_COLORS[col])}>{col.replace('_', ' ')}</span>
                                     <span className="font-mono text-[7px] text-[#222]">({byStatus(col).length})</span>
                                 </div>
-                                <div className="space-y-2 min-h-[80px]">
-                                    {byStatus(col).map(ticket => (
-                                        <div key={ticket.id} className="bg-[#0D0D0D] border border-[#1A1A1A] rounded-xl p-3 space-y-2">
-                                            <div className="flex items-start gap-1.5">
-                                                <span className="text-[8px] font-mono mt-0.5 shrink-0" style={{ color: TYPE_COLORS[ticket.type] }}>{TYPE_ICONS[ticket.type]}</span>
-                                                <p className="font-mono text-[9px] text-[#888] leading-relaxed">{ticket.title}</p>
+                                {byStatus(col).length === 0 ? (
+                                    <div className="border border-dashed border-[#111] rounded-xl p-3 flex items-center justify-center">
+                                        <span className="font-mono text-[7px] text-[#1A1A1A]">empty</span>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {byStatus(col).map(ticket => (
+                                            <div key={ticket.id} className="bg-[#0D0D0D] border border-[#1A1A1A] rounded-xl px-4 py-3 flex items-start gap-3">
+                                                <span className="text-[9px] font-mono mt-0.5 shrink-0" style={{ color: TYPE_COLORS[ticket.type] }}>{TYPE_ICONS[ticket.type]}</span>
+                                                <p className="font-mono text-[10px] text-[#888] leading-relaxed flex-1 min-w-0">{ticket.title}</p>
+                                                <div className="flex flex-col items-end gap-1 shrink-0">
+                                                    <span className="font-mono text-[7px] text-[#2A2A2A]">{ticket.id}</span>
+                                                    <span className="font-mono text-[7px] text-[#2A2A2A]">{ticket.points}pt</span>
+                                                </div>
                                             </div>
-                                            <div className="flex items-center justify-between">
-                                                <span className="font-mono text-[7px] text-[#2A2A2A]">{ticket.id}</span>
-                                                <span className="font-mono text-[7px] text-[#2A2A2A]">{ticket.points}pt</span>
-                                            </div>
-                                        </div>
-                                    ))}
-                                    {byStatus(col).length === 0 && (
-                                        <div className="border border-dashed border-[#111] rounded-xl p-4 flex items-center justify-center">
-                                            <span className="font-mono text-[7px] text-[#1A1A1A]">empty</span>
-                                        </div>
-                                    )}
-                                </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </motion.div>
@@ -322,6 +325,7 @@ function JiraPanel() {
 // ── SLACK PANEL ────────────────────────────────────────────────────────────
 function SlackPanel() {
     const [active, setActive] = useState('s1');
+    const [showChannels, setShowChannels] = useState(false);
     const activeChannel = SLACK_CHANNELS.find(c => c.id === active);
     const MOCK_MSGS = [
         { from: 'v.vinchurkar', time: '11:02', msg: 'pushed the hotfix — CORS headers now include the Vite dev origin', self: true },
@@ -331,29 +335,34 @@ function SlackPanel() {
     ];
 
     return (
-        <div className="grid grid-cols-[200px_1fr] gap-4" style={{ minHeight: 400 }}>
-            <div className="space-y-0.5">
-                <p className="font-mono text-[7px] text-[#2A2A2A] uppercase tracking-widest px-3 pb-3">Channels</p>
+        <div className="space-y-3">
+            {/* Mobile: channel switcher as a dropdown-style row */}
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
                 {SLACK_CHANNELS.map(ch => (
                     <button
                         key={ch.id}
                         onClick={() => setActive(ch.id)}
                         className={cn(
-                            "w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-left transition-all",
-                            active === ch.id ? "bg-[#A78BFA]/10 border border-[#A78BFA]/20" : "hover:bg-[#0F0F0F] border border-transparent"
+                            "flex items-center gap-1.5 px-3 py-2 rounded-xl border font-mono text-[9px] transition-all whitespace-nowrap shrink-0",
+                            active === ch.id
+                                ? "bg-[#A78BFA]/10 border-[#A78BFA]/20 text-[#F1F5F9]"
+                                : "border-[#111] text-[#444] hover:text-[#777] hover:border-[#1A1A1A]"
                         )}
                     >
-                        <Hash size={10} className={active === ch.id ? "text-[#A78BFA]" : "text-[#2A2A2A]"} />
-                        <span className={cn("font-mono text-[10px] flex-1 truncate", active === ch.id ? "text-[#F1F5F9]" : "text-[#444]")}>{ch.name}</span>
+                        <Hash size={9} className={active === ch.id ? "text-[#A78BFA]" : "text-[#2A2A2A]"} />
+                        {ch.name}
                         {ch.unread > 0 && (
-                            <span className="w-4 h-4 rounded-full bg-[#A78BFA] flex items-center justify-center font-mono text-[7px] text-white font-bold">{ch.unread > 9 ? '9+' : ch.unread}</span>
+                            <span className="w-4 h-4 rounded-full bg-[#A78BFA] flex items-center justify-center font-mono text-[7px] text-white font-bold ml-0.5">
+                                {ch.unread > 9 ? '9+' : ch.unread}
+                            </span>
                         )}
                     </button>
                 ))}
             </div>
 
-            <div className="bg-[#080808] border border-[#1A1A1A] rounded-2xl flex flex-col" style={{ minHeight: 400 }}>
-                <div className="px-5 py-3 border-b border-[#111] flex items-center gap-2 shrink-0">
+            {/* Chat window */}
+            <div className="bg-[#080808] border border-[#1A1A1A] rounded-2xl flex flex-col" style={{ minHeight: 340 }}>
+                <div className="px-4 py-3 border-b border-[#111] flex items-center gap-2 shrink-0">
                     <Hash size={11} className="text-[#A78BFA]" />
                     <span className="font-mono text-xs font-bold text-[#F1F5F9]">{activeChannel?.name}</span>
                     {activeChannel && activeChannel.unread > 0 && (
@@ -362,16 +371,14 @@ function SlackPanel() {
                 </div>
                 <div className="flex-1 overflow-y-auto no-scrollbar p-4 space-y-4">
                     {active === 's1' ? MOCK_MSGS.map((msg, i) => (
-                        <div key={i} className={cn("flex gap-3", msg.self ? "flex-row-reverse" : "")}>
+                        <div key={i} className={cn("flex gap-2.5", msg.self ? "flex-row-reverse" : "")}>
                             <div className={cn(
                                 "w-7 h-7 rounded-lg border flex items-center justify-center font-mono text-[9px] shrink-0",
-                                msg.self
-                                    ? "bg-[#A78BFA]/10 border-[#A78BFA]/20 text-[#A78BFA]"
-                                    : "bg-[#111] border-[#1A1A1A] text-[#444]"
+                                msg.self ? "bg-[#A78BFA]/10 border-[#A78BFA]/20 text-[#A78BFA]" : "bg-[#111] border-[#1A1A1A] text-[#444]"
                             )}>
                                 {msg.from[0].toUpperCase()}
                             </div>
-                            <div className={cn("flex flex-col gap-1", msg.self ? "items-end" : "")}>
+                            <div className={cn("flex flex-col gap-1 max-w-[75%]", msg.self ? "items-end" : "")}>
                                 <div className="flex items-center gap-2">
                                     <span className="font-mono text-[8px] text-[#2A2A2A]">{msg.from}</span>
                                     <span className="font-mono text-[7px] text-[#1A1A1A]">{msg.time}</span>
@@ -379,8 +386,8 @@ function SlackPanel() {
                                 <div className={cn(
                                     "px-3 py-2 rounded-xl font-mono text-[10px] leading-relaxed",
                                     msg.self
-                                        ? "bg-[#A78BFA]/10 border border-[#A78BFA]/15 text-[#C4B5FD] max-w-[240px]"
-                                        : "bg-[#111] border border-[#1A1A1A] text-[#777] max-w-[240px]"
+                                        ? "bg-[#A78BFA]/10 border border-[#A78BFA]/15 text-[#C4B5FD]"
+                                        : "bg-[#111] border border-[#1A1A1A] text-[#777]"
                                 )}>
                                     {msg.msg}
                                 </div>
@@ -388,7 +395,7 @@ function SlackPanel() {
                         </div>
                     )) : (
                         <div className="flex items-center justify-center h-32">
-                            <p className="font-mono text-[9px] text-[#1A1A1A]">no messages loaded in preview</p>
+                            <p className="font-mono text-[9px] text-[#1A1A1A]">no messages in preview</p>
                         </div>
                     )}
                 </div>
@@ -436,26 +443,27 @@ function MembersPanel() {
 
     return (
         <div className="space-y-4">
+            {/* Search + invite row */}
             <div className="flex items-center gap-3">
                 <div className="flex-1 flex items-center gap-3 px-4 py-2.5 bg-[#0D0D0D] border border-[#1A1A1A] rounded-xl">
-                    <Search size={12} className="text-[#2A2A2A]" />
+                    <Search size={12} className="text-[#2A2A2A] shrink-0" />
                     <input
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                         placeholder="search members..."
-                        className="flex-1 bg-transparent font-mono text-[10px] text-[#C4C4D4] placeholder-[#2A2A2A] outline-none"
+                        className="flex-1 bg-transparent font-mono text-[10px] text-[#C4C4D4] placeholder-[#2A2A2A] outline-none min-w-0"
                     />
                 </div>
                 <button
                     onClick={() => setShowInvite(!showInvite)}
                     className={cn(
-                        "flex items-center gap-2 px-4 py-2.5 rounded-xl border font-mono text-[9px] uppercase tracking-wider transition-all whitespace-nowrap",
+                        "flex items-center gap-1.5 px-3 py-2.5 rounded-xl border font-mono text-[9px] uppercase tracking-wider transition-all shrink-0",
                         showInvite
                             ? "bg-[#A78BFA]/20 border-[#A78BFA]/40 text-[#A78BFA]"
                             : "bg-[#A78BFA]/10 border-[#A78BFA]/20 text-[#A78BFA] hover:bg-[#A78BFA]/20"
                     )}
                 >
-                    <UserPlus size={12} /> Invite
+                    <UserPlus size={12} />
                 </button>
             </div>
 
@@ -474,13 +482,13 @@ function MembersPanel() {
                                 onChange={e => setInviteEmail(e.target.value)}
                                 onKeyDown={e => e.key === 'Enter' && handleInvite()}
                                 placeholder="colleague@company.com"
-                                className="flex-1 bg-transparent font-mono text-xs text-[#F1F5F9] placeholder-[#2A2A2A] outline-none"
+                                className="flex-1 bg-transparent font-mono text-xs text-[#F1F5F9] placeholder-[#2A2A2A] outline-none min-w-0"
                                 autoFocus
                             />
-                            <button onClick={handleInvite} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#6EE7B7]/10 border border-[#6EE7B7]/20 font-mono text-[9px] text-[#6EE7B7] uppercase hover:bg-[#6EE7B7]/15 transition-colors">
+                            <button onClick={handleInvite} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#6EE7B7]/10 border border-[#6EE7B7]/20 font-mono text-[9px] text-[#6EE7B7] uppercase hover:bg-[#6EE7B7]/15 transition-colors shrink-0">
                                 <Check size={10} /> Send
                             </button>
-                            <button onClick={() => setShowInvite(false)} className="p-1.5 rounded-lg hover:bg-[#111] transition-colors">
+                            <button onClick={() => setShowInvite(false)} className="p-1.5 rounded-lg hover:bg-[#111] transition-colors shrink-0">
                                 <X size={12} className="text-[#2A2A2A]" />
                             </button>
                         </div>
@@ -488,84 +496,71 @@ function MembersPanel() {
                 )}
             </AnimatePresence>
 
-            <div className="bg-[#0D0D0D] border border-[#1A1A1A] rounded-[28px] overflow-hidden">
-                <table className="w-full text-left">
-                    <thead className="border-b border-[#0F0F0F]">
-                        <tr>
-                            {['identity', 'clearance', 'status', 'joined', ''].map(h => (
-                                <th key={h} className="px-6 py-4 font-mono text-[8px] font-bold text-[#1E1E2E] uppercase tracking-[0.2em]">{h}</th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#0A0A0A]">
-                        <AnimatePresence>
-                            {filtered.map((m) => (
-                                <motion.tr
-                                    key={m.id}
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    exit={{ opacity: 0 }}
-                                    className="group hover:bg-[#0F0F0F] transition-colors"
-                                >
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-xl bg-[#111] border border-[#1A1A1A] flex items-center justify-center font-mono text-[10px] text-[#A78BFA]">
-                                                {m.avatar}
-                                            </div>
-                                            <div>
-                                                <p className="font-mono text-[10px] font-bold text-[#F1F5F9]">{m.email}</p>
-                                                <p className="font-mono text-[7px] text-[#1E1E2E]">UID_{m.id}8472</p>
-                                            </div>
+            {/* Mobile: card list instead of table */}
+            <div className="space-y-2">
+                <AnimatePresence>
+                    {filtered.map((m) => (
+                        <motion.div
+                            key={m.id}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="bg-[#0D0D0D] border border-[#1A1A1A] rounded-2xl px-4 py-3 hover:border-[#222] transition-colors"
+                        >
+                            <div className="flex items-center gap-3">
+                                {/* Avatar */}
+                                <div className="w-9 h-9 rounded-xl bg-[#111] border border-[#1A1A1A] flex items-center justify-center font-mono text-[10px] text-[#A78BFA] shrink-0">
+                                    {m.avatar}
+                                </div>
+
+                                {/* Info */}
+                                <div className="flex-1 min-w-0 space-y-1">
+                                    <p className="font-mono text-[10px] font-bold text-[#F1F5F9] truncate">{m.email}</p>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        {/* Status dot */}
+                                        <div className="flex items-center gap-1.5">
+                                            <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", m.status === 'active' ? "bg-[#6EE7B7]" : "bg-[#F59E0B]")} />
+                                            <span className="font-mono text-[8px] text-[#333]">{m.status}</span>
                                         </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        {m.role === 'owner' ? (
-                                            <span className="font-mono text-[8px] uppercase tracking-widest px-2 py-1 rounded-lg bg-[#A78BFA]/5 border border-[#A78BFA]/20 text-[#A78BFA]">
-                                                owner
-                                            </span>
-                                        ) : (
-                                            <select
-                                                value={m.role}
-                                                onChange={e => handleRoleChange(m.id, e.target.value)}
-                                                className="bg-[#111] border border-[#1A1A1A] rounded-lg px-2 py-1 font-mono text-[8px] text-[#444] uppercase tracking-wider outline-none cursor-pointer hover:border-[#2A2A2A] transition-colors"
-                                            >
-                                                <option value="editor">editor</option>
-                                                <option value="viewer">viewer</option>
-                                            </select>
+                                        {/* Joined */}
+                                        {m.joined && (
+                                            <span className="font-mono text-[8px] text-[#1E1E2E]">{m.joined}</span>
                                         )}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-2">
-                                            <div className={cn("w-1.5 h-1.5 rounded-full", m.status === 'active' ? "bg-[#6EE7B7]" : "bg-[#F59E0B]")} />
-                                            <span className="font-mono text-[9px] text-[#333]">{m.status}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 font-mono text-[9px] text-[#1E1E2E]">
-                                        {m.joined || '—'}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
-                                            {m.role !== 'owner' && (
-                                                <button
-                                                    onClick={() => handleRemove(m.id)}
-                                                    className="p-1.5 rounded-lg hover:bg-[#F87171]/10 transition-colors"
-                                                    title="Remove member"
-                                                >
-                                                    <X size={10} className="text-[#2A2A2A] hover:text-[#F87171] transition-colors" />
-                                                </button>
-                                            )}
-                                            <button className="p-1.5 rounded-lg hover:bg-[#111] transition-colors">
-                                                <MoreHorizontal size={10} className="text-[#1A1A1A]" />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </motion.tr>
-                            ))}
-                        </AnimatePresence>
-                    </tbody>
-                </table>
+                                    </div>
+                                </div>
+
+                                {/* Role + remove */}
+                                <div className="flex items-center gap-2 shrink-0">
+                                    {m.role === 'owner' ? (
+                                        <span className="font-mono text-[8px] uppercase tracking-widest px-2 py-1 rounded-lg bg-[#A78BFA]/5 border border-[#A78BFA]/20 text-[#A78BFA]">
+                                            owner
+                                        </span>
+                                    ) : (
+                                        <select
+                                            value={m.role}
+                                            onChange={e => handleRoleChange(m.id, e.target.value)}
+                                            className="bg-[#111] border border-[#1A1A1A] rounded-lg px-2 py-1 font-mono text-[8px] text-[#444] uppercase tracking-wider outline-none cursor-pointer hover:border-[#2A2A2A] transition-colors"
+                                        >
+                                            <option value="editor">editor</option>
+                                            <option value="viewer">viewer</option>
+                                        </select>
+                                    )}
+                                    {m.role !== 'owner' && (
+                                        <button
+                                            onClick={() => handleRemove(m.id)}
+                                            className="p-1.5 rounded-lg hover:bg-[#F87171]/10 transition-colors"
+                                        >
+                                            <X size={11} className="text-[#2A2A2A] hover:text-[#F87171] transition-colors" />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </motion.div>
+                    ))}
+                </AnimatePresence>
             </div>
-            <p className="font-mono text-[8px] text-[#111] px-2">{filtered.length} member{filtered.length !== 1 ? 's' : ''} in workspace</p>
+
+            <p className="font-mono text-[8px] text-[#111] px-1">{filtered.length} member{filtered.length !== 1 ? 's' : ''} in workspace</p>
         </div>
     );
 }

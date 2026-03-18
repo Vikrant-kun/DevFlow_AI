@@ -310,53 +310,64 @@ const Dashboard = () => {
                                                 )}
                                             </div>
                                         </div>
-                                        <div className="flex gap-3 relative z-50">
+                                        <div className="flex gap-3">
                                             <button onClick={() => setShowRepoSelector(!showRepoSelector)}
                                                 className="px-6 py-2.5 rounded-xl border border-[#1A1A1A] text-[10px] font-bold uppercase tracking-widest hover:text-[#F1F5F9] hover:bg-[#111] transition-all">
                                                 Mount_Repo
                                             </button>
-                                            <AnimatePresence>
-                                                {showRepoSelector && (
-                                                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
-                                                        className="absolute right-0 top-full mt-4 w-72 bg-[#0D0D0D] border border-[#222] rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[100] overflow-hidden p-2">
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="relative z-50">
+                                        <AnimatePresence>
+                                            {showRepoSelector && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, y: 10 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    exit={{ opacity: 0, y: 10 }}
+                                                    className="w-full md:w-72 md:ml-auto bg-[#0D0D0D] border border-[#222] rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[100] overflow-hidden p-2"
+                                                >
+                                                    {/* PAT WARNING BANNER */}
+                                                    {!hasGithubPAT && (
+                                                        <div className="mb-2 mx-1 p-3 rounded-xl bg-[#F59E0B]/5 border border-[#F59E0B]/20 space-y-2">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="w-1.5 h-1.5 rounded-full bg-[#F59E0B] animate-pulse" />
+                                                                <span className="text-[9px] font-bold font-mono text-[#F59E0B] uppercase tracking-widest">PAT Required</span>
+                                                            </div>
+                                                            <p className="text-[9px] font-mono text-[#64748B] leading-relaxed">
+                                                                Repo access requires a Personal Access Token — connect one to mount repositories.
+                                                            </p>
+                                                            <button
+                                                                onClick={() => { setShowRepoSelector(false); navigate('/integrations'); }}
+                                                                className="w-full mt-1 py-2 rounded-lg bg-[#F59E0B]/10 border border-[#F59E0B]/20 text-[9px] font-mono font-bold text-[#F59E0B] uppercase tracking-widest hover:bg-[#F59E0B]/20 transition-all flex items-center justify-center gap-2"
+                                                            >
+                                                                <Github size={10} /> Connect via PAT →
+                                                            </button>
+                                                        </div>
+                                                    )}
 
-                                                        {/* ── PAT WARNING BANNER ── */}
-                                                        {!hasGithubPAT && (
-                                                            <div className="mb-2 mx-1 p-3 rounded-xl bg-[#F59E0B]/5 border border-[#F59E0B]/20 space-y-2">
-                                                                <div className="flex items-center gap-2">
-                                                                    <div className="w-1.5 h-1.5 rounded-full bg-[#F59E0B] animate-pulse" />
-                                                                    <span className="text-[9px] font-bold font-mono text-[#F59E0B] uppercase tracking-widest">PAT Required</span>
-                                                                </div>
-                                                                <p className="text-[9px] font-mono text-[#64748B] leading-relaxed">
-                                                                    You signed up via GitHub but repo access requires a Personal Access Token.
-                                                                </p>
-                                                                <button
-                                                                    onClick={() => { setShowRepoSelector(false); navigate('/integrations'); }}
-                                                                    className="w-full mt-1 py-2 rounded-lg bg-[#F59E0B]/10 border border-[#F59E0B]/20 text-[9px] font-mono font-bold text-[#F59E0B] uppercase tracking-widest hover:bg-[#F59E0B]/20 transition-all flex items-center justify-center gap-2"
-                                                                >
-                                                                    <Github size={10} /> Connect via PAT →
-                                                                </button>
+                                                    <div className="max-h-64 overflow-y-auto no-scrollbar space-y-1">
+                                                        {hasGithubPAT ? repos.map(r => (
+                                                            <button key={r.id}
+                                                                onClick={() => { saveSelectedRepo({ name: r.name, full_name: r.full_name }); setShowRepoSelector(false); }}
+                                                                className={cn(
+                                                                    "w-full text-left px-4 py-3 rounded-xl font-mono text-[10px] font-bold uppercase transition-all flex items-center justify-between",
+                                                                    selectedRepo?.full_name === r.full_name
+                                                                        ? "bg-[#6EE7B7]/5 text-[#6EE7B7]"
+                                                                        : "text-[#444] hover:bg-[#111] hover:text-[#64748B]"
+                                                                )}>
+                                                                <span className="truncate">{r.name}</span>
+                                                                {selectedRepo?.full_name === r.full_name && <CheckCircle2 size={12} />}
+                                                            </button>
+                                                        )) : (
+                                                            <div className="px-4 py-3 text-[9px] font-mono text-[#333] text-center uppercase tracking-widest">
+                                                                No repos available
                                                             </div>
                                                         )}
-
-                                                        <div className="max-h-64 overflow-y-auto no-scrollbar space-y-1">
-                                                            {isGithubConnected ? repos.map(r => (
-                                                                <button key={r.id} onClick={() => { saveSelectedRepo({ name: r.name, full_name: r.full_name }); setShowRepoSelector(false); }}
-                                                                    className={cn("w-full text-left px-4 py-3 rounded-xl font-mono text-[10px] font-bold uppercase transition-all flex items-center justify-between",
-                                                                        selectedRepo?.full_name === r.full_name ? "bg-[#6EE7B7]/5 text-[#6EE7B7]" : "text-[#444] hover:bg-[#111] hover:text-[#64748B]")}>
-                                                                    <span className="truncate">{r.name}</span>
-                                                                    {selectedRepo?.full_name === r.full_name && <CheckCircle2 size={12} />}
-                                                                </button>
-                                                            )) : (
-                                                                <div className="px-4 py-3 text-[9px] font-mono text-[#333] text-center uppercase tracking-widest">
-                                                                    No repos available
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </motion.div>
-                                                )}
-                                            </AnimatePresence>
-                                        </div>
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
                                     </div>
 
                                     {isGithubConnected && selectedRepo && (
