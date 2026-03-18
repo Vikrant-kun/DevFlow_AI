@@ -10,7 +10,6 @@ import { useAuth } from '../contexts/AuthContext';
 import TopBar from '../components/TopBar';
 import confetti from 'canvas-confetti';
 import { cn } from '../lib/utils';
-// In the imports at the top of the file, add:
 import { useToast } from '../contexts/ToastContext';
 
 // ── ANIMATED PRICE ────────────────────────────────────────────────────────
