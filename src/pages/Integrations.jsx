@@ -45,9 +45,9 @@ const Integrations = () => {
     const {
         user,
         isGithubConnected,
+        hasGithubPAT,
         repos,
         selectedRepo,
-        setSelectedRepo,
         githubLoading,
         connectGithubPat,
         fetchRepos,
@@ -227,7 +227,7 @@ const Integrations = () => {
             name: 'GitHub',
             desc: 'Source control & PR automation.',
             icon: Github,
-            connected: isGithubConnected,
+            connected: hasGithubPAT,
             color: '#F1F5F9',
             isComingSoon: false
         },
@@ -381,7 +381,7 @@ const Integrations = () => {
                                                                 linear: setShowLinearInput,
                                                                 jira: setShowJiraInput
                                                             };
-                                                            setters[integration.id](true);
+                                                            setters[integration.id]?.(true);
                                                         }
                                                     }}
                                                     className={cn(
@@ -407,8 +407,22 @@ const Integrations = () => {
                                                     )}>
                                                         <div className="p-1">
                                                             <div className="px-3 py-2 text-[9px] font-mono text-[#444] border-b border-[#1A1A1A] truncate">
-                                                                {integration.id === 'github' ? `@${user?.user_metadata?.user_name || 'Active'}` : 'System Linked'}
+                                                                {integration.id === 'github' ? `@${user?.username || user?.primaryEmailAddress?.emailAddress?.split('@')[0] || 'Active'}` : 'System Linked'}
                                                             </div>
+
+                                                            {/* Re-auth option for GitHub — lets user enter a new PAT */}
+                                                            {integration.id === 'github' && (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setOpenPopover(null);
+                                                                        setShowGithubInput(true);
+                                                                    }}
+                                                                    className="w-full text-left px-3 py-2 text-[10px] font-mono text-[#64748B] hover:bg-[#111] hover:text-[#F1F5F9] transition-colors"
+                                                                >
+                                                                    Re-authenticate PAT
+                                                                </button>
+                                                            )}
+
                                                             <button
                                                                 onClick={() => {
                                                                     setOpenPopover(null);

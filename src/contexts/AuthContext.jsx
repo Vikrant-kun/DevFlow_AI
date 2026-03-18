@@ -5,7 +5,6 @@ import { apiFetch } from '../lib/api';
 import { API_ROUTES } from '../lib/apiRoutes';
 
 const AuthContext = createContext();
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 export const AuthProvider = ({ children }) => {
     const { user, isLoaded, isSignedIn } = useUser();
@@ -14,6 +13,7 @@ export const AuthProvider = ({ children }) => {
     const navigate = useNavigate();
 
     const [isGithubConnected, setIsGithubConnected] = useState(false);
+    const [hasGithubPAT, setHasGithubPAT] = useState(false);      // ← NEW
     const [repos, setRepos] = useState([]);
     const [selectedRepo, setSelectedRepo] = useState(null);
     const [githubLoading, setGithubLoading] = useState(false);
@@ -26,6 +26,7 @@ export const AuthProvider = ({ children }) => {
             checkGithubConnection();
         } else {
             setIsGithubConnected(false);
+            setHasGithubPAT(false);                                // ← NEW
             setRepos([]);
             setSelectedRepo(null);
         }
@@ -36,16 +37,12 @@ export const AuthProvider = ({ children }) => {
 
     const getAuthToken = async () => {
         const now = Date.now();
-
         if (cachedToken.current && now < tokenExpiry.current) {
             return cachedToken.current;
         }
-
         const token = await session?.getToken({ template: undefined, skipCache: true });
-
         cachedToken.current = token;
-        tokenExpiry.current = now + 60000; // cache for 60 seconds
-
+        tokenExpiry.current = now + 60000;
         return token;
     };
 
@@ -54,21 +51,23 @@ export const AuthProvider = ({ children }) => {
         setGithubLoading(true);
         try {
             const data = await apiFetch(API_ROUTES.githubRepos, {}, getAuthToken);
-            if (data) {
-                setIsGithubConnected(true);
-                setRepos(data.repos || []);
 
-                // Restore selected repo
+            // ── THE FIX: check has_pat explicitly, not just truthiness of data ──
+            const pat = data?.has_pat === true;
+            setHasGithubPAT(pat);
+            setIsGithubConnected(pat);                             // ← was: if (data) setIsGithubConnected(true)
+            setRepos(data?.repos || []);
+
+            if (pat) {
                 const repoData = await apiFetch(API_ROUTES.githubSelectedRepo, {}, getAuthToken);
-                if (repoData && repoData.repo) setSelectedRepo(repoData.repo);
-            } else {
-                setIsGithubConnected(false);
+                if (repoData?.repo) setSelectedRepo(repoData.repo);
             }
         } catch (err) {
-            if (!err.message.includes("GitHub not connected")) {
+            if (!err.message?.includes("GitHub not connected")) {
                 console.error("GitHub check failed:", err);
             }
             setIsGithubConnected(false);
+            setHasGithubPAT(false);                                // ← NEW
         } finally {
             setGithubLoading(false);
         }
@@ -79,9 +78,7 @@ export const AuthProvider = ({ children }) => {
         setGithubLoading(true);
         try {
             const data = await apiFetch(API_ROUTES.githubRepos, {}, getAuthToken);
-            if (data) {
-                setRepos(data.repos || []);
-            }
+            setRepos(data?.repos || []);
         } catch (err) {
             console.error('Fetch repos failed:', err);
         } finally {
@@ -103,6 +100,7 @@ export const AuthProvider = ({ children }) => {
             }, getAuthToken);
 
             setIsGithubConnected(true);
+            setHasGithubPAT(true);                                 // ← NEW
             await fetchRepos();
             return true;
         } catch (err) {
@@ -114,6 +112,7 @@ export const AuthProvider = ({ children }) => {
     const handleLogout = async () => {
         await signOut();
         setIsGithubConnected(false);
+        setHasGithubPAT(false);                                    // ← NEW
         setRepos([]);
         setSelectedRepo(null);
         navigate('/');
@@ -134,10 +133,11 @@ export const AuthProvider = ({ children }) => {
 
     const value = {
         user,
-        session: { access_token: null }, // shim for any legacy refs
+        session: { access_token: null },
         loading,
         isSignedIn,
         isGithubConnected,
+        hasGithubPAT,                                              // ← NEW
         repos,
         selectedRepo,
         saveSelectedRepo,
