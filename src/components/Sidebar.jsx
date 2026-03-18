@@ -3,7 +3,7 @@ import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     LayoutGrid, GitBranch, Layers, Terminal, Plug,
-    Settings, Zap, Users, X, Pin,
+    Settings, Zap, Users, X,
     Fingerprint, Power, ChevronRight, Menu, Sparkles
 } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -11,7 +11,8 @@ import { useSidebar } from '../contexts/SidebarContext';
 import { useAuth } from '../contexts/AuthContext';
 
 const Sidebar = () => {
-    const { isExpanded, setIsExpanded, isLocked, setIsLocked } = useSidebar();
+    // ── REMOVED isLocked/setIsLocked ──
+    const { isExpanded, setIsExpanded } = useSidebar();
     const { user, handleLogout } = useAuth();
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const [isScrolled, setIsScrolled] = useState(false);
@@ -119,9 +120,14 @@ const Sidebar = () => {
         </motion.button>
     );
 
-    const toggleLock = (e) => { e.stopPropagation(); setIsLocked(!isLocked); };
-    const handleMouseEnter = () => { if (!isLocked) { clearTimeout(hoverTimeout.current); setIsExpanded(true); } };
-    const handleMouseLeave = () => { if (!isLocked) { hoverTimeout.current = setTimeout(() => setIsExpanded(false), 200); } };
+    // ── REMOVED toggleLock & UPDATED HOVER LOGIC ──
+    const handleMouseEnter = () => {
+        clearTimeout(hoverTimeout.current);
+        setIsExpanded(true);
+    };
+    const handleMouseLeave = () => {
+        hoverTimeout.current = setTimeout(() => setIsExpanded(false), 200);
+    };
 
     const navItems = [
         { icon: LayoutGrid, label: 'Dashboard', path: '/dashboard' },
@@ -161,8 +167,8 @@ const Sidebar = () => {
 
                             {/* MOBILE UPGRADE BUTTON */}
                             <motion.div variants={itemFadeVariants} className="mb-4">
-                                <Link 
-                                    to="/upgrade" 
+                                <Link
+                                    to="/upgrade"
                                     onClick={() => setIsMobileOpen(false)}
                                     className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl bg-[#FBBF24]/10 border border-[#FBBF24]/20 text-[#FBBF24] font-mono text-xs font-bold uppercase tracking-widest shadow-[0_0_20px_rgba(251,191,36,0.1)]"
                                 >
@@ -212,7 +218,7 @@ const Sidebar = () => {
                             <motion.div key="icon" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full flex justify-center text-[#6EE7B7] font-mono font-bold">{`>_`}</motion.div>
                         )}
                     </AnimatePresence>
-                    {isExpanded && <button onClick={toggleLock} className={cn("p-1.5 rounded-md transition-colors", isLocked ? "bg-[#6EE7B7]/10 text-[#6EE7B7]" : "text-[#333] hover:text-[#6EE7B7]")}><Pin className={cn("h-3.5 w-3.5 transition-transform", isLocked ? "rotate-45" : "rotate-0")} /></button>}
+                    {/* ── PIN BUTTON REMOVED ── */}
                 </div>
 
                 <nav className="flex-1 px-3 py-6 space-y-1">
@@ -234,20 +240,20 @@ const Sidebar = () => {
                             whileHover={{ backgroundColor: "rgba(251, 191, 36, 0.15)" }}
                             className={cn(
                                 "relative flex items-center rounded-xl transition-all duration-300 border overflow-hidden",
-                                isExpanded 
-                                    ? "bg-[#FBBF24]/10 border-[#FBBF24]/20 p-3" 
+                                isExpanded
+                                    ? "bg-[#FBBF24]/10 border-[#FBBF24]/20 p-3"
                                     : "h-11 justify-center border-transparent bg-transparent"
                             )}
                         >
-                            <Sparkles 
-                                size={isExpanded ? 14 : 20} 
-                                className={cn("shrink-0", isExpanded ? "text-[#FBBF24]" : "text-[#FBBF24]/40 hover:text-[#FBBF24]")} 
+                            <Sparkles
+                                size={isExpanded ? 14 : 20}
+                                className={cn("shrink-0", isExpanded ? "text-[#FBBF24]" : "text-[#FBBF24]/40 hover:text-[#FBBF24]")}
                             />
-                            
+
                             {isExpanded && (
-                                <motion.div 
-                                    initial={{ opacity: 0, x: -10 }} 
-                                    animate={{ opacity: 1, x: 0 }} 
+                                <motion.div
+                                    initial={{ opacity: 0, x: -10 }}
+                                    animate={{ opacity: 1, x: 0 }}
                                     className="ml-3"
                                 >
                                     <p className="text-[10px] font-mono font-bold text-[#FBBF24] uppercase tracking-tighter">Go_Pro</p>
@@ -257,7 +263,7 @@ const Sidebar = () => {
 
                             {/* Subtle animated shimmer for the expanded state */}
                             {isExpanded && (
-                                <motion.div 
+                                <motion.div
                                     animate={{ x: ['-100%', '200%'] }}
                                     transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
                                     className="absolute inset-0 bg-gradient-to-r from-transparent via-[#FBBF24]/10 to-transparent w-1/2 -skew-x-12"

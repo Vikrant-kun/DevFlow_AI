@@ -58,6 +58,18 @@ const Integrations = () => {
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
     // ── STATE MANAGEMENT (LOGIC PRESERVED) ──────────────────────────────────
+    const [openPopover, setOpenPopover] = useState(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (!e.target.closest('.integration-popover-container')) {
+                setOpenPopover(null);
+            }
+        };
+        document.addEventListener('click', handleClickOutside);
+        return () => document.removeEventListener('click', handleClickOutside);
+    }, []);
+
     const [showGithubInput, setShowGithubInput] = useState(false);
     const [githubPAT, setGithubPAT] = useState('');
     const [isSavingGithub, setIsSavingGithub] = useState(false);
@@ -200,6 +212,7 @@ const Integrations = () => {
     };
 
     const disconnectGithub = async () => {
+        setOpenPopover(null);
         try {
             await apiFetch(API_ROUTES.githubDisconnect, { method: 'POST' }, getAuthToken);
             window.location.reload();
@@ -354,11 +367,13 @@ const Integrations = () => {
                                                 </div>
                                             )}
 
-                                            <div className="relative group/popover">
+                                            <div className="relative integration-popover-container">
                                                 <button
                                                     disabled={integration.isComingSoon}
                                                     onClick={() => {
-                                                        if (!integration.connected) {
+                                                        if (integration.connected) {
+                                                            setOpenPopover(prev => prev === integration.id ? null : integration.id);
+                                                        } else {
                                                             const setters = {
                                                                 github: setShowGithubInput,
                                                                 slack: setShowSlackInput,
@@ -386,13 +401,17 @@ const Integrations = () => {
 
                                                 {/* Popover (Preserved Logic) */}
                                                 {integration.connected && !integration.isComingSoon && (
-                                                    <div className="absolute right-0 bottom-full mb-2 w-40 bg-[#0D0D0D] border border-[#222] rounded-xl shadow-2xl opacity-0 invisible group-hover/popover:opacity-100 group-hover/popover:visible transition-all z-20 overflow-hidden">
+                                                    <div className={cn(
+                                                        "absolute right-0 bottom-full mb-2 w-40 bg-[#0D0D0D] border border-[#222] rounded-xl shadow-2xl transition-all z-20 overflow-hidden",
+                                                        openPopover === integration.id ? "opacity-100 visible" : "opacity-0 invisible"
+                                                    )}>
                                                         <div className="p-1">
                                                             <div className="px-3 py-2 text-[9px] font-mono text-[#444] border-b border-[#1A1A1A] truncate">
                                                                 {integration.id === 'github' ? `@${user?.user_metadata?.user_name || 'Active'}` : 'System Linked'}
                                                             </div>
                                                             <button
                                                                 onClick={() => {
+                                                                    setOpenPopover(null);
                                                                     if (integration.id === 'github') disconnectGithub();
                                                                     else {
                                                                         const setters = {
