@@ -83,6 +83,17 @@ const Dashboard = () => {
         { id: 'run_pipeline', label: 'execute_production_run', done: false, route: null, locked: true }
     ]);
 
+    // ── CLOSE REPO SELECTOR ON OUTSIDE CLICK ──
+    useEffect(() => {
+        const handler = (e) => {
+            if (!e.target.closest('.repo-selector-container')) {
+                setShowRepoSelector(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
     // ── DATA LOADING ──
     useEffect(() => {
         const isDismissed = localStorage.getItem('devflow_checklist_dismissed') === 'true';
@@ -132,7 +143,8 @@ const Dashboard = () => {
         };
         loadData();
     }, [user, isGithubConnected]);
-    // REPO FETCHER
+
+    // ── REPO FETCHER ──
     useEffect(() => {
         if (isGithubConnected && repos.length === 0) {
             fetchRepos();
@@ -198,8 +210,6 @@ const Dashboard = () => {
         <div className="flex h-screen bg-[#080808] text-[#F1F5F9] overflow-hidden relative font-mono">
             <div className="absolute inset-0 opacity-[0.01] pointer-events-none bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:24px_24px]" />
 
-
-
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative z-10">
                 <TopBar title={<span className="text-[11px] tracking-[0.2em] uppercase font-bold text-[#64748B]">Dashboard</span>} />
 
@@ -245,7 +255,6 @@ const Dashboard = () => {
                                 <motion.div variants={itemVariants} initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, height: 0 }} className="w-full">
                                     <div className="bg-[#0D0D0D] border border-[#1A1A1A] rounded-[32px] overflow-hidden shadow-2xl relative">
                                         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#6EE7B7]/20 via-[#6EE7B7] to-[#6EE7B7]/20 opacity-50" />
-
                                         <div className="flex items-center justify-between px-8 py-5 border-b border-[#1A1A1A]">
                                             <div className="flex items-center gap-4">
                                                 <Terminal className="w-4 h-4 text-[#6EE7B7]" />
@@ -255,7 +264,6 @@ const Dashboard = () => {
                                                 <X className="w-4 h-4 text-[#333]" />
                                             </button>
                                         </div>
-
                                         <div className="grid grid-cols-1 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-[#1A1A1A]">
                                             {checklistItems.map((item, idx) => (
                                                 <div key={item.id} onClick={() => handleChecklistClick(item)}
@@ -282,7 +290,11 @@ const Dashboard = () => {
                                     <Database size={14} className="text-[#333]" />
                                     <h3 className="text-[10px] font-bold uppercase tracking-widest text-[#444]">Active_Repository</h3>
                                 </div>
-                                <div className="bg-[#0D0D0D] border border-[#1A1A1A] rounded-[32px] p-8 space-y-8 relative group/repo">
+
+                                {/* ── REPO CARD — relative parent for dropdown ── */}
+                                <div className="bg-[#0D0D0D] border border-[#1A1A1A] rounded-[32px] p-8 relative group/repo">
+
+                                    {/* Top row: repo info + mount button */}
                                     <div className="flex flex-col md:flex-row items-center justify-between gap-8">
                                         <div className="flex items-center gap-6">
                                             <div className="w-16 h-16 bg-[#111] border border-[#222] flex items-center justify-center rounded-[24px] shadow-inner group-hover/repo:border-[#6EE7B7]/40 transition-colors">
@@ -310,76 +322,89 @@ const Dashboard = () => {
                                                 )}
                                             </div>
                                         </div>
-                                        <div className="flex gap-3">
-                                            <button onClick={() => setShowRepoSelector(!showRepoSelector)}
-                                                className="px-6 py-2.5 rounded-xl border border-[#1A1A1A] text-[10px] font-bold uppercase tracking-widest hover:text-[#F1F5F9] hover:bg-[#111] transition-all">
+
+                                        {/* Mount Repo button — scoped container for dropdown */}
+                                        <div className="repo-selector-container relative w-full md:w-auto flex justify-end">
+                                            <button
+                                                onClick={() => setShowRepoSelector(!showRepoSelector)}
+                                                className="px-6 py-2.5 rounded-xl border border-[#1A1A1A] text-[10px] font-bold uppercase tracking-widest hover:text-[#F1F5F9] hover:bg-[#111] transition-all"
+                                            >
                                                 Mount_Repo
                                             </button>
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="relative z-50">
-                                        <AnimatePresence>
-                                            {showRepoSelector && (
-                                                <motion.div
-                                                    initial={{ opacity: 0, y: 10 }}
-                                                    animate={{ opacity: 1, y: 0 }}
-                                                    exit={{ opacity: 0, y: 10 }}
-                                                    className="w-full md:w-72 md:ml-auto bg-[#0D0D0D] border border-[#222] rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[100] overflow-hidden p-2"
-                                                >
-                                                    {/* PAT WARNING BANNER */}
-                                                    {!hasGithubPAT && (
-                                                        <div className="mb-2 mx-1 p-3 rounded-xl bg-[#F59E0B]/5 border border-[#F59E0B]/20 space-y-2">
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="w-1.5 h-1.5 rounded-full bg-[#F59E0B] animate-pulse" />
-                                                                <span className="text-[9px] font-bold font-mono text-[#F59E0B] uppercase tracking-widest">PAT Required</span>
-                                                            </div>
-                                                            <p className="text-[9px] font-mono text-[#64748B] leading-relaxed">
-                                                                Repo access requires a Personal Access Token — connect one to mount repositories.
-                                                            </p>
-                                                            <button
-                                                                onClick={() => { setShowRepoSelector(false); navigate('/integrations'); }}
-                                                                className="w-full mt-1 py-2 rounded-lg bg-[#F59E0B]/10 border border-[#F59E0B]/20 text-[9px] font-mono font-bold text-[#F59E0B] uppercase tracking-widest hover:bg-[#F59E0B]/20 transition-all flex items-center justify-center gap-2"
-                                                            >
-                                                                <Github size={10} /> Connect via PAT →
-                                                            </button>
-                                                        </div>
-                                                    )}
 
-                                                    <div className="max-h-64 overflow-y-auto no-scrollbar space-y-1">
-                                                        {hasGithubPAT ? repos.map(r => (
-                                                            <button key={r.id}
-                                                                onClick={() => { saveSelectedRepo({ name: r.name, full_name: r.full_name }); setShowRepoSelector(false); }}
-                                                                className={cn(
-                                                                    "w-full text-left px-4 py-3 rounded-xl font-mono text-[10px] font-bold uppercase transition-all flex items-center justify-between",
-                                                                    selectedRepo?.full_name === r.full_name
-                                                                        ? "bg-[#6EE7B7]/5 text-[#6EE7B7]"
-                                                                        : "text-[#444] hover:bg-[#111] hover:text-[#64748B]"
-                                                                )}>
-                                                                <span className="truncate">{r.name}</span>
-                                                                {selectedRepo?.full_name === r.full_name && <CheckCircle2 size={12} />}
-                                                            </button>
-                                                        )) : (
-                                                            <div className="px-4 py-3 text-[9px] font-mono text-[#333] text-center uppercase tracking-widest">
-                                                                No repos available
+                                            {/* ── DROPDOWN — absolute, floats over everything below ── */}
+                                            <AnimatePresence>
+                                                {showRepoSelector && (
+                                                    <motion.div
+                                                        initial={{ opacity: 0, y: 8, scale: 0.97 }}
+                                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                        exit={{ opacity: 0, y: 8, scale: 0.97 }}
+                                                        transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+                                                        className="absolute right-0 top-full mt-3 w-[min(72vw,288px)] md:w-72 bg-[#0D0D0D] border border-[#222] rounded-[24px] shadow-[0_24px_60px_rgba(0,0,0,0.7)] z-[200] overflow-hidden p-2"
+                                                    >
+                                                        {/* PAT WARNING BANNER */}
+                                                        {!hasGithubPAT && (
+                                                            <div className="mb-2 mx-1 p-3 rounded-xl bg-[#F59E0B]/5 border border-[#F59E0B]/20 space-y-2">
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="w-1.5 h-1.5 rounded-full bg-[#F59E0B] animate-pulse" />
+                                                                    <span className="text-[9px] font-bold font-mono text-[#F59E0B] uppercase tracking-widest">PAT Required</span>
+                                                                </div>
+                                                                <p className="text-[9px] font-mono text-[#64748B] leading-relaxed">
+                                                                    Repo access requires a Personal Access Token — connect one to mount repositories.
+                                                                </p>
+                                                                <button
+                                                                    onClick={() => { setShowRepoSelector(false); navigate('/integrations'); }}
+                                                                    className="w-full mt-1 py-2 rounded-lg bg-[#F59E0B]/10 border border-[#F59E0B]/20 text-[9px] font-mono font-bold text-[#F59E0B] uppercase tracking-widest hover:bg-[#F59E0B]/20 transition-all flex items-center justify-center gap-2"
+                                                                >
+                                                                    <Github size={10} /> Connect via PAT →
+                                                                </button>
                                                             </div>
                                                         )}
-                                                    </div>
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
+
+                                                        <div className="max-h-64 overflow-y-auto no-scrollbar space-y-1">
+                                                            {hasGithubPAT ? repos.map(r => (
+                                                                <button
+                                                                    key={r.id}
+                                                                    onClick={() => { saveSelectedRepo({ name: r.name, full_name: r.full_name }); setShowRepoSelector(false); }}
+                                                                    className={cn(
+                                                                        "w-full text-left px-4 py-3 rounded-xl font-mono text-[10px] font-bold uppercase transition-all flex items-center justify-between",
+                                                                        selectedRepo?.full_name === r.full_name
+                                                                            ? "bg-[#6EE7B7]/5 text-[#6EE7B7]"
+                                                                            : "text-[#444] hover:bg-[#111] hover:text-[#64748B]"
+                                                                    )}
+                                                                >
+                                                                    <span className="truncate">{r.name}</span>
+                                                                    {selectedRepo?.full_name === r.full_name && <CheckCircle2 size={12} />}
+                                                                </button>
+                                                            )) : (
+                                                                <div className="px-4 py-3 text-[9px] font-mono text-[#333] text-center uppercase tracking-widest">
+                                                                    No repos available
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+                                        </div>
                                     </div>
 
+                                    {/* Source Indexer — sits below, dropdown floats over it */}
                                     {isGithubConnected && selectedRepo && (
-                                        <div className="pt-8 border-t border-[#1A1A1A] space-y-5">
+                                        <div className="pt-8 mt-8 border-t border-[#1A1A1A] space-y-5">
                                             <div className="flex items-center justify-between">
                                                 <p className="text-[10px] font-bold text-[#333] uppercase tracking-[0.25em]">Source_Indexer</p>
                                                 {uploadFiles.length > 0 && <span className="text-[10px] text-[#6EE7B7] font-bold uppercase tracking-tighter">{uploadFiles.length}_objects_queued</span>}
                                             </div>
-                                            <div onDragOver={e => { e.preventDefault(); setIsDragOver(true); }} onDragLeave={() => setIsDragOver(false)} onDrop={handleDrop}
+                                            <div
+                                                onDragOver={e => { e.preventDefault(); setIsDragOver(true); }}
+                                                onDragLeave={() => setIsDragOver(false)}
+                                                onDrop={handleDrop}
                                                 onClick={() => document.getElementById('dash-file-input').click()}
-                                                className={cn("cursor-pointer border border-dashed rounded-[24px] p-10 flex flex-col items-center justify-center gap-4 transition-all duration-500",
-                                                    isDragOver ? "border-[#6EE7B7] bg-[#6EE7B7]/5 scale-[0.99]" : "border-[#1A1A1A] hover:border-[#333] bg-[#080808]")}>
+                                                className={cn(
+                                                    "cursor-pointer border border-dashed rounded-[24px] p-10 flex flex-col items-center justify-center gap-4 transition-all duration-500",
+                                                    isDragOver ? "border-[#6EE7B7] bg-[#6EE7B7]/5 scale-[0.99]" : "border-[#1A1A1A] hover:border-[#333] bg-[#080808]"
+                                                )}
+                                            >
                                                 <input id="dash-file-input" type="file" multiple className="hidden" onChange={handleDrop} />
                                                 <div className="w-12 h-12 rounded-2xl bg-[#111] border border-[#1A1A1A] flex items-center justify-center">
                                                     <Upload size={20} className={isDragOver ? "text-[#6EE7B7]" : "text-[#222]"} />
@@ -395,14 +420,25 @@ const Dashboard = () => {
                                                                     <FileCode size={14} className="text-[#444]" />
                                                                     <span className="text-[11px] font-bold text-[#64748B] truncate">{file.name}</span>
                                                                 </div>
-                                                                <button onClick={(e) => { e.stopPropagation(); setUploadFiles(p => p.filter((_, idx) => idx !== i)); }} className="text-[#222] hover:text-[#F87171] transition-colors"><X size={14} /></button>
+                                                                <button onClick={(e) => { e.stopPropagation(); setUploadFiles(p => p.filter((_, idx) => idx !== i)); }} className="text-[#222] hover:text-[#F87171] transition-colors">
+                                                                    <X size={14} />
+                                                                </button>
                                                             </div>
                                                         ))}
                                                     </div>
                                                     <div className="flex gap-2">
-                                                        <input type="text" value={commitMessage} onChange={e => setCommitMessage(e.target.value)}
-                                                            placeholder="commit_message..." className="flex-1 bg-[#080808] border border-[#1A1A1A] rounded-xl px-4 py-3 text-[11px] font-bold text-[#F1F5F9] focus:border-[#6EE7B7]/30 outline-none placeholder:text-[#222]" />
-                                                        <button onClick={handleCommitFiles} disabled={isCommitting} className="px-8 bg-[#6EE7B7] text-[#080808] rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-[#34D399] transition-all flex items-center gap-2">
+                                                        <input
+                                                            type="text"
+                                                            value={commitMessage}
+                                                            onChange={e => setCommitMessage(e.target.value)}
+                                                            placeholder="commit_message..."
+                                                            className="flex-1 bg-[#080808] border border-[#1A1A1A] rounded-xl px-4 py-3 text-[11px] font-bold text-[#F1F5F9] focus:border-[#6EE7B7]/30 outline-none placeholder:text-[#222]"
+                                                        />
+                                                        <button
+                                                            onClick={handleCommitFiles}
+                                                            disabled={isCommitting}
+                                                            className="px-8 bg-[#6EE7B7] text-[#080808] rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-[#34D399] transition-all flex items-center gap-2"
+                                                        >
                                                             {isCommitting ? <div className="w-3 h-3 border-2 border-[#080808] border-t-transparent animate-spin rounded-full" /> : <GitCommit size={14} />}
                                                             Push
                                                         </button>
@@ -414,6 +450,7 @@ const Dashboard = () => {
                                 </div>
                             </motion.div>
 
+                            {/* ── ARCHETYPE LAUNCH ── */}
                             <motion.div variants={itemVariants} className="lg:col-span-4 space-y-5">
                                 <div className="flex items-center gap-2 px-2">
                                     <Zap size={14} className="text-[#333]" />
@@ -425,8 +462,11 @@ const Dashboard = () => {
                                         { title: 'Monitor_Log', desc: 'Alert on failures', icon: Bell, prompt: 'When a deployment fails, rollback and alert the team' },
                                         { title: 'Triage_Bot', desc: 'Auto-assign issues', icon: Terminal, prompt: 'When a new issue is created, assign it and send email' }
                                     ].map((box, i) => (
-                                        <div key={i} onClick={() => navigate(`/workflows/new?prompt=${encodeURIComponent(box.prompt)}`)}
-                                            className="group bg-[#0D0D0D] border border-[#1A1A1A] hover:border-[#6EE7B7]/20 p-5 rounded-[24px] cursor-pointer transition-all duration-300">
+                                        <div
+                                            key={i}
+                                            onClick={() => navigate(`/workflows/new?prompt=${encodeURIComponent(box.prompt)}`)}
+                                            className="group bg-[#0D0D0D] border border-[#1A1A1A] hover:border-[#6EE7B7]/20 p-5 rounded-[24px] cursor-pointer transition-all duration-300"
+                                        >
                                             <div className="flex items-center gap-4">
                                                 <div className="w-10 h-10 rounded-xl bg-[#111] border border-[#222] flex items-center justify-center group-hover:border-[#6EE7B7]/30 transition-colors">
                                                     <box.icon size={16} className="text-[#333] group-hover:text-[#6EE7B7] transition-colors" />
@@ -442,6 +482,7 @@ const Dashboard = () => {
                             </motion.div>
                         </div>
 
+                        {/* ── RECENT DEPLOYMENTS ── */}
                         <motion.div variants={itemVariants} className="space-y-5">
                             <div className="flex items-center justify-between px-2">
                                 <div className="flex items-center gap-2">

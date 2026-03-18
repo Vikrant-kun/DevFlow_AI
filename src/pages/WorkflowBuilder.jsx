@@ -50,7 +50,6 @@ import { useRepoTree } from '../hooks/useRepoTree';
 import { cn } from '../lib/utils';
 import { API_ROUTES } from "../lib/apiRoutes";
 import RepoBranchPanel from '../components/RepoBranchPanel';
-
 const nodeTypes = { custom: CustomNode };
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -229,17 +228,15 @@ const CONDITION_OPTIONS = [
     { value: 'errors_found', label: '🔴 If Errors Found', color: '#F87171' },
     { value: 'no_errors', label: '🟢 If No Errors', color: '#6EE7B7' },
 ];
+
 // ── CUSTOM EDGE LABEL ─────────────────────────────────────────────────────────
 const CustomEdge = ({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style = {}, markerEnd, data }) => {
     const [edgePath, labelX, labelY] = getSmoothStepPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
-
     const condition = data?.condition || 'always';
-
     // If it's "always", just return the slick line with no badge
     if (condition === 'always') {
         return <BaseEdge path={edgePath} markerEnd={markerEnd} style={style} id={id} />;
     }
-
     const isError = condition === 'errors_found';
     const color = isError ? '#F87171' : '#6EE7B7';
     const labelText = isError ? 'if errors' : 'if clean';
@@ -274,13 +271,11 @@ const CustomEdge = ({ id, sourceX, sourceY, targetX, targetY, sourcePosition, ta
         </>
     );
 };
-
 const edgeTypes = { customEdge: CustomEdge };
 
 // ── CUSTOM CANVAS CONTROLS ────────────────────────────────────────────────────
 const CustomCanvasControls = ({ isLocked, setIsLocked, onUndo, onRedo, hasNodes }) => {
     const { zoomIn, zoomOut, fitView } = useReactFlow();
-
     return (
         <>
             <Panel position="bottom-left" className="hidden md:flex flex-col bg-[#111] border border-[#222] rounded-xl shadow-xl overflow-hidden mb-[100px] ml-4 tour-controls">
@@ -303,7 +298,6 @@ const CustomCanvasControls = ({ isLocked, setIsLocked, onUndo, onRedo, hasNodes 
                     {isLocked ? <Lock className="w-4 h-4 text-[#F87171]" /> : <Unlock className="w-4 h-4" />}
                 </button>
             </Panel>
-
             {/* Always Visible Desktop Legend */}
             <Panel position="top-right" className="hidden md:flex flex-col gap-1.5 bg-[#111]/90 backdrop-blur-sm border border-[#222] rounded-xl p-3 shadow-xl mr-2 mt-2 tour-legend">
                 <p className="font-mono text-[8px] text-[#3A3A4A] uppercase tracking-widest mb-0.5">Node Types</p>
@@ -314,7 +308,6 @@ const CustomCanvasControls = ({ isLocked, setIsLocked, onUndo, onRedo, hasNodes 
                     </div>
                 ))}
             </Panel>
-
             {/* Always Visible Mobile Legend */}
             <Panel position="top-center" className="md:hidden flex items-center gap-3 bg-[#111]/90 backdrop-blur-sm border border-[#222] rounded-xl px-3 py-1.5 shadow-lg mt-2">
                 {NODE_LEGEND.map(({ color, label }) => (
@@ -328,13 +321,11 @@ const CustomCanvasControls = ({ isLocked, setIsLocked, onUndo, onRedo, hasNodes 
     );
 };
 
-
 // ── AGENT SELECTOR ────────────────────────────────────────────────────────────
 const AgentSelector = ({ value, onChange, disabled }) => {
     const [open, setOpen] = useState(false);
     const selected = AGENTS.find((a) => a.id === value) || AGENTS[0];
     const ref = useRef(null);
-
     useEffect(() => {
         const h = (e) => {
             if (ref.current && !ref.current.contains(e.target)) setOpen(false);
@@ -342,7 +333,6 @@ const AgentSelector = ({ value, onChange, disabled }) => {
         document.addEventListener('mousedown', h);
         return () => document.removeEventListener('mousedown', h);
     }, []);
-
     return (
         <div className="relative shrink-0 tour-agent" ref={ref}>
             <button
@@ -353,7 +343,6 @@ const AgentSelector = ({ value, onChange, disabled }) => {
             >
                 <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#111] border border-[#222] text-[10px]">{selected.icon}</div>
             </button>
-
             <AnimatePresence>
                 {open && (
                     <motion.div
@@ -394,7 +383,6 @@ const AgentSelector = ({ value, onChange, disabled }) => {
 // ── INTEGRATED ADD NODE SELECTOR (SHADCN-STYLE) ──────────────────────────────
 const AddNodeSelector = ({ onAdd, isOpen, setIsOpen }) => {
     const ref = useRef(null);
-
     // Close on outside click
     useEffect(() => {
         const handler = (e) => {
@@ -403,7 +391,6 @@ const AddNodeSelector = ({ onAdd, isOpen, setIsOpen }) => {
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
     }, [setIsOpen]);
-
     return (
         <div className="relative" ref={ref}>
             <button
@@ -416,7 +403,6 @@ const AddNodeSelector = ({ onAdd, isOpen, setIsOpen }) => {
             >
                 <Plus className="h-4 w-4" />
             </button>
-
             <AnimatePresence>
                 {isOpen && (
                     <motion.div
@@ -472,21 +458,17 @@ const UnifiedPromptBox = ({
         'Every night at 2am, sync staging with production...',
         'When a deploy fails, rollback and page on-call...',
     ];
-
     useEffect(() => {
         const id = setInterval(() => setPlaceholderIndex((p) => (p + 1) % placeholders.length), 3000);
         return () => clearInterval(id);
     }, []);
-
     const resizeTextarea = () => {
         if (textareaRef.current) {
             textareaRef.current.style.height = 'auto';
             textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px';
         }
     };
-
     const activePlaceholder = hasStarted ? 'Describe your workflow...' : `>_ ${placeholders[placeholderIndex]}`;
-
     return (
         <div className="w-full max-w-2xl mx-auto rounded-[24px] border border-[#333] bg-[#111]/95 backdrop-blur-xl p-2 shadow-[0_8px_40px_rgba(0,0,0,0.8)] flex flex-col pointer-events-auto tour-prompt">
             <textarea
@@ -511,14 +493,12 @@ const UnifiedPromptBox = ({
             <div className="flex items-center justify-between px-1 pt-1.5 border-t border-[#222]/80 mt-1 shrink-0">
                 <div className="flex items-center gap-2">
                     <AgentSelector value={model} onChange={setModel} disabled={isGenerating} />
-
                     {/* THE NEW INTEGRATED SELECTOR */}
                     <AddNodeSelector
                         onAdd={onAddNode}
                         isOpen={isAddNodeOpen}
                         setIsOpen={setIsAddNodeOpen}
                     />
-
                     <button
                         onClick={onToggleRecipes}
                         className={`tour-recipes flex h-8 w-8 items-center justify-center rounded-full border transition-all ${isRecipeOpen ?
@@ -527,7 +507,6 @@ const UnifiedPromptBox = ({
                     >
                         <BookOpen className="h-3.5 w-3.5" />
                     </button>
-
                     <button
                         onClick={onToggleSuggestions}
                         className={`tour-suggestions flex h-8 w-8 items-center justify-center rounded-full border transition-all ${isSuggestionsOpen ?
@@ -577,9 +556,8 @@ const EdgeConditionMenu = ({ edge, position, onSelect, onClose }) => {
 
 // ── OPTIMIZED FILE TREE SHUTTER ─────────────────────────────────────────────
 const FileTreeShutter = ({ isOpen, setIsOpen, nestedTree, isLoading }) => {
-    // Convert object-based nested tree to array for mapping 
+    // Convert object-based nested tree to array for mapping
     const treeArray = Object.values(nestedTree);
-
     const renderTreeNodes = (nodes, level = 0) => {
         return nodes.map((node) => (
             <TreeItem
@@ -595,7 +573,6 @@ const FileTreeShutter = ({ isOpen, setIsOpen, nestedTree, isLoading }) => {
             </TreeItem>
         ));
     };
-
     return (
         <div className="fixed left-0 top-[85px] z-[40] flex h-auto max-h-[65vh] pointer-events-none">
             {/* The Shutter Handle - "The Trigger" */}
@@ -610,7 +587,6 @@ const FileTreeShutter = ({ isOpen, setIsOpen, nestedTree, isLoading }) => {
                     <ChevronRight className={cn("w-3 h-3", isOpen ? "text-[#6EE7B7]" : "text-[#444] group-hover:text-[#64748B]")} />
                 </motion.div>
             </button>
-
             {/* The Explorer Panel */}
             <AnimatePresence mode="wait">
                 {isOpen && (
@@ -630,7 +606,6 @@ const FileTreeShutter = ({ isOpen, setIsOpen, nestedTree, isLoading }) => {
                                 <div className="w-3 h-3 border-2 border-[#333] border-t-[#6EE7B7] rounded-full animate-spin" />
                             )}
                         </div>
-
                         <div className="flex-1 overflow-y-auto p-2 no-scrollbar scroll-smooth">
                             <TreeProvider multiSelect={true} animateExpand={true} indent={12}>
                                 <Tree>
@@ -680,7 +655,6 @@ function WorkflowBuilderContent() {
     const [draftData, setDraftData] = useState(null);
     const [selectedFiles, setSelectedFiles] = useState([]);
     const { getViewport } = useReactFlow();
-
     const handleManualAdd = useCallback((cfg) => {
         const viewport = getViewport();
         const x = (-viewport.x + window.innerWidth / 2) / viewport.zoom - 140;
@@ -697,8 +671,6 @@ function WorkflowBuilderContent() {
                 icon: cfg.icon,
                 model: 'groq',
             },
-
-
         };
         setNodes((nds) => [...nds, newNode]);
         setIsAddNodeOpen(false);
@@ -714,18 +686,15 @@ function WorkflowBuilderContent() {
             setTimeout(() => setTourRunning(true), 800);
         }
     }, []);
-
     const handleTourCallback = ({ status }) => {
         if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
             setTourRunning(false);
             localStorage.setItem('devflow_tour_seen', 'true');
         }
     };
-
     const historyRef = useRef([]);
     const historyIndexRef = useRef(-1);
     const autoSaveTimer = useRef(null);
-
     const location = useLocation();
     const { id: routeId } = useParams();
     const { user, getAuthToken, selectedRepo } = useAuth();
@@ -813,7 +782,6 @@ function WorkflowBuilderContent() {
     useEffect(() => {
         const workflowId = routeId || new URLSearchParams(location.search).get('id');
         if (!workflowId || workflowId === 'new') return;
-
         const loadWorkflow = async () => {
             try {
                 const token = await getAuthToken();
@@ -824,7 +792,6 @@ function WorkflowBuilderContent() {
                 const w = await res.json();
                 setTitle(w.name);
                 setNodes(w.nodes || []);
-
                 // FORCE UPGRADE OLD EDGES: Strip old labels and enforce custom UI
                 const upgradedEdges = (w.edges || []).map(e => ({
                     ...e,
@@ -832,7 +799,6 @@ function WorkflowBuilderContent() {
                     label: undefined
                 }));
                 setEdges(upgradedEdges);
-
                 setCurrentWorkflowId(workflowId);
                 setHasStarted(true);
                 setIsDirty(false);
@@ -849,10 +815,8 @@ function WorkflowBuilderContent() {
     useEffect(() => {
         const workflowId = routeId || new URLSearchParams(location.search).get('id');
         if (workflowId && workflowId !== 'new') return; // loading existing workflow, skip draft
-
         const draft = localStorage.getItem('devflow_canvas_draft');
         if (!draft) return;
-
         try {
             const parsed = JSON.parse(draft);
             if (parsed.nodes?.length > 0) {
@@ -1007,16 +971,13 @@ function WorkflowBuilderContent() {
             setShowRerunModal(true);
             return;
         }
-
         const notifNodes = nodes.filter((n) => n.data?.type === 'notification');
         const missingContact = notifNodes.find((n) => !n.data?.email && !n.data?.description?.includes('@'));
         if (missingContact) {
             showToast(`"${missingContact.data?.label || 'Notification'}" node needs contact info`, 'error');
             return;
         }
-
         setIsRunning(true);
-
         let workflowId = currentWorkflowId;
         if (!workflowId) {
             workflowId = await handleSaveDraft();
@@ -1025,17 +986,14 @@ function WorkflowBuilderContent() {
                 return;
             }
         }
-
         try {
             const wsUrl = API_URL.replace(/^https?:/, 'wss:').replace(/^http:/, 'ws:');
             const socket = new WebSocket(`${wsUrl}/ws/run/${user.id}`);
-
             socket.onopen = () => {
                 showToast('Pipeline started...', 'info');
                 const fileHint = selectedFiles.length
                     ? `Target file: ${selectedFiles[0].path}`
                     : "";
-
                 const enhancedPrompt = `${prompt}\n${fileHint}`;
                 const edgesWithCondition = edges.map((e) => ({ ...e, condition: e.data?.condition || 'always' }));
                 const nodesWithFiles = nodes.map(n => ({
@@ -1056,7 +1014,6 @@ function WorkflowBuilderContent() {
                     })
                 );
             };
-
             socket.onmessage = (event) => {
                 const msg = JSON.parse(event.data);
                 if (msg.type === 'node_update') {
@@ -1075,12 +1032,10 @@ function WorkflowBuilderContent() {
                     setIsRunning(false);
                 }
             };
-
             socket.onerror = () => {
                 showToast('WebSocket connection failed', 'error');
                 setIsRunning(false);
             };
-
             socket.onclose = () => setIsRunning(false);
         } catch (err) {
             showToast('Failed to start pipeline: ' + err.message, 'error');
@@ -1090,26 +1045,22 @@ function WorkflowBuilderContent() {
 
     const handleGenerate = useCallback(async () => {
         if (!prompt.trim()) return;
-
         // FIX 1: Hard block — always require a file to be selected before generating
         if (selectedFiles.length === 0) {
             showToast("⚠️ Select a file from the repo panel before generating.", "error");
             return;
         }
-
         const unsupported = checkUnsupportedFeatures(prompt);
         if (unsupported) {
             setUnsupportedFeature(unsupported);
             return;
         }
-
         setHasStarted(true);
         setIsGenerating(true);
         setIsRecipeOpen(false);
         setIsSuggestionsOpen(false);
         setSelectedNode(null);
         setLastPrompt(prompt);
-
         try {
             // FIX 2: Route through backend instead of calling Groq directly
             // This ensures file enforcement, repo context, and hallucination scrubbing all run
@@ -1126,7 +1077,6 @@ function WorkflowBuilderContent() {
                     selected_files: selectedFiles.map(f => ({ path: f.path, name: f.name || f.path.split('/').pop() })),
                 }),
             });
-
             // FIX 3: Handle the 400 "no file selected" error from backend gracefully
             if (res.status === 400) {
                 const err = await res.json();
@@ -1134,50 +1084,87 @@ function WorkflowBuilderContent() {
                 setIsGenerating(false);
                 return;
             }
-
             if (!res.ok) throw new Error(`Generate failed: ${res.status}`);
-
             const parsed = await res.json();
-
             if (parsed.name) setTitle(parsed.name);
-
             setNodes([]);
             setEdges([]);
 
+            // ── PROPER TREE LAYOUT ──────────────────────────────────────────────
             const isMobile = window.innerWidth < 768;
-            const nodeSpacingX = isMobile ? 220 : 300;
-            const nodeSpacingY = isMobile ? 160 : 200;
+            const X_GAP = isMobile ? 0 : 340;    // horizontal gap desktop
+            const Y_GAP = isMobile ? 200 : 220;  // vertical gap
+            const NODE_W = 260;
 
+            // Build adjacency
             const childrenMap = {};
             const parentMap = {};
             (parsed.edges || []).forEach((e) => {
-                childrenMap[e.source] = childrenMap[e.source] || [];
+                if (!childrenMap[e.source]) childrenMap[e.source] = [];
                 childrenMap[e.source].push(e.target);
                 parentMap[e.target] = e.source;
             });
 
-            // Position nodes in a left-to-right tree layout (keep your existing layout logic)
-            const positioned = (parsed.nodes || []).map((node, idx) => {
-                const col = idx;
-                const siblings = Object.values(childrenMap).flat().filter(t => parentMap[t] === parentMap[node.id]);
-                const row = siblings.indexOf(node.id);
-                return {
-                    id: node.id,
-                    type: 'custom',
-                    position: {
-                        x: col * nodeSpacingX + 80,
-                        y: (row - Math.floor(siblings.length / 2)) * nodeSpacingY + 300,
-                    },
-                    data: {
-                        type: node.type,
-                        label: node.label,
-                        description: node.description,
-                        icon: node.icon,
-                        model: 'groq',
-                        selected_files: selectedFiles.map(f => ({ path: f.path })),
-                    },
-                };
+            // Find root (no parent)
+            const allNodeIds = (parsed.nodes || []).map(n => n.id);
+            const rootId = allNodeIds.find(id => !parentMap[id]);
+
+            // BFS to assign depth (column on desktop, row on mobile)
+            const depthMap = {};
+            const queue = [{ id: rootId, depth: 0 }];
+            while (queue.length) {
+                const { id, depth } = queue.shift();
+                depthMap[id] = depth;
+                (childrenMap[id] || []).forEach(childId => {
+                    queue.push({ id: childId, depth: depth + 1 });
+                });
+            }
+
+            // Group nodes by depth
+            const depthGroups = {};
+            allNodeIds.forEach(id => {
+                const d = depthMap[id] ?? 0;
+                if (!depthGroups[d]) depthGroups[d] = [];
+                depthGroups[d].push(id);
             });
+
+            // Assign positions
+            const positionMap = {};
+            Object.entries(depthGroups).forEach(([depth, ids]) => {
+                const d = parseInt(depth);
+                ids.forEach((id, i) => {
+                    const total = ids.length;
+                    const offset = (i - (total - 1) / 2);
+                    if (isMobile) {
+                        // vertical: depth = row, siblings spread horizontally
+                        positionMap[id] = {
+                            x: offset * (NODE_W + 20) + (window.innerWidth / 2 - NODE_W / 2),
+                            y: d * Y_GAP + 60,
+                        };
+                    } else {
+                        // horizontal: depth = column, siblings spread vertically
+                        positionMap[id] = {
+                            x: d * X_GAP + 60,
+                            y: offset * Y_GAP + 300,
+                        };
+                    }
+                });
+            });
+
+            const positioned = (parsed.nodes || []).map((node) => ({
+                id: node.id,
+                type: 'custom',
+                position: positionMap[node.id] || { x: 60, y: 300 },
+                data: {
+                    type: node.type,
+                    label: node.label,
+                    description: node.description,
+                    icon: node.icon,
+                    model: 'groq',
+                    selected_files: selectedFiles.map(f => ({ path: f.path })),
+                },
+            }));
+            // ── END LAYOUT ──────────────────────────────────────────────────────
 
             const builtEdges = (parsed.edges || []).map((e, i) => ({
                 id: `e${i}`,
@@ -1201,9 +1188,7 @@ function WorkflowBuilderContent() {
                     }
                 }, idx * 150);
             });
-
             setIsDirty(true);
-
         } catch (err) {
             console.error('Generate error:', err);
             showToast('Generation failed. Please try again.', 'error');
@@ -1215,61 +1200,83 @@ function WorkflowBuilderContent() {
     const rearrangeLayout = useCallback(() => {
         if (nodes.length === 0) return;
         const isMobile = window.innerWidth < 768;
-        const positions = {};
+        const X_GAP = 340;
+        const Y_GAP = 220;
+        const NODE_W = 260;
 
-        // Find the trigger node (the one with no incoming edges)
+        // Build maps
+        const childrenMap = {};
+        const parentMap = {};
+        edges.forEach(e => {
+            if (!childrenMap[e.source]) childrenMap[e.source] = [];
+            childrenMap[e.source].push(e.target);
+            parentMap[e.target] = e.source;
+        });
+
         const rootNode = nodes.find(n => !edges.some(e => e.target === n.id));
         if (!rootNode) return;
 
-        const assign = (nodeId, depth = 0, branchIndex = 0, totalSiblings = 1) => {
-            if (positions[nodeId]) return;
-            const parentEdge = edges.find(e => e.target === nodeId);
-            const parentPos = parentEdge ? positions[parentEdge.source] : null;
+        // BFS depth assignment
+        const depthMap = {};
+        const queue = [{ id: rootNode.id, depth: 0 }];
+        while (queue.length) {
+            const { id, depth } = queue.shift();
+            depthMap[id] = depth;
+            (childrenMap[id] || []).forEach(childId => {
+                queue.push({ id: childId, depth: depth + 1 });
+            });
+        }
 
-            if (isMobile) {
-                const xSpread = totalSiblings > 1 ? (branchIndex - (totalSiblings - 1) / 2) * 320 : 0;
-                const baseY = parentPos ? parentPos.y + 220 : 100;
-                const baseX = parentPos ? parentPos.x + xSpread : window.innerWidth / 2 - 140;
-                positions[nodeId] = { x: baseX, y: baseY };
-            } else {
-                const ySpread = totalSiblings > 1 ? (branchIndex - (totalSiblings - 1) / 2) * 200 : 0;
-                const baseX = parentPos ? parentPos.x + 350 : 60;
-                const baseY = parentPos ? parentPos.y + ySpread : 250;
-                positions[nodeId] = { x: baseX, y: baseY };
-            }
+        // Group by depth
+        const depthGroups = {};
+        nodes.forEach(n => {
+            const d = depthMap[n.id] ?? 0;
+            if (!depthGroups[d]) depthGroups[d] = [];
+            depthGroups[d].push(n.id);
+        });
 
-            const children = edges.filter(e => e.source === nodeId);
-            children.forEach((edge, idx) => assign(edge.target, depth + 1, idx, children.length));
-        };
-
-        assign(rootNode.id);
+        // Position
+        const positionMap = {};
+        Object.entries(depthGroups).forEach(([depth, ids]) => {
+            const d = parseInt(depth);
+            ids.forEach((id, i) => {
+                const total = ids.length;
+                const offset = (i - (total - 1) / 2);
+                if (isMobile) {
+                    positionMap[id] = {
+                        x: offset * (NODE_W + 20) + (window.innerWidth / 2 - NODE_W / 2),
+                        y: d * Y_GAP + 60,
+                    };
+                } else {
+                    positionMap[id] = {
+                        x: d * X_GAP + 60,
+                        y: offset * Y_GAP + 300,
+                    };
+                }
+            });
+        });
 
         setNodes(nds => nds.map(n => ({
             ...n,
-            position: positions[n.id] || n.position
+            position: positionMap[n.id] || n.position
         })));
     }, [nodes, edges, setNodes]);
 
     useEffect(() => {
         let lastWidth = window.innerWidth;
-
         const handleResize = () => {
             const currentWidth = window.innerWidth;
             const wasMobile = lastWidth < 768;
             const isNowMobile = currentWidth < 768;
-
             // Only trigger if we actually cross the mobile/desktop boundary
             if (wasMobile !== isNowMobile && nodes.length > 0) {
                 handleGenerate();
             }
             lastWidth = currentWidth;
         };
-
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, [nodes.length, handleGenerate]);
-
-
 
     return (
         <div className="h-[100dvh] flex flex-col w-full overflow-hidden bg-[#080808]">
@@ -1278,7 +1285,6 @@ function WorkflowBuilderContent() {
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         @media (max-width: 767px) { .react-flow__controls { display: none !important; } }
       `}</style>
-
             <Joyride
                 steps={TOUR_STEPS}
                 run={tourRunning}
@@ -1291,7 +1297,6 @@ function WorkflowBuilderContent() {
                 styles={joyrideStyles}
                 locale={{ back: '← Back', close: 'Close', last: 'Done ✓', next: 'Next →', skip: 'Skip tour' }}
             />
-
             <TopBar title={title}>
                 <div className="flex items-center gap-2">
                     <button
@@ -1304,7 +1309,6 @@ function WorkflowBuilderContent() {
                     >
                         <HelpCircle className="w-3.5 h-3.5" />
                     </button>
-
                     <button
                         onClick={handleSaveDraft}
                         className="tour-save flex items-center gap-1.5 font-mono text-[10px] md:text-xs text-[#64748B] hover:text-[#F1F5F9] border border-[#222] px-2.5 md:px-3 py-1.5 transition-colors rounded-xl bg-[#111]"
@@ -1312,7 +1316,6 @@ function WorkflowBuilderContent() {
                         <Save className="w-3.5 h-3.5" />
                         <span className="hidden sm:inline">Save</span>
                     </button>
-
                     <button
                         onClick={handleRunPipeline}
                         disabled={isRunning}
@@ -1327,7 +1330,6 @@ function WorkflowBuilderContent() {
                     </button>
                 </div>
             </TopBar>
-
             <div className="flex-1 flex overflow-hidden relative">
                 {/* Draft Restoration Banner */}
                 <AnimatePresence>
@@ -1371,7 +1373,6 @@ function WorkflowBuilderContent() {
                         </motion.div>
                     )}
                 </AnimatePresence>
-
                 {/* Recipe Drawer */}
                 <AnimatePresence>
                     {isRecipeOpen && (
@@ -1410,7 +1411,6 @@ function WorkflowBuilderContent() {
                         </>
                     )}
                 </AnimatePresence>
-
                 {/* Suggestions Drawer */}
                 <AnimatePresence>
                     {isSuggestionsOpen && (
@@ -1448,7 +1448,6 @@ function WorkflowBuilderContent() {
                         </>
                     )}
                 </AnimatePresence>
-
                 {/* Node Edit Panel */}
                 <AnimatePresence>
                     {selectedNode && (
@@ -1482,7 +1481,6 @@ function WorkflowBuilderContent() {
                                     <X className="w-5 h-5" />
                                 </button>
                             </div>
-
                             <div className="p-5 flex-1 overflow-y-auto space-y-4">
                                 <div>
                                     <label className="font-mono text-[10px] text-[#64748B] uppercase tracking-wider mb-2 block">Step Name</label>
@@ -1498,7 +1496,6 @@ function WorkflowBuilderContent() {
                                         }}
                                     />
                                 </div>
-
                                 <div>
                                     <label className="font-mono text-[10px] text-[#64748B] uppercase tracking-wider mb-2 block">Description / Instructions</label>
                                     <textarea
@@ -1513,7 +1510,6 @@ function WorkflowBuilderContent() {
                                         placeholder="Describe what this step should do..."
                                     />
                                 </div>
-
                                 {(selectedNode.data.type === 'notification' || selectedNode.data.type === 'action') && (
                                     <div>
                                         <label className="font-mono text-[10px] text-[#64748B] uppercase tracking-wider mb-2 block">Recipient Email (optional)</label>
@@ -1532,7 +1528,6 @@ function WorkflowBuilderContent() {
                                         <p className="font-mono text-[10px] text-[#444] mt-1.5">If set, sends email on execution</p>
                                     </div>
                                 )}
-
                                 {selectedNode.data.type === 'ai' && (
                                     <div>
                                         <label className="font-mono text-[10px] text-[#64748B] uppercase tracking-wider mb-2 block">AI Model</label>
@@ -1552,7 +1547,6 @@ function WorkflowBuilderContent() {
                                         </select>
                                     </div>
                                 )}
-
                                 {selectedNode.data.type === 'trigger' && (
                                     <div className="bg-[#111] border border-[#1A1A1A] rounded-xl p-4 space-y-2">
                                         <p className="font-mono text-[10px] text-[#64748B] uppercase tracking-widest">Trigger Info</p>
@@ -1561,7 +1555,6 @@ function WorkflowBuilderContent() {
                                         </p>
                                     </div>
                                 )}
-
                                 <div className="pt-2 border-t border-[#1A1A1A]">
                                     <div className="flex items-center justify-between">
                                         <span className="font-mono text-[10px] text-[#444]">Node ID</span>
@@ -1587,7 +1580,6 @@ function WorkflowBuilderContent() {
                                     </div>
                                 </div>
                             </div>
-
                             <div className="p-4 border-t border-[#222] shrink-0 bg-[#080808] space-y-2">
                                 <button
                                     onClick={() => {
@@ -1605,7 +1597,6 @@ function WorkflowBuilderContent() {
                         </motion.div>
                     )}
                 </AnimatePresence>
-
                 {/* Main Canvas */}
                 <div className="flex-1 relative overflow-hidden" style={{ width: selectedNode ? 'calc(100% - 320px)' : '100%', transition: 'width 0.3s ease' }}>
                     <ReactFlow
@@ -1639,8 +1630,6 @@ function WorkflowBuilderContent() {
                             selectedFiles={selectedFiles}
                             onSelectedFilesChange={setSelectedFiles}
                         />
-
-
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none px-6">
                             <span className="font-mono font-extrabold uppercase text-center leading-none tracking-tighter text-[#111] opacity-50" style={{ fontSize: 'clamp(32px, 10vw, 120px)' }}>
                                 describe your<br />workflow below
@@ -1648,7 +1637,6 @@ function WorkflowBuilderContent() {
                         </div>
                     </ReactFlow>
                 </div>
-
                 <EdgeConditionMenu
                     edge={edgeMenu.edge}
                     position={edgeMenu.position}
@@ -1656,7 +1644,6 @@ function WorkflowBuilderContent() {
                     onClose={() => setEdgeMenu({ edge: null, position: { x: 0, y: 0 } })}
                 />
             </div>
-
             {/* Prompt Input Bar */}
             <div
                 className={`fixed left-0 right-0 z-[50] px-4 md:px-8 flex justify-center pointer-events-none transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] ${hasStarted
@@ -1680,7 +1667,6 @@ function WorkflowBuilderContent() {
                             </motion.div>
                         )}
                     </AnimatePresence>
-
                     <div className="w-full">
                         <UnifiedPromptBox
                             prompt={prompt}
@@ -1699,7 +1685,6 @@ function WorkflowBuilderContent() {
                             hasStarted={hasStarted}
                         />
                     </div>
-
                     {/* AI Disclaimer */}
                     <motion.p
                         initial={{ opacity: 0 }}
@@ -1712,7 +1697,6 @@ function WorkflowBuilderContent() {
                     </motion.p>
                 </div>
             </div>
-
             {/* Unsupported Feature Modal */}
             <AnimatePresence>
                 {unsupportedFeature && (
@@ -1761,7 +1745,6 @@ function WorkflowBuilderContent() {
                     </motion.div>
                 )}
             </AnimatePresence>
-
             {/* Re-run Confirmation Modal */}
             <AnimatePresence>
                 {showRerunModal && (
@@ -1809,7 +1792,6 @@ function WorkflowBuilderContent() {
         </div>
     );
 }
-
 export default function WorkflowBuilder() {
     return (
         <ReactFlowProvider>

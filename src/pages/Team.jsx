@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Users, Settings as SettingsIcon, Shield,
@@ -6,7 +6,7 @@ import {
     Lock, Share2, ShieldCheck, UserPlus, Search,
     CheckSquare, Zap, MessageSquare, FileText,
     ArrowUpRight, MoreHorizontal, Hash,
-    Plus, X, Check
+    Plus, X, Check, ChevronDown
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import TopBar from '../components/TopBar';
@@ -410,6 +410,60 @@ function SlackPanel() {
     );
 }
 
+// ── ROLE SELECTOR ──────────────────────────────────────────────────────────
+function RoleSelector({ value, onChange }) {
+    const [open, setOpen] = useState(false);
+    const ref = useRef(null);
+
+    useEffect(() => {
+        const handler = (e) => {
+            if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
+    return (
+        <div className="relative" ref={ref}>
+            <button
+                onClick={() => setOpen(o => !o)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#111] border border-[#1A1A1A] font-mono text-[8px] text-[#444] uppercase tracking-wider hover:border-[#2A2A2A] hover:text-[#777] transition-all"
+            >
+                {value}
+                <ChevronDown size={9} className={cn("transition-transform duration-200", open && "rotate-180")} />
+            </button>
+
+            <AnimatePresence>
+                {open && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 6, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 6, scale: 0.95 }}
+                        transition={{ duration: 0.12 }}
+                        className="absolute right-0 bottom-full mb-1.5 w-28 bg-[#0D0D0D] border border-[#222] rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.6)] z-[200] overflow-hidden p-1"
+                    >
+                        {['editor', 'viewer'].map(role => (
+                            <button
+                                key={role}
+                                onClick={() => { onChange(role); setOpen(false); }}
+                                className={cn(
+                                    "w-full flex items-center justify-between px-3 py-2 rounded-lg font-mono text-[8px] uppercase tracking-wider transition-all",
+                                    value === role
+                                        ? "bg-[#A78BFA]/10 border border-[#A78BFA]/20 text-[#A78BFA]"
+                                        : "text-[#444] hover:bg-[#111] hover:text-[#777] border border-transparent"
+                                )}
+                            >
+                                {role}
+                                {value === role && <Check size={9} className="text-[#A78BFA]" />}
+                            </button>
+                        ))}
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+}
+
 // ── MEMBERS PANEL ──────────────────────────────────────────────────────────
 function MembersPanel() {
     const [members, setMembers] = useState(GHOST_MEMBERS);
@@ -536,14 +590,10 @@ function MembersPanel() {
                                             owner
                                         </span>
                                     ) : (
-                                        <select
+                                        <RoleSelector
                                             value={m.role}
-                                            onChange={e => handleRoleChange(m.id, e.target.value)}
-                                            className="bg-[#111] border border-[#1A1A1A] rounded-lg px-2 py-1 font-mono text-[8px] text-[#444] uppercase tracking-wider outline-none cursor-pointer hover:border-[#2A2A2A] transition-colors"
-                                        >
-                                            <option value="editor">editor</option>
-                                            <option value="viewer">viewer</option>
-                                        </select>
+                                            onChange={(role) => handleRoleChange(m.id, role)}
+                                        />
                                     )}
                                     {m.role !== 'owner' && (
                                         <button
@@ -641,7 +691,17 @@ export default function Team() {
 
                     {/* Integration Tabs + Panels */}
                     <div className="space-y-6">
-                        <div className="flex items-center gap-1 p-1 bg-[#0A0A0A] border border-[#111] rounded-2xl w-fit overflow-x-auto no-scrollbar">
+                    {/* Integration Tabs */}
+                    <div className="relative">
+                        {/* Right fade hint */}
+                        <div className="absolute right-0 top-0 h-full w-12 bg-gradient-to-l from-[#080808] to-transparent z-10 pointer-events-none rounded-r-2xl" />
+                        {/* Left fade hint */}
+                        <div className="absolute left-0 top-0 h-full w-6 bg-gradient-to-r from-[#080808] to-transparent z-10 pointer-events-none rounded-l-2xl" />
+
+                        <div
+                            className="flex items-center gap-1.5 p-1.5 bg-[#0A0A0A] border border-[#111] rounded-2xl w-full overflow-x-auto no-scrollbar"
+                            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                        >
                             {INTEGRATIONS.map(tab => {
                                 const Icon = tab.icon;
                                 const isActive = activeTab === tab.key;
@@ -650,18 +710,34 @@ export default function Team() {
                                         key={tab.key}
                                         onClick={() => setActiveTab(tab.key)}
                                         className={cn(
-                                            "flex items-center gap-2 px-4 py-2 rounded-xl font-mono text-[9px] uppercase tracking-wider transition-all whitespace-nowrap",
+                                            "relative flex items-center gap-2 px-4 py-2.5 rounded-xl font-mono text-[9px] uppercase tracking-wider transition-all duration-200 whitespace-nowrap shrink-0",
                                             isActive
-                                                ? "bg-[#A78BFA]/15 border border-[#A78BFA]/25 text-[#A78BFA]"
-                                                : "text-[#2A2A2A] hover:text-[#666] hover:bg-[#111]"
+                                                ? "bg-[#A78BFA] text-[#0D0D0D] shadow-[0_0_20px_rgba(167,139,250,0.3)]"
+                                                : "text-[#2A2A2A] hover:text-[#888] hover:bg-[#111]"
                                         )}
                                     >
-                                        <Icon size={11} />
-                                        {tab.label}
+                                        <Icon
+                                            size={11}
+                                            className={isActive ? "text-[#0D0D0D]" : "text-[#2A2A2A]"}
+                                        />
+                                        <span className={cn(
+                                            "font-bold tracking-widest",
+                                            isActive ? "text-[#0D0D0D]" : ""
+                                        )}>
+                                            {tab.label}
+                                        </span>
+                                        {/* Active glow underline */}
+                                        {isActive && (
+                                            <motion.div
+                                                layoutId="activeTabIndicator"
+                                                className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-[#0D0D0D]/30 rounded-full"
+                                            />
+                                        )}
                                     </button>
                                 );
                             })}
                         </div>
+                    </div>
 
                         <AnimatePresence mode="wait">
                             <motion.div
