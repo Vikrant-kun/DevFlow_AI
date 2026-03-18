@@ -428,9 +428,15 @@ export default function Pricing() {
                             <div className="flex gap-4 px-5 pb-6 pt-2">
                                 {user ? (
                                     <button
+                                        // Replace navigate(plan.href) in all three ctaStyle buttons with:
                                         onClick={() => {
-                                            navigate('/dashboard');
-                                            setMobileMenuOpen(false);
+                                            if (plan.href.startsWith('mailto')) {
+                                                window.location.href = plan.href;
+                                            } else {
+                                                // navigate to signup but show a toast before
+                                                showToast('Paid plans launching soon — sign up free to get early access.', 'info');
+                                                navigate('/auth?mode=signup');
+                                            }
                                         }}
                                         className="w-full rounded-xl border border-[#222] bg-[#111] py-3 font-mono text-sm text-[#F1F5F9]"
                                     >
@@ -439,18 +445,30 @@ export default function Pricing() {
                                 ) : (
                                     <>
                                         <button
+                                            // Replace navigate(plan.href) in all three ctaStyle buttons with:
                                             onClick={() => {
-                                                navigate('/auth?mode=login');
-                                                setMobileMenuOpen(false);
+                                                if (plan.href.startsWith('mailto')) {
+                                                    window.location.href = plan.href;
+                                                } else {
+                                                    // navigate to signup but show a toast before
+                                                    showToast('Paid plans launching soon — sign up free to get early access.', 'info');
+                                                    navigate('/auth?mode=signup');
+                                                }
                                             }}
                                             className="flex-1 rounded-xl border border-[#1A1A1A] py-3 font-mono text-sm text-[#64748B] transition-colors hover:text-white"
                                         >
                                             Log in
                                         </button>
                                         <button
+                                            // Replace navigate(plan.href) in all three ctaStyle buttons with:
                                             onClick={() => {
-                                                navigate('/auth?mode=signup');
-                                                setMobileMenuOpen(false);
+                                                if (plan.href.startsWith('mailto')) {
+                                                    window.location.href = plan.href;
+                                                } else {
+                                                    // navigate to signup but show a toast before
+                                                    showToast('Paid plans launching soon — sign up free to get early access.', 'info');
+                                                    navigate('/auth?mode=signup');
+                                                }
                                             }}
                                             className="flex-1 rounded-xl bg-[#6EE7B7] py-3 font-bold font-mono text-sm text-[#080808] transition-colors hover:bg-[#34D399]"
                                         >

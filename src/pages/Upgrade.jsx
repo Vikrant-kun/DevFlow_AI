@@ -10,6 +10,8 @@ import { useAuth } from '../contexts/AuthContext';
 import TopBar from '../components/TopBar';
 import confetti from 'canvas-confetti';
 import { cn } from '../lib/utils';
+// In the imports at the top of the file, add:
+import { useToast } from '../contexts/ToastContext';
 
 // ── ANIMATED PRICE ────────────────────────────────────────────────────────
 const AnimatedPrice = ({ value }) => {
@@ -360,6 +362,7 @@ export default function Upgrade() {
     const [mouse, setMouse] = useState({ x: null, y: null });
     const containerRef = useRef(null);
     const stars = useRef(Array.from({ length: 100 }, (_, i) => i));
+    const { showToast } = useToast();
 
     const workflowCount = 3;
     const workflowLimit = 3;
@@ -383,7 +386,7 @@ export default function Upgrade() {
             window.location.href = 'mailto:hello@devflowai.com';
             return;
         }
-        setCheckoutPlan(plan);
+        showToast('Payments coming soon — DevFlow is currently in early access.', 'info');
     };
 
     return (
