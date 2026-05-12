@@ -378,7 +378,6 @@ Code Push → AI Fix → Create Pull Request → AI Review PR → [if approved] 
 **Vikrant Vinchurkar**
 Final Year BSc Computer Science — Mumbai
 
-Built this alongside exams, assignments, and everything else that comes with final year.
 
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0077B5?style=for-the-badge&logo=linkedin)](https://www.linkedin.com/in/vikrant-vinchurkar-9496862bb/)
 [![GitHub](https://img.shields.io/badge/GitHub-Follow-181717?style=for-the-badge&logo=github)](https://github.com/Vikrant-kun)
